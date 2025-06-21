@@ -118,14 +118,6 @@ public:
             deviceNameCharacteristic->notify(); // NOLINT
         });
 
-        output.setNotifyBleCallback([this]()
-        {
-            if (!alexaColorCharacteristic) return;
-            auto values = output.getValues();
-            alexaColorCharacteristic->setValue(values.data(), values.size());
-            alexaColorCharacteristic->notify(); // NOLINT
-        });
-
         setupBle();
         const auto advertising = this->server->getAdvertising();
         advertising->setName(wifiManager.getDeviceName());
@@ -330,7 +322,7 @@ private:
             if (pCharacteristic->getValue() == "RESTART_NOW")
             {
                 ESP_LOGW(LOG_TAG, "Device restart requested via BLE.");
-                async_call([this]()
+                async_call([this]
                 {
                     esp_restart();
                 }, 1024, 50);
@@ -360,7 +352,7 @@ private:
 
         void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            auto value = pCharacteristic->getValue();
+            const auto value = pCharacteristic->getValue();
             const auto data = value.data();
             const auto deviceName = reinterpret_cast<const char*>(data);
 
@@ -539,13 +531,12 @@ private:
                 return;
             }
             memcpy(values.data(), pCharacteristic->getValue().data(), values.size());
-            net->output.setValues(values, false);
-            net->alexaIntegration.updateValues();
+            net->output.setValues(values);
         }
 
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            auto values = net->output.getValues();
+            const auto values = net->output.getValues();
             pCharacteristic->setValue(values.data(), values.size());
         }
     };

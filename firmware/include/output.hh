@@ -7,7 +7,6 @@
 #include <array>
 #include <Arduino.h>
 #include <algorithm>
-#include <functional>
 
 class Output
 {
@@ -18,25 +17,9 @@ class Output
         Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Output::WHITE)))
     };
 
-    std::function<void()> notifyBleCallback;
-
     static_assert(static_cast<size_t>(Color::White) < 4, "Color enum out of bounds");
 
-    void notifyChange(const bool notifyBle = true) const
-    {
-        if (notifyBle && notifyBleCallback)
-        {
-            notifyBleCallback();
-        }
-    }
-
 public:
-    [[nodiscard]] bool anyOn() const
-    {
-        return std::any_of(lights.begin(), lights.end(),
-                           [](const Light& light) { return light.isOn(); });
-    }
-
     void begin()
     {
         for (auto& light : lights)
@@ -51,119 +34,71 @@ public:
         }
     }
 
-    void setNotifyBleCallback(const std::function<void()>& callback)
-    {
-        notifyBleCallback = callback;
-    }
-
-    void update(Color color, const uint8_t value, const bool notifyBle = true)
-    {
-        lights.at(static_cast<size_t>(color)).setValue(value);
-        notifyChange(notifyBle);
-    }
-
-    std::array<LightState, 4> getState() const
-    {
-        std::array<LightState, 4> state;
-        std::transform(lights.begin(), lights.end(), state.begin(),
-                       [](const Light& light) { return light.getState(); });
-        return state;
-    }
-
     void setState(const std::array<LightState, 4> state)
     {
         for (uint8_t i = 0; i < 4; ++i)
             lights[i].setState(state[i]);
     }
 
-    [[nodiscard]] bool getState(Color color) const
+    void setValue(const uint8_t value, Color color)
     {
-        return lights.at(static_cast<size_t>(color)).isOn();
+        return lights.at(static_cast<size_t>(color)).setValue(value);
     }
 
-    [[nodiscard]] uint8_t getValue(Color color) const
+    void setOn(const bool on, Color color)
     {
-        return lights.at(static_cast<size_t>(color)).getValue();
-    }
-
-    void toggle(Color color)
-    {
-        lights.at(static_cast<size_t>(color)).toggle();
-        notifyChange();
-    }
-
-    void updateAll(const uint8_t value)
-    {
-        for (auto& light : lights)
-            light.setValue(value);
-        notifyChange();
+        return lights.at(static_cast<size_t>(color)).setOn(on);
     }
 
     void toggleAll()
     {
-        const bool on = anyOn();
+        const bool on = anyVisible();
         for (auto& light : lights)
         {
             if (on)
-                light.setState(false);
+            {
+                light.setOn(false);
+            }
             else
+            {
+                light.setOn(true);
                 light.setValue(Light::ON_VALUE);
+            }
         }
-        notifyChange();
     }
 
     void increaseBrightness()
     {
         for (auto& light : lights)
             light.increaseBrightness();
-        notifyChange();
     }
 
     void decreaseBrightness()
     {
         for (auto& light : lights)
             light.decreaseBrightness();
-        notifyChange();
     }
 
-    void turnOff()
+    void setColor(const uint8_t r, const uint8_t g, const uint8_t b)
     {
-        for (auto& light : lights)
-            light.setState(false);
-        notifyChange();
+        lights.at(static_cast<size_t>(Color::Red)).setValue(r);
+        lights.at(static_cast<size_t>(Color::Green)).setValue(g);
+        lights.at(static_cast<size_t>(Color::Blue)).setValue(b);
     }
 
-    void turnOn()
-    {
-        for (auto& light : lights)
-            light.setValue(Light::ON_VALUE);
-        notifyChange();
-    }
-
-    void setColor(const uint8_t r, const uint8_t g, const uint8_t b, const uint8_t w = 0)
+    void setColor(const uint8_t r, const uint8_t g, const uint8_t b, const uint8_t w)
     {
         lights.at(static_cast<size_t>(Color::Red)).setValue(r);
         lights.at(static_cast<size_t>(Color::Green)).setValue(g);
         lights.at(static_cast<size_t>(Color::Blue)).setValue(b);
         lights.at(static_cast<size_t>(Color::White)).setValue(w);
-        notifyChange();
     }
 
-    [[nodiscard]] std::array<uint8_t, 4> getValues() const
-    {
-        std::array<uint8_t, 4> output = {};
-        std::transform(lights.begin(), lights.end(), output.begin(), [](const auto& light)
-        {
-            return light.getValue();
-        });
-        return output;
-    }
-
-    void setValues(const std::array<uint8_t, 4>& array, const bool notifyBle = true)
+    void setValues(const std::array<uint8_t, 4>& array)
     {
         for (size_t i = 0; i < std::min(lights.size(), array.size()); ++i)
         {
-            update(static_cast<Color>(i), array[i], notifyBle);
+            setValue(array[i], static_cast<Color>(i));
         }
     }
 
@@ -174,5 +109,45 @@ public:
             auto obj = to.add<JsonObject>();
             light.toJson(obj);
         }
+    }
+
+    [[nodiscard]] bool anyOn() const
+    {
+        return std::any_of(lights.begin(), lights.end(),
+                           [](const Light& light) { return light.isOn(); });
+    }
+
+    [[nodiscard]] bool anyVisible() const
+    {
+        return std::any_of(lights.begin(), lights.end(),
+                           [](const Light& light) { return light.isVisible(); });
+    }
+
+    [[nodiscard]] std::array<LightState, 4> getState() const
+    {
+        std::array<LightState, 4> state;
+        std::transform(lights.begin(), lights.end(), state.begin(),
+                       [](const Light& light) { return light.getState(); });
+        return state;
+    }
+
+    [[nodiscard]] uint8_t getValue(Color color) const
+    {
+        return lights.at(static_cast<size_t>(color)).getValue();
+    }
+
+    [[nodiscard]] bool isOn(Color color) const
+    {
+        return lights.at(static_cast<size_t>(color)).isOn();
+    }
+
+    [[nodiscard]] std::array<uint8_t, 4> getValues() const
+    {
+        std::array<uint8_t, 4> output = {};
+        std::transform(lights.begin(), lights.end(), output.begin(), [](const auto& light)
+        {
+            return light.getValue();
+        });
+        return output;
     }
 };

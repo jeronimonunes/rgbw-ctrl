@@ -31,7 +31,10 @@ public:
     void begin()
     {
         for (auto& led : leds)
+        {
             led.setup();
+            led.setOn(true);
+        }
     }
 
     void handle(const unsigned long now, const BleStatus bleStatus,

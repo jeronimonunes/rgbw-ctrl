@@ -1,10 +1,8 @@
 #pragma once
 
-#include <utility>
-#include <memory>
-
-#include "Espalexa.h"
 #include "ArduinoJson.h"
+#include "async_esp_alexa_manager.hh"
+#include "async_esp_alexa_color_utils.hh"
 
 #include "output.hh"
 
@@ -19,23 +17,18 @@ enum class AlexaIntegrationMode : uint8_t
 #pragma pack(push, 1)
 struct AlexaIntegrationSettings
 {
-    static constexpr auto MAX_DEVICE_NAME_LENGTH = 32;
-    static constexpr auto LOG_TAG = "AlexaIntegrationSettings";
+    static constexpr auto MAX_DEVICE_NAME_LENGTH
+        = AsyncEspAlexaDevice::MAX_DEVICE_NAME_LENGTH;
 
     AlexaIntegrationMode integrationMode = AlexaIntegrationMode::OFF;
-    char rDeviceName[MAX_DEVICE_NAME_LENGTH] = "";
-    char gDeviceName[MAX_DEVICE_NAME_LENGTH] = "";
-    char bDeviceName[MAX_DEVICE_NAME_LENGTH] = "";
-    char wDeviceName[MAX_DEVICE_NAME_LENGTH] = "";
+    std::array<std::array<char, MAX_DEVICE_NAME_LENGTH>, 4> deviceNames = {};
 
     void toJson(const JsonObject& to) const
     {
         to["mode"] = this->integrationModeString();
         const auto names = to["names"].to<JsonArray>();
-        if (rDeviceName[0] != '\0') addDevice(names, rDeviceName);
-        if (gDeviceName[0] != '\0') addDevice(names, gDeviceName);
-        if (bDeviceName[0] != '\0') addDevice(names, bDeviceName);
-        if (wDeviceName[0] != '\0') addDevice(names, wDeviceName);
+        for (const auto& name : deviceNames)
+            if (name[0] != '\0') names.add(name.data()); // NOLINT
     }
 
     [[nodiscard]] const char* integrationModeString() const
@@ -53,15 +46,6 @@ struct AlexaIntegrationSettings
         }
         return "off";
     }
-
-private:
-    void addDevice(const JsonArray names, const char* name) const
-    {
-        if (!names.add(rDeviceName))
-        {
-            ESP_LOGD(LOG_TAG, "Failed to add device name: %s to Json", name);
-        }
-    }
 };
 #pragma pack(pop)
 
@@ -69,40 +53,57 @@ class AlexaIntegration
 {
     static constexpr auto LOG_TAG = "AlexaIntegration";
 
+    struct RgbwMode
+    {
+        AsyncEspAlexaExtendedColorDevice* device;
+    };
+
+    struct RgbMode
+    {
+        AsyncEspAlexaColorDevice* rgbDevice;
+        AsyncEspAlexaDimmableDevice* standaloneDevice;
+    };
+
+    struct MultiMode
+    {
+        std::array<AsyncEspAlexaDimmableDevice*, 4> devices;
+    };
+
+    union ModeDevice
+    {
+        RgbwMode rgbw;
+        RgbMode rgb;
+        MultiMode multi;
+    };
+
     Output& output;
-    Espalexa espalexa;
+    AsyncEspAlexaManager espAlexaManager;
 
     AlexaIntegrationSettings settings;
 
-    std::array<std::unique_ptr<EspalexaDevice>, 4> devices;
+    ModeDevice devices = {};
 
 public:
     explicit AlexaIntegration(Output& output): output(output)
     {
+        espAlexaManager.reserve(4);
     }
 
     void begin()
     {
         loadPreferences();
         setupDevices();
-        for (const auto& device : devices)
-        {
-            if (device)
-            {
-                espalexa.addDevice(device.get());
-            }
-        }
-        espalexa.begin();
+        espAlexaManager.begin();
     }
 
     void handle()
     {
-        espalexa.loop();
+        espAlexaManager.loop();
     }
 
-    AsyncWebHandler* createAsyncWebHandler()
+    AsyncWebHandler* createAsyncWebHandler() const
     {
-        return espalexa.createAlexaAsyncWebHandler();
+        return espAlexaManager.createAlexaAsyncWebHandler();
     }
 
     [[nodiscard]] const AlexaIntegrationSettings& getSettings() const
@@ -116,32 +117,14 @@ public:
         savePreferences();
     }
 
-    void updateValues() const
-    {
-        switch (settings.integrationMode)
-        {
-        case AlexaIntegrationMode::OFF:
-            break;
-        case AlexaIntegrationMode::RGBW_DEVICE:
-            updateRgbwDevice();
-            break;
-        case AlexaIntegrationMode::RGB_DEVICE:
-            updateRgbDevice();
-            break;
-        case AlexaIntegrationMode::MULTI_DEVICE:
-            updateMultiDevice();
-            break;
-        }
-    }
-
 private:
     void loadPreferences()
     {
         Preferences prefs;
         prefs.begin("alexa-config", true);
 
-        const auto mode = prefs.getUChar("mode", static_cast<uint8_t>(AlexaIntegrationMode::OFF));
-        if (mode <= static_cast<uint8_t>(AlexaIntegrationMode::MULTI_DEVICE))
+        if (const auto mode = prefs.getUChar("mode", static_cast<uint8_t>(AlexaIntegrationMode::OFF));
+            mode <= static_cast<uint8_t>(AlexaIntegrationMode::MULTI_DEVICE))
         {
             settings.integrationMode = static_cast<AlexaIntegrationMode>(mode);
         }
@@ -156,15 +139,15 @@ private:
         const String w = prefs.getString("w", "");
         prefs.end();
 
-        strncpy(settings.rDeviceName, r.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
-        strncpy(settings.gDeviceName, g.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
-        strncpy(settings.bDeviceName, b.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
-        strncpy(settings.wDeviceName, w.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
+        strncpy(settings.deviceNames[0].data(), r.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
+        strncpy(settings.deviceNames[1].data(), g.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
+        strncpy(settings.deviceNames[2].data(), b.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
+        strncpy(settings.deviceNames[3].data(), w.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
 
-        settings.rDeviceName[AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
-        settings.gDeviceName[AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
-        settings.bDeviceName[AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
-        settings.wDeviceName[AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
+        settings.deviceNames[0][AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
+        settings.deviceNames[1][AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
+        settings.deviceNames[2][AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
+        settings.deviceNames[3][AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
     }
 
     void savePreferences()
@@ -172,10 +155,10 @@ private:
         Preferences prefs;
         prefs.begin("alexa-config", false);
         prefs.putUChar("mode", static_cast<uint8_t>(settings.integrationMode));
-        prefs.putString("r", settings.rDeviceName);
-        prefs.putString("g", settings.gDeviceName);
-        prefs.putString("b", settings.bDeviceName);
-        prefs.putString("w", settings.wDeviceName);
+        prefs.putString("r", settings.deviceNames[0].data());
+        prefs.putString("g", settings.deviceNames[1].data());
+        prefs.putString("b", settings.deviceNames[2].data());
+        prefs.putString("w", settings.deviceNames[3].data());
         prefs.end();
     }
 
@@ -186,188 +169,164 @@ private:
         case AlexaIntegrationMode::OFF:
             break;
         case AlexaIntegrationMode::RGBW_DEVICE:
-            setupRgbwDevice(settings);
+            setupRgbwDevice();
             break;
         case AlexaIntegrationMode::RGB_DEVICE:
-            setupRgbDevice(settings);
+            setupRgbDevice();
+            setupStandaloneDevice();
             break;
         case AlexaIntegrationMode::MULTI_DEVICE:
-            setupMultiDevice(settings);
+            setupMultiDevice();
             break;
         }
     }
 
-    void handleRgbwDeviceEvent(const char* deviceName, const uint8_t brightness, const uint32_t color) const
+    void setupRgbwDevice()
     {
-        ESP_LOGI(LOG_TAG, "Received %s command: brightness=%d, color=0x%06X",
-                 deviceName, brightness, color);
-        uint8_t r = (color >> 16) & 0xFF;
-        uint8_t g = (color >> 8) & 0xFF;
-        uint8_t b = color & 0xFF;
-        const float intensity = static_cast<float>(brightness) / 255.0f;
-        r = static_cast<uint8_t>(static_cast<float>(r) * intensity);
-        g = static_cast<uint8_t>(static_cast<float>(g) * intensity);
-        b = static_cast<uint8_t>(static_cast<float>(b) * intensity);
-        const uint8_t w = std::min({r, g, b});
-        r -= w;
-        g -= w;
-        b -= w;
+        ESP_LOGI(LOG_TAG, "Adding RGBW device: %s", settings.deviceNames[0].data());
+        const char* deviceName = settings.deviceNames[0].data();
+        const auto r = output.getValue(Color::Red);
+        const auto g = output.getValue(Color::Green);
+        const auto b = output.getValue(Color::Blue);
+        const auto w = output.getValue(Color::White);
+        const auto [h, s, v] = AsyncEspAlexaColorUtils::rgbwToHsv(r, g, b, w);
+        const auto on = output.anyOn();
+        devices.rgbw.device = new AsyncEspAlexaExtendedColorDevice(
+            deviceName, on, v, h, s, 500,
+            AsyncEspAlexaExtendedColorDevice::ColorMode::hs);
+        espAlexaManager.addDevice(devices.rgbw.device);
+
+        devices.rgbw.device->setColorCallback([this](const bool isOn,
+                                                     const uint8_t brightness,
+                                                     const uint16_t hue,
+                                                     const uint8_t saturation)
+        {
+            this->handleRgbwCommand(isOn, brightness, hue, saturation);
+        });
+        devices.rgbw.device->setColorTemperatureCallback([this](const bool isOn,
+                                                                const uint8_t brightness,
+                                                                const uint16_t colorTemperature)
+        {
+            this->handleRgbwCommand(isOn, brightness, colorTemperature);
+        });
+    }
+
+    void setupRgbDevice()
+    {
+        if (settings.deviceNames[0][0] == '\0')
+        {
+            ESP_LOGW(LOG_TAG, "RGB device name is empty");
+            return;
+        }
+        ESP_LOGI(LOG_TAG, "Adding RGB device: %s", settings.deviceNames[0].data());
+        const auto [r, g, b, w]
+            = output.getValues();
+        const auto on = output.isOn(Color::Red)
+            || output.isOn(Color::Green)
+            || output.isOn(Color::Blue);
+        const auto [h, s, v] =
+            AsyncEspAlexaColorUtils::rgbToHsv(r, g, b);
+
+        devices.rgb.rgbDevice = new AsyncEspAlexaColorDevice(
+            settings.deviceNames[0].data(), on, v, h, s);
+        espAlexaManager.addDevice(devices.rgb.rgbDevice);
+
+        devices.rgb.rgbDevice->setColorCallback([this](const bool isOn, const uint8_t brightness,
+                                                       const uint16_t hue, const uint8_t saturation)
+        {
+            this->handleRgbCommand(isOn, brightness, hue, saturation);
+        });
+    }
+
+    void setupStandaloneDevice()
+    {
+        devices.rgb.standaloneDevice = createSingleChannelDevice(settings.deviceNames[3].data(), Color::White);
+        if (devices.rgb.standaloneDevice)
+            espAlexaManager.addDevice(devices.rgb.standaloneDevice);
+    }
+
+    void setupMultiDevice()
+    {
+        const auto rDevice = createSingleChannelDevice(settings.deviceNames[0].data(), Color::Red);
+        const auto gDevice = createSingleChannelDevice(settings.deviceNames[1].data(), Color::Green);
+        const auto bDevice = createSingleChannelDevice(settings.deviceNames[2].data(), Color::Blue);
+        const auto wDevice = createSingleChannelDevice(settings.deviceNames[3].data(), Color::White);
+        if (rDevice) espAlexaManager.addDevice(rDevice);
+        if (gDevice) espAlexaManager.addDevice(gDevice);
+        if (bDevice) espAlexaManager.addDevice(bDevice);
+        if (wDevice) espAlexaManager.addDevice(wDevice);
+        devices.multi = {rDevice, gDevice, bDevice, wDevice};
+    }
+
+    [[nodiscard]] AsyncEspAlexaDimmableDevice* createSingleChannelDevice(
+        const char* name, Color color) const
+    {
+        if (name[0] == '\0')
+        {
+            ESP_LOGW(LOG_TAG, "Device name is empty");
+            return nullptr;
+        }
+        ESP_LOGI(LOG_TAG, "Adding single device: %s", name);
+        const auto value = output.getValue(color);
+        const auto on = output.isOn(color);
+        const auto device = new AsyncEspAlexaDimmableDevice(name, on, value);
+
+
+        device->setBrightnessCallback([this, name, color](const bool isOn, const uint8_t brightness)
+        {
+            this->handleSingleChannelCommand(name, color, isOn, brightness);
+        });
+        return device;
+    }
+
+    void handleRgbwCommand(const bool isOn, const uint8_t brightness,
+                           const uint16_t hue, const uint8_t saturation) const
+    {
+        ESP_LOGI(LOG_TAG, "Received HS command: on=%d, brightness=%u, hue=%u, saturation=%u",
+                 isOn, brightness, hue, saturation);
+        const auto [r, g, b,w]
+            = AsyncEspAlexaColorUtils::hsvToRgbw(hue, saturation, brightness);
+        ESP_LOGI(LOG_TAG, "Converted RGBW: r=%u, g=%u, b=%u, w=%u", r, g, b, w);
         output.setColor(r, g, b, w);
+        output.setOn(isOn, Color::Red);
+        output.setOn(isOn, Color::Green);
+        output.setOn(isOn, Color::Blue);
+        output.setOn(isOn, Color::White);
     }
 
-    void setupRgbwDevice(const AlexaIntegrationSettings& settings)
+    void handleRgbwCommand(const bool isOn, const uint8_t brightness,
+                           const uint16_t colorTemperature) const
     {
-        devices[1].reset();
-        devices[2].reset();
-        devices[3].reset();
-
-        if (settings.rDeviceName[0] != '\0')
-        {
-            ESP_LOGI(LOG_TAG, "Adding RGBW device: %s", settings.rDeviceName);
-            auto* deviceName = settings.rDeviceName;
-            devices[0] = std::make_unique<EspalexaDevice>(
-                settings.rDeviceName,
-                [this, deviceName](const uint8_t brightness, const uint32_t color)
-                {
-                    this->handleRgbwDeviceEvent(deviceName, brightness, color);
-                }, 0);
-            updateRgbwDevice();
-        }
-        else
-        {
-            devices[0].reset();
-        }
+        ESP_LOGI(LOG_TAG, "Received CT command: on=%d, brightness=%u, colorTemperature=%u",
+                 isOn, brightness, colorTemperature);
+        const auto [r, g, b, w]
+            = AsyncEspAlexaColorUtils::ctToRgbw(brightness, colorTemperature);
+        ESP_LOGI(LOG_TAG, "Converted RGBW: r=%u, g=%u, b=%u, w=%u", r, g, b, w);
+        output.setColor(r, g, b, w);
+        output.setOn(isOn, Color::Red);
+        output.setOn(isOn, Color::Green);
+        output.setOn(isOn, Color::Blue);
+        output.setOn(isOn, Color::White);
     }
 
-    void handleRgbDeviceEvent(const char* deviceName, const uint8_t brightness, const uint32_t color) const
+    void handleRgbCommand(const bool isOn, const uint8_t brightness,
+                          const uint16_t hue, const uint8_t saturation) const
     {
-        ESP_LOGI(LOG_TAG, "Received %s command: brightness=%d, color=0x%06X",
-                 deviceName, brightness, color);
-        uint8_t r = (color >> 16) & 0xFF;
-        uint8_t g = (color >> 8) & 0xFF;
-        uint8_t b = color & 0xFF;
-        const float intensity = static_cast<float>(brightness) / 255.0f;
-        r = static_cast<uint8_t>(static_cast<float>(r) * intensity);
-        g = static_cast<uint8_t>(static_cast<float>(g) * intensity);
-        b = static_cast<uint8_t>(static_cast<float>(b) * intensity);
-        output.update(Color::Red, r);
-        output.update(Color::Green, g);
-        output.update(Color::Blue, b);
+        ESP_LOGI(LOG_TAG, "Received HS command: brightness=%u, hue=%u, saturation=%u",
+                 brightness, hue, saturation);
+        const auto [r, g, b] = AsyncEspAlexaColorUtils::hsvToRgb(hue, saturation, brightness);
+        ESP_LOGI(LOG_TAG, "Converted RGB: r=%u, g=%u, b=%u", r, g, b);
+        output.setColor(r, g, b);
+        output.setOn(isOn, Color::Red);
+        output.setOn(isOn, Color::Green);
+        output.setOn(isOn, Color::Blue);
     }
 
-    void setupRgbDevice(const AlexaIntegrationSettings& settings)
+    void handleSingleChannelCommand(const char* name, const Color color,
+                                    const bool isOn, const uint8_t brightness) const
     {
-        devices[1].reset();
-        devices[2].reset();
-
-        if (settings.rDeviceName[0] != '\0')
-        {
-            ESP_LOGI(LOG_TAG, "Adding RGB device: %s", settings.rDeviceName);
-            devices[0] = std::make_unique<EspalexaDevice>(
-                settings.rDeviceName,
-                [&](const uint8_t brightness, const uint32_t color)
-                {
-                    this->handleRgbDeviceEvent(settings.rDeviceName, brightness, color);
-                }, 0);
-            devices[0]->setState(output.getState(Color::Red)
-                || output.getState(Color::Green)
-                || output.getState(Color::Blue));
-            devices[0]->setColor(output.getValue(Color::Red),
-                                 output.getValue(Color::Green),
-                                 output.getValue(Color::Blue));
-        }
-        else
-        {
-            devices[0].reset();
-        }
-
-        if (settings.wDeviceName[0] != '\0')
-        {
-            devices[3] = addSingleChannelDevice(settings.wDeviceName, Color::White);
-            if (devices[3])
-            {
-                devices[3]->setState(output.getState(Color::White));
-                devices[3]->setValue(output.getValue(Color::White));
-            }
-        }
-        else
-        {
-            devices[3].reset();
-        }
-    }
-
-    void setupMultiDevice(const AlexaIntegrationSettings& settings)
-    {
-        devices[0] = addSingleChannelDevice(settings.rDeviceName, Color::Red);
-        devices[1] = addSingleChannelDevice(settings.gDeviceName, Color::Green);
-        devices[2] = addSingleChannelDevice(settings.bDeviceName, Color::Blue);
-        devices[3] = addSingleChannelDevice(settings.wDeviceName, Color::White);
-        updateMultiDevice();
-    }
-
-    [[nodiscard]] std::unique_ptr<EspalexaDevice> addSingleChannelDevice(const char* name, Color color) const
-    {
-        if (name[0] == '\0') return nullptr;
-        ESP_LOGI(LOG_TAG, "Adding device: %s", name);
-        return std::make_unique<EspalexaDevice>(
-            name,
-            [this, color, name](const uint8_t brightness)
-            {
-                this->handleSingleChangeDeviceEvent(name, color, brightness);
-            },
-            0
-        );
-    }
-
-    void handleSingleChangeDeviceEvent(const char* name, const Color color, const uint8_t brightness) const
-    {
-        ESP_LOGI(LOG_TAG, "Received %s command: brightness=%d", name, brightness);
-        output.update(color, brightness);
-    }
-
-    void updateRgbwDevice() const
-    {
-        if (devices[0])
-        {
-            devices[0]->setState(output.getState(Color::Red)
-                || output.getState(Color::Green)
-                || output.getState(Color::Blue)
-                || output.getState(Color::White));
-            devices[0]->setColor(output.getValue(Color::Red),
-                                 output.getValue(Color::Green),
-                                 output.getValue(Color::Blue));
-            devices[0]->setValue(output.getValue(Color::White));
-        }
-    }
-
-    void updateRgbDevice() const
-    {
-        if (devices[0])
-        {
-            devices[0]->setState(output.getState(Color::Red)
-                || output.getState(Color::Green)
-                || output.getState(Color::Blue));
-            devices[0]->setColor(output.getValue(Color::Red),
-                                 output.getValue(Color::Green),
-                                 output.getValue(Color::Blue));
-        }
-        if (devices[3])
-        {
-            devices[3]->setState(output.getState(Color::White));
-            devices[3]->setValue(output.getValue(Color::White));
-        }
-    }
-
-    void updateMultiDevice() const
-    {
-        for (size_t i = 0; i < devices.size(); ++i)
-        {
-            if (devices[i])
-            {
-                const auto color = static_cast<Color>(i);
-                devices[i]->setState(output.getState(color));
-                devices[i]->setValue(output.getValue(color));
-            }
-        }
+        ESP_LOGI(LOG_TAG, "Received %s command: on=%d, brightness=%u", name, isOn, brightness);
+        output.setOn(isOn, color);
+        output.setValue(brightness, color);
     }
 };

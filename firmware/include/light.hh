@@ -14,7 +14,7 @@ struct LightState
 
     bool operator ==(const LightState& other) const
     {
-        return (on == other.on && value == other.value);
+        return on == other.on && value == other.value;
     }
 
     bool operator !=(const LightState& other) const
@@ -106,7 +106,7 @@ private:
     {
         constexpr float gamma = 2.2f;
         float linear = pow(static_cast<float>(currentValue) / 255.0f, 1.0f / gamma);
-        linear += (increase ? 0.05f : -0.05f);
+        linear += increase ? 0.05f : -0.05f;
         linear = std::clamp(linear, 0.0f, 1.0f);
         return static_cast<uint8_t>(lround(pow(linear, gamma) * 255.0f));
     }
@@ -137,20 +137,12 @@ public:
     void setValue(const uint8_t value)
     {
         state.value = value;
-        if (value > OFF_VALUE && !state.on)
-            state.on = true;
-        if (value == OFF_VALUE)
-            state.on = false;
         update();
     }
 
-    void setState(const bool stateFlag)
+    void setOn(const bool stateFlag)
     {
         state.on = stateFlag;
-        if (stateFlag && state.value == OFF_VALUE)
-        {
-            state.value = ON_VALUE;
-        }
         update();
     }
 
@@ -181,6 +173,7 @@ public:
     }
 
     [[nodiscard]] bool isOn() const { return state.on; }
+    [[nodiscard]] bool isVisible() const { return state.on && state.value > 0; }
     [[nodiscard]] uint8_t getValue() const { return state.value; }
     [[nodiscard]] LightState getState() const { return state; }
 };
