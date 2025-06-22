@@ -175,7 +175,7 @@ private:
         {
             if (request->method() == HTTP_GET)
             {
-                request->redirect("/ota.xml");
+                request->redirect("/ota.html");
                 return;
             }
             if (!request->hasAttribute(ATTR_AUTHENTICATED))
