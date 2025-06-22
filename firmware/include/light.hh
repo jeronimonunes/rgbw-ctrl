@@ -6,33 +6,33 @@
 
 #include "hardware.hh"
 
-#pragma pack(push, 1)
-struct LightState
-{
-    bool on = false;
-    uint8_t value = 0;
-
-    bool operator ==(const LightState& other) const
-    {
-        return on == other.on && value == other.value;
-    }
-
-    bool operator !=(const LightState& other) const
-    {
-        return !(*this == other);
-    }
-
-    void toJson(const JsonObject& to) const
-    {
-        to["on"] = on;
-        to["value"] = value;
-    }
-};
-#pragma pack(pop)
-
 class Light
 {
 public:
+#pragma pack(push, 1)
+    struct State
+    {
+        bool on = false;
+        uint8_t value = 0;
+
+        bool operator ==(const State& other) const
+        {
+            return on == other.on && value == other.value;
+        }
+
+        bool operator !=(const State& other) const
+        {
+            return !(*this == other);
+        }
+
+        void toJson(const JsonObject& to) const
+        {
+            to["on"] = on;
+            to["value"] = value;
+        }
+    };
+#pragma pack(pop)
+
     static constexpr uint8_t ON_VALUE = 255;
     static constexpr uint8_t OFF_VALUE = 0;
     static constexpr auto PREFERENCES_NAME = "light";
@@ -71,7 +71,7 @@ private:
 
     bool invert;
     gpio_num_t pin;
-    LightState state;
+    State state;
 
     char onKey[5] = "";
     char valueKey[5] = "";
@@ -79,7 +79,7 @@ private:
     std::optional<uint8_t> lastWrittenValue = std::nullopt;
 
     Preferences prefs;
-    LightState lastPersistedState;
+    State lastPersistedState;
     unsigned long lastPersistTime = 0;
 
     void update()
@@ -166,7 +166,7 @@ public:
         state.toJson(to);
     }
 
-    void setState(const LightState& state)
+    void setState(const State& state)
     {
         this->state = state;
         update();
@@ -175,5 +175,5 @@ public:
     [[nodiscard]] bool isOn() const { return state.on; }
     [[nodiscard]] bool isVisible() const { return state.on && state.value > 0; }
     [[nodiscard]] uint8_t getValue() const { return state.value; }
-    [[nodiscard]] LightState getState() const { return state; }
+    [[nodiscard]] State getState() const { return state; }
 };

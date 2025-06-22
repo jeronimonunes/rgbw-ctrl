@@ -5,5 +5,6 @@ export * from './device-state.model';
 export * from './encode.utils';
 export * from './light.model';
 export * from './ota.model';
+export * from './output.model'
 export * from './websocket-message.model';
 export * from './wifi.model';

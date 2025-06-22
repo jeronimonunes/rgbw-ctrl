@@ -19,6 +19,7 @@ import {
 } from './wifi.model';
 import {BleStatus} from './ble.model';
 import {LightState} from './light.model';
+import {OUTPUT_STATE_BYTE_SIZE, OutputState} from './output.model';
 
 export const textEncoder = new TextEncoder();
 
@@ -95,15 +96,18 @@ export function encodeHttpCredentials(credentials: HttpCredentials): Uint8Array 
   return buffer;
 }
 
+export function encodeOutputState({values}: OutputState, writer = new BufferWriter(new Uint8Array(OUTPUT_STATE_BYTE_SIZE))) {
+  values.forEach(({on, value}) => {
+    writer.writeUint8(on ? 1 : 0);
+    writer.writeUint8(value);
+  });
+  return new Uint8Array(writer.buffer.buffer);
+}
+
 export function encodeColorMessage(values: [LightState, LightState, LightState, LightState]): Uint8Array {
-  const buffer = new Uint8Array(1 + 4 * 2);
-  const writer = new BufferWriter(buffer);
+  const writer = new BufferWriter(new Uint8Array(1 + OUTPUT_STATE_BYTE_SIZE));
   writer.writeUint8(WebSocketMessageType.ON_COLOR);
-  for(let i = 0; i < 4; i++) {
-    writer.writeUint8(values[i].on ? 1 : 0);
-    writer.writeUint8(values[i].value);
-  }
-  return buffer;
+  return encodeOutputState({values}, writer);
 }
 
 export function encodeHttpCredentialsMessage(credentials: HttpCredentials): Uint8Array {

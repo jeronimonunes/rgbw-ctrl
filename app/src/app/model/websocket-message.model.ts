@@ -5,6 +5,8 @@ import {BleStatus} from './ble.model';
 import {LightState} from './light.model';
 import {OtaState} from './ota.model';
 
+export const WEB_SOCKET_MESSAGE_TYPE_BYTE_SIZE = 1;
+
 export enum WebSocketMessageType {
   ON_COLOR = 0,
   ON_HTTP_CREDENTIALS = 1,

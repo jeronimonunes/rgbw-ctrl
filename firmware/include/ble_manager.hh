@@ -524,20 +524,21 @@ private:
 
         void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            std::array<uint8_t, 4> values = {};
-            if (pCharacteristic->getValue().size() != values.size())
+            Output::State state = {};
+            constexpr uint8_t size = sizeof(Output::State);
+            if (pCharacteristic->getValue().size() != size)
             {
                 ESP_LOGE(LOG_TAG, "Received invalid Alexa color values length: %d", pCharacteristic->getValue().size());
                 return;
             }
-            memcpy(values.data(), pCharacteristic->getValue().data(), values.size());
-            net->output.setValues(values);
+            memcpy(&state, pCharacteristic->getValue().data(), size);
+            net->output.setState(state);
         }
 
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            const auto values = net->output.getValues();
-            pCharacteristic->setValue(values.data(), values.size());
+            auto state = net->output.getState();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
         }
     };
 

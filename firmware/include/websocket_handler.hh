@@ -1,22 +1,8 @@
 #pragma once
 
-#include "wifi_model.hh"
+#include "message.hh"
 #include "ble_manager.hh"
 #include "throttled_value.hh"
-
-enum class WebSocketMessageType : uint8_t
-{
-    ON_COLOR,
-    ON_HTTP_CREDENTIALS,
-    ON_DEVICE_NAME,
-    ON_HEAP,
-    ON_BLE_STATUS,
-    ON_WIFI_STATUS,
-    ON_WIFI_SCAN_STATUS,
-    ON_WIFI_DETAILS,
-    ON_OTA_PROGRESS,
-    ON_ALEXA_INTEGRATION_SETTINGS,
-};
 
 class WebSocketHandler
 {
@@ -31,7 +17,7 @@ class WebSocketHandler
 
     AsyncWebSocket ws = AsyncWebSocket("/ws");
 
-    ThrottledValue<std::array<LightState, 4>> outputThrottle{100};
+    ThrottledValue<Output::State> outputThrottle{100};
     ThrottledValue<BleStatus> bleStatusThrottle{100};
     ThrottledValue<std::array<char, DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{100};
     ThrottledValue<OtaState> otaStateThrottle{100};
@@ -139,20 +125,20 @@ private:
         }
 
         const uint8_t messageTypeRaw = data[0];
-        if (messageTypeRaw > static_cast<uint8_t>(WebSocketMessageType::ON_ALEXA_INTEGRATION_SETTINGS))
+        if (messageTypeRaw > static_cast<uint8_t>(MessageType::ON_ALEXA_INTEGRATION_SETTINGS))
         {
             ESP_LOGD(LOG_TAG, "Received unknown WebSocket message type: %d", messageTypeRaw);
             return;
         }
 
-        const auto messageType = static_cast<WebSocketMessageType>(messageTypeRaw);
+        const auto messageType = static_cast<MessageType>(messageTypeRaw);
         ESP_LOGD(LOG_TAG, "Received WebSocket message of type %d", static_cast<int>(messageType));
 
         this->handleWebSocketMessage(messageType, server, client, data, len);
     }
 
     void handleWebSocketMessage(
-        const WebSocketMessageType messageType,
+        const MessageType messageType,
         AsyncWebSocket* server,
         AsyncWebSocketClient* client,
         const uint8_t* data,
@@ -161,43 +147,43 @@ private:
     {
         switch (messageType)
         {
-        case WebSocketMessageType::ON_COLOR:
+        case MessageType::ON_COLOR:
             handleColorMessage(client, data, len);
             break;
 
-        case WebSocketMessageType::ON_HTTP_CREDENTIALS:
+        case MessageType::ON_HTTP_CREDENTIALS:
             handleHttpCredentialsMessage(client, data, len);
             break;
 
-        case WebSocketMessageType::ON_DEVICE_NAME:
+        case MessageType::ON_DEVICE_NAME:
             handleDeviceNameMessage(client, data, len);
             break;
 
-        case WebSocketMessageType::ON_HEAP:
+        case MessageType::ON_HEAP:
             handleHeapMessage(client);
             break;
 
-        case WebSocketMessageType::ON_BLE_STATUS:
+        case MessageType::ON_BLE_STATUS:
             handleBleStatusMessage(client, data, len);
             break;
 
-        case WebSocketMessageType::ON_WIFI_STATUS:
+        case MessageType::ON_WIFI_STATUS:
             handleWiFiStatusMessage(client, data, len);
             break;
 
-        case WebSocketMessageType::ON_WIFI_SCAN_STATUS:
+        case MessageType::ON_WIFI_SCAN_STATUS:
             handleWiFiScanStatusMessage(client);
             break;
 
-        case WebSocketMessageType::ON_WIFI_DETAILS:
+        case MessageType::ON_WIFI_DETAILS:
             handleWiFiDetailsMessage(client, data, len);
             break;
 
-        case WebSocketMessageType::ON_OTA_PROGRESS:
+        case MessageType::ON_OTA_PROGRESS:
             handleOtaProgressMessage(client, data, len);
             break;
 
-        case WebSocketMessageType::ON_ALEXA_INTEGRATION_SETTINGS:
+        case MessageType::ON_ALEXA_INTEGRATION_SETTINGS:
             handleAlexaIntegrationSettingsMessage(client, data, len);
             break;
 
@@ -211,7 +197,7 @@ private:
     {
         if (len < sizeof(ColorMessage)) return;
         const auto* message = reinterpret_cast<const ColorMessage*>(data);
-        output.setState(message->values);
+        output.setState(message->state);
     }
 
     void handleHttpCredentialsMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const
@@ -322,7 +308,7 @@ private:
 
     void sendOutputColorMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<std::array<LightState, 4>, ColorMessage>(
+        sendThrottledMessage<Output::State, ColorMessage>(
             output.getState(), outputThrottle, now, client);
     }
 
@@ -352,106 +338,4 @@ private:
         sendThrottledMessage<uint32_t, HeapMessage>(
             freeHeap, heapInfoThrottle, now, client);
     }
-
-#pragma pack(push, 1)
-    struct Message
-    {
-        WebSocketMessageType type;
-
-        explicit Message(const WebSocketMessageType type) : type(type)
-        {
-        }
-    };
-
-    struct ColorMessage : Message
-    {
-        const std::array<LightState, 4> values;
-
-        explicit ColorMessage(const std::array<LightState, 4>& values)
-            : Message(WebSocketMessageType::ON_COLOR), values(values)
-        {
-        }
-    };
-
-    struct BleStatusMessage : Message
-    {
-        BleStatus status;
-
-        explicit BleStatusMessage(const BleStatus& status)
-            : Message(WebSocketMessageType::ON_BLE_STATUS), status(status)
-        {
-        }
-    };
-
-    struct DeviceNameMessage : Message
-    {
-        char deviceName[DEVICE_NAME_TOTAL_LENGTH] = {};
-
-        explicit DeviceNameMessage(const std::array<char, DEVICE_NAME_TOTAL_LENGTH>& deviceName)
-            : Message(WebSocketMessageType::ON_DEVICE_NAME)
-        {
-            std::strncpy(this->deviceName, deviceName.data(), DEVICE_NAME_MAX_LENGTH);
-            this->deviceName[DEVICE_NAME_MAX_LENGTH] = '\0';
-        }
-
-        explicit DeviceNameMessage(const char* deviceName)
-            : Message(WebSocketMessageType::ON_DEVICE_NAME)
-        {
-            std::strncpy(this->deviceName, deviceName, DEVICE_NAME_MAX_LENGTH);
-            this->deviceName[DEVICE_NAME_MAX_LENGTH] = '\0';
-        }
-    };
-
-    struct HttpCredentialsMessage : Message
-    {
-        HttpCredentials credentials;
-
-        explicit HttpCredentialsMessage(const HttpCredentials& credentials)
-            : Message(WebSocketMessageType::ON_HTTP_CREDENTIALS), credentials(credentials)
-        {
-        }
-    };
-
-    struct WiFiConnectionDetailsMessage : Message
-    {
-        WiFiConnectionDetails details;
-
-        explicit WiFiConnectionDetailsMessage(const WiFiConnectionDetails& details)
-            : Message(WebSocketMessageType::ON_WIFI_DETAILS), details(details)
-        {
-        }
-    };
-
-    struct AlexaIntegrationSettingsMessage : Message
-    {
-        AlexaIntegrationSettings settings;
-
-        explicit AlexaIntegrationSettingsMessage(const AlexaIntegrationSettings& settings)
-            : Message(WebSocketMessageType::ON_ALEXA_INTEGRATION_SETTINGS), settings(settings)
-        {
-        }
-    };
-
-    struct OtaProgressMessage : Message
-    {
-        OtaState otaState;
-
-        explicit OtaProgressMessage(const OtaState& otaState)
-            : Message(WebSocketMessageType::ON_OTA_PROGRESS),
-              otaState(otaState)
-        {
-        }
-    };
-
-    struct HeapMessage : Message
-    {
-        uint32_t freeHeap;
-
-        explicit HeapMessage(const uint32_t freeHeap)
-            : Message(WebSocketMessageType::ON_HEAP), freeHeap(freeHeap)
-        {
-        }
-    };
-
-#pragma pack(pop)
 };

@@ -1,3 +1,8 @@
+$red: rgb(235, 43, 71);
+$green: rgb(76, 214, 65);
+$blue: rgb(60, 170, 223);
+$warm-white: rgb(239, 233, 195);
+
 :host {
   display: flex;
   flex-direction: column;
@@ -72,7 +77,7 @@ mat-list-item.selected {
 .small-icon-button {
   width: 24px !important;
   height: 24px !important;
-  padding: 0px !important;
+  padding: 0 !important;
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
@@ -95,7 +100,6 @@ mat-list-item.selected {
 }
 
 .alexa-card {
-
   mat-card-subtitle {
     display: flex;
     align-items: center;
@@ -110,46 +114,42 @@ mat-form-field {
   width: 100%;
 }
 
-.red-slider {
+@mixin color-style($color) {
   ::ng-deep .mdc-slider__track--active_fill {
-    border-color: rgb(255, 0, 0) !important;
+    border-color: $color !important;
   }
-
   ::ng-deep .mdc-slider__thumb-knob {
-    background-color: rgb(255, 0, 0) !important;
-    border-color: rgb(255, 0, 0) !important;
+    background-color: $color !important;
+    border-color: $color !important;
+  }
+  ::ng-deep .mdc-switch__track::after {
+    background-color: $color !important;
+  }
+  ::ng-deep .mdc-switch--selected .mdc-switch__icon {
+    fill: $color !important;
   }
 }
 
-.green-slider {
-  ::ng-deep .mdc-slider__track--active_fill {
-    border-color: rgb(0, 255, 0) !important;
-  }
-
-  ::ng-deep .mdc-slider__thumb-knob {
-    background-color: rgb(0, 255, 0) !important;
-    border-color: rgb(0, 255, 0) !important;
-  }
+mat-slider.r, mat-slide-toggle.r {
+  @include color-style($red);
 }
 
-.blue-slider {
-  ::ng-deep .mdc-slider__track--active_fill {
-    border-color: rgb(0, 0, 255) !important;
-  }
-
-  ::ng-deep .mdc-slider__thumb-knob {
-    background-color: rgb(0, 0, 255) !important;
-    border-color: rgb(0, 0, 255) !important;
-  }
+mat-slider.g, mat-slide-toggle.g {
+  @include color-style($green);
 }
 
-.white-slider {
-  ::ng-deep .mdc-slider__track--active_fill {
-    border-color: #efe9c3 !important;
-  }
+mat-slider.b, mat-slide-toggle.b {
+  @include color-style($blue);
+}
 
-  ::ng-deep .mdc-slider__thumb-knob {
-    background-color: #efe9c3 !important;
-    border-color: #efe9c3 !important;
-  }
+mat-slider.w, mat-slide-toggle.w {
+  @include color-style($warm-white);
+}
+
+.color-form {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 0.5rem;
 }

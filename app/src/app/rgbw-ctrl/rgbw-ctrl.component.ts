@@ -6,34 +6,32 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatCardModule} from '@angular/material/card';
 import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {
+  ALEXA_MAX_DEVICE_NAME_LENGTH,
+  AlexaIntegrationMode,
+  decodeAlexaIntegrationSettings,
+  decodeCString,
+  decodeHttpCredentials, decodeOutputState,
+  decodeWiFiDetails,
+  decodeWiFiScanResult,
+  decodeWiFiScanStatus,
+  decodeWiFiStatus,
+  encodeAlexaIntegrationSettings,
+  encodeHttpCredentials, encodeOutputState,
+  encodeWiFiConnectionDetails,
   isEnterprise,
+  textEncoder,
   WiFiConnectionDetails,
   WiFiDetails,
   WiFiEncryptionType,
   WiFiNetwork,
   WiFiScanStatus,
   WiFiStatus
-} from '../model/wifi.model';
+} from '../model';
 import {MatListModule} from '@angular/material/list';
 import {MatLineModule} from '@angular/material/core';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatExpansionModule} from '@angular/material/expansion';
 import {MatInputModule} from '@angular/material/input';
-import {
-  decodeAlexaIntegrationSettings,
-  decodeCString,
-  decodeHttpCredentials,
-  decodeWiFiDetails,
-  decodeWiFiScanResult,
-  decodeWiFiScanStatus,
-  decodeWiFiStatus
-} from '../model/decode.utils';
-import {
-  encodeAlexaIntegrationSettings,
-  encodeHttpCredentials,
-  encodeWiFiConnectionDetails,
-  textEncoder
-} from '../model/encode.utils';
 import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {NumberToIpPipe} from '../number-to-ip.pipe';
 import {MatDialog, MatDialogModule} from '@angular/material/dialog';
@@ -42,7 +40,6 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {EditDeviceNameComponentDialog} from './edit-device-name-dialog/edit-device-name-component-dialog.component';
 import {asyncScheduler, firstValueFrom, Subscription, throttleTime} from 'rxjs';
-import {ALEXA_MAX_DEVICE_NAME_LENGTH, AlexaIntegrationMode} from '../model/alexa-integration-settings.model';
 import {MatChipsModule} from '@angular/material/chips';
 import {
   EnterpriseWiFiConnectDialogComponent
@@ -53,6 +50,7 @@ import {MAX_HTTP_PASSWORD_LENGTH, MAX_HTTP_USERNAME_LENGTH} from '../http-creden
 import {KilobytesPipe} from '../kb.pipe';
 import {MatSliderModule} from '@angular/material/slider';
 import {ConfirmAlexaRestart} from '../yes-no-dialog/confirm-alexa-restart.component';
+import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 
 const BLE_NAME = "rgbw-ctrl";
 
@@ -95,7 +93,8 @@ const ALEXA_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
     ReactiveFormsModule,
     MatChipsModule,
     KilobytesPipe,
-    NgOptimizedImage
+    NgOptimizedImage,
+    MatSlideToggleModule
   ],
   templateUrl: './rgbw-ctrl.component.html',
   styleUrls: ['./rgbw-ctrl.component.scss']
@@ -170,18 +169,38 @@ export class RgbwCtrlComponent implements OnDestroy {
   });
 
   colorForm = new FormGroup({
-    r: new FormControl<number>(0, {
-      nonNullable: true
+    r: new FormGroup({
+      value: new FormControl<number>(0, {
+        nonNullable: true
+      }),
+      on: new FormControl(false, {
+        nonNullable: true
+      })
     }),
-    g: new FormControl<number>(0, {
-      nonNullable: true
+    g: new FormGroup({
+      value: new FormControl<number>(0, {
+        nonNullable: true
+      }),
+      on: new FormControl(false, {
+        nonNullable: true
+      })
     }),
-    b: new FormControl<number>(0, {
-      nonNullable: true
+    b: new FormGroup({
+      value: new FormControl<number>(0, {
+        nonNullable: true
+      }),
+      on: new FormControl(false, {
+        nonNullable: true
+      })
     }),
-    w: new FormControl<number>(0, {
-      nonNullable: true
-    }),
+    w: new FormGroup({
+      value: new FormControl<number>(0, {
+        nonNullable: true
+      }),
+      on: new FormControl(false, {
+        nonNullable: true
+      })
+    })
   });
 
   httpCredentialsForm = new FormGroup({
@@ -213,18 +232,26 @@ export class RgbwCtrlComponent implements OnDestroy {
     };
 
     this.colorSubscription = this.colorForm.valueChanges.pipe(
-      throttleTime(200, asyncScheduler, {
+      throttleTime(300, asyncScheduler, {
         leading: true,
         trailing: true
       })
     ).subscribe(value => {
+      const {r, g, b, w} = value!;
       if (this.alexaColorCharacteristic) {
-        const color = new Uint8Array(4);
-        color[0] = perceptualMap(value.r ?? 0);
-        color[1] = perceptualMap(value.g ?? 0);
-        color[2] = perceptualMap(value.b ?? 0);
-        color[3] = perceptualMap(value.w ?? 0);
-        this.alexaColorCharacteristic.writeValue(color)
+        const pr = perceptualMap(r!.value!);
+        const pg = perceptualMap(g!.value!);
+        const pb = perceptualMap(b!.value!);
+        const pw = perceptualMap(w!.value!);
+        const buffer = encodeOutputState({
+          values: [
+            {value: pr, on: r!.on!},
+            {value: pg, on: g!.on!},
+            {value: pb, on: b!.on!},
+            {value: pw, on: w!.on!}
+          ]
+        });
+        this.alexaColorCharacteristic.writeValue(buffer)
           .catch(console.error);
       }
     });
@@ -512,7 +539,7 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   private alexaColorChanged(view: DataView) {
-    const buffer = new Uint8Array(view.buffer);
+    const state = decodeOutputState(new Uint8Array(view.buffer));
     const inversePerceptualMap = (pwm: number): number => {
       if (pwm <= 0) return 0;
       if (pwm >= 255) return 100;
@@ -521,10 +548,22 @@ export class RgbwCtrlComponent implements OnDestroy {
     };
 
     this.colorForm.setValue({
-      r: inversePerceptualMap(buffer[0]),
-      g: inversePerceptualMap(buffer[1]),
-      b: inversePerceptualMap(buffer[2]),
-      w: inversePerceptualMap(buffer[3]),
+      r: {
+        value: inversePerceptualMap(state.values[0].value),
+        on: state.values[0].on
+      },
+      g: {
+        value: inversePerceptualMap(state.values[1].value),
+        on: state.values[1].on
+      },
+      b: {
+        value: inversePerceptualMap(state.values[2].value),
+        on: state.values[2].on
+      },
+      w: {
+        value: inversePerceptualMap(state.values[3].value),
+        on: state.values[3].on
+      }
     }, {emitEvent: false});
   }
 

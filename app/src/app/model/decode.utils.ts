@@ -18,6 +18,7 @@ import {
 import {ALEXA_MAX_DEVICE_NAME_LENGTH, AlexaIntegrationSettings} from './alexa-integration-settings.model';
 import {HttpCredentials} from '../http-credentials.model';
 import {
+  WEB_SOCKET_MESSAGE_TYPE_BYTE_SIZE,
   WebSocketBleStatusMessage,
   WebSocketColorMessage,
   WebSocketDeviceNameMessage,
@@ -26,6 +27,7 @@ import {
   WebSocketOtaProgressMessage
 } from './websocket-message.model';
 import {LightState} from './light.model';
+import {OUTPUT_STATE_BYTE_SIZE, OutputState} from './output.model';
 
 export const textDecoder = new TextDecoder('utf-8');
 
@@ -158,6 +160,17 @@ export function decodeLightState(buffer: Uint8Array): LightState {
   return {on: buffer[0] !== 0, value: buffer[1]};
 }
 
+export function decodeOutputState(buffer: Uint8Array): OutputState {
+  return {
+    values: [
+      decodeLightState(buffer.subarray(0, 2)),
+      decodeLightState(buffer.subarray(2, 4)),
+      decodeLightState(buffer.subarray(4, 6)),
+      decodeLightState(buffer.subarray(6, 8))
+    ]
+  }
+}
+
 export function decodeDeviceNameMessage(buffer: ArrayBuffer): WebSocketDeviceNameMessage {
   const data = new Uint8Array(buffer);
   const deviceName = decodeCString(data.subarray(1));
@@ -174,7 +187,7 @@ export function decodeWebSocketOnBleStatusMessage(buffer: ArrayBuffer): WebSocke
 
 export function decodeWebSocketOnColorMessage(buffer: ArrayBuffer): WebSocketColorMessage {
   const data = new Uint8Array(buffer);
-  if (data.length !== 4 * 2 + 1) {
+  if (data.length !== OUTPUT_STATE_BYTE_SIZE + WEB_SOCKET_MESSAGE_TYPE_BYTE_SIZE) {
     throw new Error(`Invalid color message length: ${data.length}`);
   }
 

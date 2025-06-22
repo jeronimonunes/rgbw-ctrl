@@ -101,7 +101,7 @@ public:
         espAlexaManager.loop();
     }
 
-    AsyncWebHandler* createAsyncWebHandler() const
+    [[nodiscard]] AsyncWebHandler* createAsyncWebHandler() const
     {
         return espAlexaManager.createAlexaAsyncWebHandler();
     }

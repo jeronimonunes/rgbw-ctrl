@@ -10,6 +10,25 @@
 
 class Output
 {
+public:
+#pragma pack(push, 1)
+    struct State
+    {
+        std::array<Light::State, 4> values = {};
+
+        bool operator==(const State& other) const
+        {
+            return values == other.values;
+        }
+
+        bool operator!=(const State& other) const
+        {
+            return values != other.values;
+        }
+    };
+#pragma pack(pop)
+
+private:
     std::array<Light, 4> lights = {
         Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Output::RED))),
         Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Output::GREEN))),
@@ -29,15 +48,7 @@ public:
     void handle(const unsigned long now)
     {
         for (auto& light : lights)
-        {
             light.handle(now);
-        }
-    }
-
-    void setState(const std::array<LightState, 4> state)
-    {
-        for (uint8_t i = 0; i < 4; ++i)
-            lights[i].setState(state[i]);
     }
 
     void setValue(const uint8_t value, Color color)
@@ -94,21 +105,16 @@ public:
         lights.at(static_cast<size_t>(Color::White)).setValue(w);
     }
 
-    void setValues(const std::array<uint8_t, 4>& array)
+    void setState(const State& state)
     {
-        for (size_t i = 0; i < std::min(lights.size(), array.size()); ++i)
-        {
-            setValue(array[i], static_cast<Color>(i));
-        }
+        for (size_t i = 0; i < std::min(lights.size(), state.values.size()); ++i)
+            lights.at(i).setState(state.values[i]);
     }
 
     void toJson(const JsonArray& to) const
     {
         for (const auto& light : lights)
-        {
-            auto obj = to.add<JsonObject>();
-            light.toJson(obj);
-        }
+            light.toJson(to.add<JsonObject>());
     }
 
     [[nodiscard]] bool anyOn() const
@@ -121,14 +127,6 @@ public:
     {
         return std::any_of(lights.begin(), lights.end(),
                            [](const Light& light) { return light.isVisible(); });
-    }
-
-    [[nodiscard]] std::array<LightState, 4> getState() const
-    {
-        std::array<LightState, 4> state;
-        std::transform(lights.begin(), lights.end(), state.begin(),
-                       [](const Light& light) { return light.getState(); });
-        return state;
     }
 
     [[nodiscard]] uint8_t getValue(Color color) const
@@ -149,5 +147,13 @@ public:
             return light.getValue();
         });
         return output;
+    }
+
+    [[nodiscard]] State getState() const
+    {
+        std::array<Light::State, 4> state;
+        std::transform(lights.begin(), lights.end(), state.begin(),
+                       [](const Light& light) { return light.getState(); });
+        return {state};
     }
 };

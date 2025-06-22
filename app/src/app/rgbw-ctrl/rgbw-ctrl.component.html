@@ -66,19 +66,31 @@
   <mat-card-content>
     <mat-card appearance="outlined" style="margin-top: 0.5rem">
       <mat-card-content>
-        <form style="grid-column: span 2; display: grid" [formGroup]="colorForm">
-          <mat-slider class="red-slider">
-            <input matSliderThumb formControlName="r">
-          </mat-slider>
-          <mat-slider class="green-slider">
-            <input matSliderThumb formControlName="g">
-          </mat-slider>
-          <mat-slider class="blue-slider">
-            <input matSliderThumb formControlName="b">
-          </mat-slider>
-          <mat-slider class="white-slider">
-            <input matSliderThumb formControlName="w">
-          </mat-slider>
+        <form class="color-form" [formGroup]="colorForm">
+          <ng-container formGroupName="r">
+            <mat-slider class="r">
+              <input matSliderThumb formControlName="value">
+            </mat-slider>
+            <mat-slide-toggle class="r" formControlName="on"/>
+          </ng-container>
+          <ng-container formGroupName="g">
+            <mat-slider class="g">
+              <input matSliderThumb formControlName="value">
+            </mat-slider>
+            <mat-slide-toggle class="g" formControlName="on"/>
+          </ng-container>
+          <ng-container formGroupName="b">
+            <mat-slider class="b">
+              <input matSliderThumb formControlName="value">
+            </mat-slider>
+            <mat-slide-toggle class="b" formControlName="on"/>
+          </ng-container>
+          <ng-container formGroupName="w">
+            <mat-slider class="w">
+              <input matSliderThumb formControlName="value">
+            </mat-slider>
+            <mat-slide-toggle class="w" formControlName="on"/>
+          </ng-container>
         </form>
       </mat-card-content>
     </mat-card>
