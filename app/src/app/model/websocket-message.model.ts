@@ -1,5 +1,5 @@
 import {AlexaIntegrationSettings} from "./alexa-integration-settings.model";
-import {HttpCredentials} from "./http-credentials.model";
+import {HttpCredentials} from "../http-credentials.model";
 import {WiFiConnectionDetails, WiFiScanStatus, WiFiStatus} from "./wifi.model";
 import {BleStatus} from './ble.model';
 import {LightState} from './light.model';

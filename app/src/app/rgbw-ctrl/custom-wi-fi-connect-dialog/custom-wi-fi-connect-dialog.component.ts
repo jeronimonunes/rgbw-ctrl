@@ -5,7 +5,7 @@ import {MatInputModule} from '@angular/material/input';
 import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatSelectModule} from '@angular/material/select';
-import {WiFiEncryptionType} from '../../wifi.model';
+import {WiFiEncryptionType} from '../../model/wifi.model';
 
 @Component({
   selector: 'app-custom-wi-fi-connect-dialog',

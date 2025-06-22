@@ -1,5 +1,5 @@
-import {AlexaIntegrationSettings} from "./alexa-integration-settings.model";
 import {
+  AlexaIntegrationSettings,
   encodeAlexaIntegrationSettingsMessage,
   encodeBleStatusMessage,
   encodeColorMessage,
@@ -9,10 +9,9 @@ import {
   encodeOtaProgressMessage,
   encodeWiFiConnectionDetailsMessage,
   encodeWiFiScanStatusMessage,
-} from "./encode.utils";
-import {} from "./decode.utils";
-import {WebSocketMessageType} from "./websocket.message";
-import {WiFiConnectionDetails} from "./wifi.model";
+  WebSocketMessageType,
+  WiFiConnectionDetails
+} from "./model";
 
 const RECONNECT_INTERVAL = 1000; // ms
 

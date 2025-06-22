@@ -6,16 +6,16 @@ import {
     webSocketHandlers
 } from "../../app/src/app/web-socket.handler.ts";
 import {
+    BleStatus,
     decodeDeviceNameMessage,
+    decodeWebSocketHeapInfoMessage,
     decodeWebSocketOnBleStatusMessage,
     decodeWebSocketOnColorMessage,
     decodeWebSocketOnOtaProgressMessage,
-    decodeWebSocketHeapInfoMessage
-} from "../../app/src/app/decode.utils.ts"
+    otaStatusToString,
+    WebSocketMessageType
+} from "../../app/src/app/model"
 import {getState, resetSystem, restartSystem} from "../../app/src/app/rest-api.ts";
-import {otaStatusToString} from "../../app/src/app/ota.model.ts";
-import {WebSocketMessageType} from "../../app/src/app/websocket.message.ts"
-import {BleStatus} from "../../app/src/app/ble.model.ts"
 
 const sliders = Array.from(document.querySelectorAll<HTMLInputElement>('label.slider input[type="range"]'));
 const switches = Array.from(document.querySelectorAll<HTMLInputElement>('label.switch input[type="checkbox"]'));

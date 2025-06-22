@@ -3,8 +3,8 @@ import {
   ALEXA_SETTINGS_TOTAL_LENGTH,
   AlexaIntegrationSettings
 } from './alexa-integration-settings.model';
-import {HttpCredentials, MAX_HTTP_PASSWORD_LENGTH, MAX_HTTP_USERNAME_LENGTH} from './http-credentials.model';
-import {WebSocketMessageType} from './websocket.message';
+import {HttpCredentials, MAX_HTTP_PASSWORD_LENGTH, MAX_HTTP_USERNAME_LENGTH} from '../http-credentials.model';
+import {WebSocketMessageType} from './websocket-message.model';
 import {
   EAPWiFiConnectionCredentials,
   isEnterprise,

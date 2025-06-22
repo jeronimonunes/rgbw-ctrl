@@ -1,4 +1,4 @@
-import {DeviceState} from "./device-state.model";
+import {DeviceState} from "./model";
 
 const BASE_URL = "/rest";
 

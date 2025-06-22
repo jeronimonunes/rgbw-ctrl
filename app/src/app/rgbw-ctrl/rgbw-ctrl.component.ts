@@ -13,7 +13,7 @@ import {
   WiFiNetwork,
   WiFiScanStatus,
   WiFiStatus
-} from '../wifi.model';
+} from '../model/wifi.model';
 import {MatListModule} from '@angular/material/list';
 import {MatLineModule} from '@angular/material/core';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -27,13 +27,13 @@ import {
   decodeWiFiScanResult,
   decodeWiFiScanStatus,
   decodeWiFiStatus
-} from '../decode.utils';
+} from '../model/decode.utils';
 import {
   encodeAlexaIntegrationSettings,
   encodeHttpCredentials,
   encodeWiFiConnectionDetails,
   textEncoder
-} from '../encode.utils';
+} from '../model/encode.utils';
 import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {NumberToIpPipe} from '../number-to-ip.pipe';
 import {MatDialog, MatDialogModule} from '@angular/material/dialog';
@@ -42,7 +42,7 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {EditDeviceNameComponentDialog} from './edit-device-name-dialog/edit-device-name-component-dialog.component';
 import {asyncScheduler, firstValueFrom, Subscription, throttleTime} from 'rxjs';
-import {ALEXA_MAX_DEVICE_NAME_LENGTH, AlexaIntegrationMode} from '../alexa-integration-settings.model';
+import {ALEXA_MAX_DEVICE_NAME_LENGTH, AlexaIntegrationMode} from '../model/alexa-integration-settings.model';
 import {MatChipsModule} from '@angular/material/chips';
 import {
   EnterpriseWiFiConnectDialogComponent

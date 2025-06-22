@@ -16,16 +16,16 @@ import {
   WiFiStatus
 } from './wifi.model';
 import {ALEXA_MAX_DEVICE_NAME_LENGTH, AlexaIntegrationSettings} from './alexa-integration-settings.model';
-import {HttpCredentials} from './http-credentials.model';
+import {HttpCredentials} from '../http-credentials.model';
 import {
   WebSocketBleStatusMessage,
   WebSocketColorMessage,
-  WebSocketMessageType,
   WebSocketDeviceNameMessage,
-  WebSocketOtaProgressMessage,
-  WebSocketHeapInfoMessage
-} from './websocket.message';
-import {LightState} from '../app/light.model';
+  WebSocketHeapInfoMessage,
+  WebSocketMessageType,
+  WebSocketOtaProgressMessage
+} from './websocket-message.model';
+import {LightState} from './light.model';
 
 export const textDecoder = new TextDecoder('utf-8');
 
