@@ -346,7 +346,7 @@ private:
     {
         ESP_LOGI(LOG_TAG, "Received %s command: on=%d, brightness=%u", name, isOn, brightness);
         output.setOn(isOn, color);
-        output.setValue(brightness, color);
+        output.setValue(brightness + 1, color);
     }
 
     void updateRgbwDevice() const
@@ -386,9 +386,12 @@ private:
     void updateDevice(AsyncEspAlexaDimmableDevice* device, const Color color) const
     {
         if (!device) return;
-        const auto w = output.getValue(color);
+        const auto brightness = std::clamp(output.getValue(color),
+                                           AsyncEspAlexaColorUtils::ALEXA_MIN_BRI_VAL,
+                                           AsyncEspAlexaColorUtils::ALEXA_MAX_BRI_VAL);
+
         const auto on = output.isOn(color);
         device->setOn(on);
-        device->setBrightness(w);
+        device->setBrightness(brightness);
     }
 };
