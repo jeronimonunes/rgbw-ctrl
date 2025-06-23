@@ -11,53 +11,192 @@ ESP32 RGBW LED controller with web-based configuration and Alexa support. The fi
 | [/app](app) | Angular setup app |
 | [/doc](doc) | Additional documentation |
 
-## BOOT button behaviour
+## BOOT Button Behavior
+The BOOT button on the board has multiple context-sensitive behaviors:
 
-- **Short press (<2.5&nbsp;s):** toggle light output.
-- **Long press (>2.5&nbsp;s):** enable Bluetooth or reset its timer.
-- **Hold BOOT while pressing RESET:** enter UART flashing mode.
+Short Press (< 2.5s)
+🟢 Toggles the board's lights on or off, depending on the current state.
 
-Bluetooth advertising stops automatically after 15&nbsp;s if unused.
+Long Press (> 2.5s)
+🔵 Enables Bluetooth, if it’s not already active.
+🔄 If Bluetooth is already on, it simply resets its 15s auto-shutdown timer.
 
-## Board LED status
+⏱️ Bluetooth automatically disables after 15 seconds if no connection is established.
 
-| State | Color | Behavior | Description |
-| --- | --- | --- | --- |
-| OTA update running | Purple | Fading | Firmware or filesystem upload in progress |
-| BLE client connected | Yellow | Steady | Active BLE connection |
-| BLE advertising | Blue | Fading | Waiting for a BLE connection |
-| Wi‑Fi scan running | Yellow | Fading | Searching for networks |
-| Wi‑Fi connected | Green | Steady | Connected to a Wi‑Fi network |
-| Wi‑Fi disconnected | Red | Steady | No Wi‑Fi connection |
+Firmware Update Mode
+🛠️ To enter UART firmware update mode:
 
-## WebSocket messages
+Hold the BOOT button,
 
-| Type | Description |
-| --- | --- |
-| `ON_COLOR` | Update RGBA values |
-| `ON_BLE_STATUS` | Toggle Bluetooth |
-| `ON_DEVICE_NAME` | Set the device name |
-| `ON_HTTP_CREDENTIALS` | Update HTTP basic auth |
-| `ON_WIFI_STATUS` | Connect to Wi‑Fi |
-| `ON_WIFI_SCAN_STATUS` | Trigger Wi‑Fi scan |
-| `ON_WIFI_DETAILS` | Reserved |
-| `ON_OTA_PROGRESS` | Reserved |
-| `ON_ALEXA_INTEGRATION_SETTINGS` | Update Alexa options |
+Then press RESET.
+
+## Board LED Status Indicator
+
+The `BoardLED` class provides a simple, visual representation of system status using the onboard RGB LED. It conveys Bluetooth, Wi-Fi, and OTA update states using colors and effects (steady or fading).
+
+### Features
+
+* ✨ **Smooth fade blinking** for advertising and scanning states
+* 🟢 **Static colors** for stable statuses
+* 🎯 **Priority handling** to ensure the most critical state is always shown
+
+### Color Codes & Behavior
+
+| State                   | Color      | Behavior | Description                             |
+| ----------------------- | ---------  | -------- | --------------------------------------- |
+| 🔄 OTA update running   | 🟣 Purple | Fading   | Indicates firmware update in progress   |
+| 🤝 BLE client connected | 🟡 Yellow | Steady   | Device is actively connected via BLE    |
+| 📡 BLE advertising      | 🔵 Blue   | Fading   | BLE is active, waiting for a connection |
+| 📶 Wi-Fi scan running   | 🟡 Yellow | Fading   | Scanning for available Wi-Fi networks   |
+| 🌐 Wi-Fi connected      | 🟢 Green  | Steady   | Device is connected to a Wi-Fi network  |
+| ❌ Wi-Fi disconnected   | 🔴 Red    | Steady   | No Wi-Fi connection available           |
+
+## WebSocket Features
+
+This firmware includes a WebSocket handler that supports real-time, bidirectional communication between the device and the front-end interface.
+
+### 🔌 Supported WebSocket Message Types
+
+| Type                            | Description                                 |
+|-------------------------------- |---------------------------------------------|
+| `ON_COLOR`                      | Update the LED RGBA values                  |
+| `ON_BLE_STATUS`                 | Toggle Bluetooth ON/OFF                     |
+| `ON_DEVICE_NAME`                | Set the device name                         |
+| `ON_HTTP_CREDENTIALS`           | Update HTTP basic auth credentials          |
+| `ON_WIFI_STATUS`                | Connect to a Wi-Fi network                  |
+| `ON_WIFI_SCAN_STATUS`           | Trigger a Wi-Fi scan                        |
+| `ON_WIFI_DETAILS`               | Reserved for future                         |
+| `ON_OTA_PROGRESS`               | Reserved for future                         |
+| `ON_ALEXA_INTEGRATION_SETTINGS` | Update Alexa integration preferences        |
+
+Messages are binary-encoded and processed asynchronously to prevent blocking the main execution loop. RGBW sliders and Bluetooth control UI are bound directly to these messages via a browser-based WebSocket connection.
 
 ## REST API
 
-* `GET /rest/state` – full device state
-* `GET /rest/system/restart` – reboot device
-* `GET /rest/system/reset` – factory reset
-* `GET /rest/bluetooth?state=on|off` – enable/disable BLE
+The device exposes a RESTful interface for status retrieval and control.
 
-All endpoints use Basic Authentication. See [doc/ASYNC_CALL.md](doc/ASYNC_CALL.md) and related documents for implementation details.
+### 📍 Available Endpoints
 
-## OTA update
+#### `GET /rest/state`
+Returns a JSON document with full system state:
 
-Uploads are performed via `POST /update`. Pass `name=filesystem` to update the web UI instead of the firmware. Optional `md5` ensures file integrity. Detailed behaviour is documented in [doc/OTA.md](doc/OTA.md).
+```json
+{
+  "deviceName": "rgbw-ctrl-of-you",
+  "firmwareVersion": "1.0.0",
+  "heap": 117380,
+  "wifi": {
+    "details": {
+      "ssid": "my-wifi",
+      "mac": "00:00:00:00:00:00",
+      "ip": "192.168.0.2",
+      "gateway": "192.168.0.1",
+      "subnet": "255.255.255.0",
+      "dns": "1.1.1.1"
+    },
+    "status": "CONNECTED"
+  },
+  "alexa": {
+    "mode": "rgbw_device",
+    "names": [
+      "led strip"
+    ]
+  },
+  "output": [
+    { "state": "off", "value": 255 },
+    { "state": "off", "value": 255 },
+    { "state": "off", "value": 255 },
+    { "state": "off", "value": 255 }
+  ],
+  "ble": {
+    "status": "OFF"
+  },
+  "ota": {
+    "state": "Idle"
+  }
+}
+```
 
-## Building & flashing
+#### `GET /rest/system/restart`
+Restarts the device after sending a response.
+
+#### `GET /rest/system/reset`
+Performs a factory reset (clears NVS), stops BLE, and restarts.
+
+#### `GET /rest/bluetooth?state=on|off`
+Enables or disables Bluetooth based on the query parameter.
+
+- `state=on` → enables BLE
+- `state=off` → disables BLE and restarts
+
+---
+
+### 🔒 Authentication
+
+REST endpoints use the same authentication as the web server and OTA.
+
+## OTA Update via Web Server
+
+This project includes support for OTA (Over-the-Air) firmware and filesystem updates via HTTP POST requests.
+
+### 📡 Supported Upload Targets
+
+* **Firmware**
+* **Filesystem** (works only with LittleFS partitions)
+
+---
+
+### 🔒 Authentication
+
+OTA endpoints are protected using Basic Authentication. Unauthorized requests receive `401 Unauthorized`.
+
+---
+
+### 🔧 Endpoints
+
+#### `POST /update`
+
+Uploads a new firmware or filesystem image.
+
+##### Parameters
+
+| Parameter | Type   | Required  | Description                          |
+| --------- | ------ | --------- | ------------------------------------ |
+| `name`    | string | ❌ No     | `filesystem` (default is firmware)   |
+| `md5`     | string | ❌ No     | 32-char hex string to validate file  |
+
+##### Example
+
+**Upload firmware:**
+
+Example (firmware):
+
+```bash
+curl -u user:pass -F "file=@firmware.bin" http://<device-ip>/update
+```
+
+Example (filesystem):
+
+```bash
+curl -u user:pass -F "name=filesystem" -F "file=@littlefs.bin" http://<device-ip>/update
+```
+
+Example with MD5:
+
+```bash
+curl -u user:pass -F "file=@firmware.bin" "http://<device-ip>/update?md5=d41d8cd98f00b204e9800998ecf8427e"
+```
+
+---
+
+### 🔁 Auto-Restart
+
+After a successful OTA update, the device automatically restarts.
+No state is lost, and the new firmware or filesystem is immediately active.
+More details available in the [OtaHandler documentation](doc/OTA.md).
+
+
+## ⚙️ Building & flashing
 
 1. Build the filesystem assets:
    ```bash
