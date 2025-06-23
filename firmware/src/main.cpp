@@ -65,6 +65,7 @@ void setup()
     boardButton.setShortPressCallback([]()
     {
         output.toggleAll();
+        alexaIntegration.updateDevices();
     });
 
     LittleFS.begin(true);

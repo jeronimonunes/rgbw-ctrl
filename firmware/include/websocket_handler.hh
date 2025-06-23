@@ -198,6 +198,7 @@ private:
         if (len < sizeof(ColorMessage)) return;
         const auto* message = reinterpret_cast<const ColorMessage*>(data);
         output.setState(message->state);
+        alexaIntegration.updateDevices();
     }
 
     void handleHttpCredentialsMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const

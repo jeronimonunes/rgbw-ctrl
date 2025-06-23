@@ -117,6 +117,25 @@ public:
         savePreferences();
     }
 
+    void updateDevices() const
+    {
+        switch (settings.integrationMode)
+        {
+        case AlexaIntegrationMode::OFF:
+            break;
+        case AlexaIntegrationMode::RGBW_DEVICE:
+            updateRgbwDevice();
+            break;
+        case AlexaIntegrationMode::RGB_DEVICE:
+            updateRgbDevice();
+            updateStandaloneDevice();
+            break;
+        case AlexaIntegrationMode::MULTI_DEVICE:
+            updateMultiDevices();
+            break;
+        }
+    }
+
 private:
     void loadPreferences()
     {
@@ -328,5 +347,48 @@ private:
         ESP_LOGI(LOG_TAG, "Received %s command: on=%d, brightness=%u", name, isOn, brightness);
         output.setOn(isOn, color);
         output.setValue(brightness, color);
+    }
+
+    void updateRgbwDevice() const
+    {
+        if (!devices.rgbw.device) return;
+        const auto [r, g, b, w] = output.getValues();
+        const auto [h, s, v] = AsyncEspAlexaColorUtils::rgbwToHsv(r, g, b, w);
+        devices.rgbw.device->setOn(output.anyOn());
+        devices.rgbw.device->setColor(h, s);
+        devices.rgbw.device->setBrightness(v);
+    }
+
+    void updateRgbDevice() const
+    {
+        if (!devices.rgb.rgbDevice) return;
+        const auto [r, g, b, _] = output.getValues();
+        const auto [h, s, v] = AsyncEspAlexaColorUtils::rgbToHsv(r, g, b);
+        const auto on = output.isOn(Color::Red) || output.isOn(Color::Green) || output.isOn(Color::Blue);
+        devices.rgb.rgbDevice->setOn(on);
+        devices.rgb.rgbDevice->setColor(h, s);
+        devices.rgb.rgbDevice->setBrightness(v);
+    }
+
+    void updateStandaloneDevice() const
+    {
+        updateDevice(devices.rgb.standaloneDevice, Color::White);
+    }
+
+    void updateMultiDevices() const
+    {
+        updateDevice(devices.multi.devices[0], Color::Red);
+        updateDevice(devices.multi.devices[1], Color::Green);
+        updateDevice(devices.multi.devices[2], Color::Blue);
+        updateDevice(devices.multi.devices[3], Color::White);
+    }
+
+    void updateDevice(AsyncEspAlexaDimmableDevice* device, const Color color) const
+    {
+        if (!device) return;
+        const auto w = output.getValue(color);
+        const auto on = output.isOn(color);
+        device->setOn(on);
+        device->setBrightness(w);
     }
 };

@@ -533,6 +533,7 @@ private:
             }
             memcpy(&state, pCharacteristic->getValue().data(), size);
             net->output.setState(state);
+            net->alexaIntegration.updateDevices();
         }
 
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
