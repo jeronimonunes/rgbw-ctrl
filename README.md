@@ -151,22 +151,31 @@ Uploads a new firmware or filesystem image.
 
 ##### Parameters
 
-| Parameter | Type   | Required | Description                          |
-| --------- | ------ | -------- | ------------------------------------ |
-| `name`    | string | Optional | `firmware` (default) or `filesystem` |
+| Parameter | Type   | Required  | Description                          |
+| --------- | ------ | --------- | ------------------------------------ |
+| `name`    | string | ❌ No     | `filesystem` (default is firmware)   |
+| `md5`     | string | ❌ No     | 32-char hex string to validate file  |
 
 ##### Example
 
 **Upload firmware:**
 
+Example (firmware):
+
 ```bash
 curl -u user:pass -F "file=@firmware.bin" http://<device-ip>/update
 ```
 
-**Upload filesystem (LittleFS):**
+Example (filesystem):
 
 ```bash
 curl -u user:pass -F "name=filesystem" -F "file=@littlefs.bin" http://<device-ip>/update
+```
+
+Example with MD5:
+
+```bash
+curl -u user:pass -F "file=@firmware.bin" "http://<device-ip>/update?md5=d41d8cd98f00b204e9800998ecf8427e"
 ```
 
 ---
@@ -184,23 +193,13 @@ The web interface and firmware are bundled and compressed into deployable assets
 1. **Build firmware frontend**
 
 ```bash
-npm run build:firmware
+cd filesystem
+npm run build
 ```
 
-2. **Run compression and integration**
-
-A Node.js script called `filesystem.build.mjs` performs the following:
-
-- Calls `npm run build:firmware` inside the `../app` folder
-- Compresses all frontend output files (excluding `.ts`/`.tsx`) from `../app/src/device-home`
-- Also compresses `index.js` and `index.js.map` from `./data`
-- Outputs everything as `.gz` in the `./data` folder
-
-```bash
-node filesystem.build.mjs
-```
-
-This ensures that all assets are ready to be served directly from the ESP32's LittleFS partition.
+This will build the device home page and OTA update interface into the `firmware/data` directory.
+After building, you can use platformio tooling to compile the firmware and filesystem and use the
+OTA functionality or UART to upload the new code.
 
 ## License
 
