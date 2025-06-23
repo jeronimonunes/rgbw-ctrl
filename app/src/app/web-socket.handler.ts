@@ -9,6 +9,7 @@ import {
   encodeOtaProgressMessage,
   encodeWiFiConnectionDetailsMessage,
   encodeWiFiScanStatusMessage,
+  LightState,
   WebSocketMessageType,
   WiFiConnectionDetails
 } from "./model";
@@ -72,10 +73,8 @@ function handleMessage(message: ArrayBuffer) {
   }
 }
 
-export function sendColorMessage(r: number, g: number, b: number, w: number): void {
-  const message = encodeColorMessage([
-    {on: r > 0, value: r}, {on: g > 0, value: g}, {on: b > 0, value: b}, {on: w > 0, value: w}
-  ]);
+export function sendColorMessage(state: [LightState, LightState, LightState, LightState]): void {
+  const message = encodeColorMessage(state);
   send(message);
 }
 

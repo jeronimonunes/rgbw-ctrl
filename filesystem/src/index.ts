@@ -12,6 +12,7 @@ import {
     decodeWebSocketOnBleStatusMessage,
     decodeWebSocketOnColorMessage,
     decodeWebSocketOnOtaProgressMessage,
+    LightState,
     otaStatusToString,
     WebSocketMessageType
 } from "../../app/src/app/model"
@@ -51,10 +52,8 @@ switches.forEach((switchEl, index) => {
         if (on && value === 0) {
             slider.value = "255";
             slider.dispatchEvent(new Event('input'));
-        }
-        if (!on && value > 0) {
-            slider.value = "0";
-            slider.dispatchEvent(new Event('input'));
+        } else {
+            sendColorMessage(getOutputState());
         }
     });
 });
@@ -63,13 +62,14 @@ from(sliders).pipe(
     mergeMap(slider => fromEvent(slider, 'input')),
     tap(event => {
         const slider = event.target as HTMLInputElement;
-        const label = slider.parentElement!;
-        const color = getComputedStyle(label!).getPropertyValue('--color').trim();
-        updateSliderVisual(slider, color);
+        const switchEl = switches[sliders.indexOf(slider)];
+        const value = updateSliderVisual(slider);
+        if (value > 0) {
+            switchEl.checked = true;
+        }
     }),
     throttleTime(200, undefined, {leading: true, trailing: true}),
-    map(() => getColorValues()),
-).subscribe(values => sendColorMessage(...values));
+).subscribe(() => sendColorMessage(getOutputState()));
 
 webSocketHandlers.set(WebSocketMessageType.ON_BLE_STATUS, (message: ArrayBuffer) => {
     const {status} = decodeWebSocketOnBleStatusMessage(message);
@@ -107,8 +107,19 @@ webSocketHandlers.set(WebSocketMessageType.ON_HEAP, (message: ArrayBuffer) => {
     updateText("heap", `${freeHeap}`);
 });
 
-function getColorValues(): [number, number, number, number] {
-    return sliders.map(s => parseInt(s.value, 10)) as [number, number, number, number];
+function getOutputState(): [LightState, LightState, LightState, LightState] {
+    const states: LightState[] = [];
+    for (let i = 0; i < sliders.length; i++) {
+        const slider = sliders[i];
+        const switchEl = switches[i];
+        const value = parseInt(slider.value, 10);
+        const on = switchEl.checked;
+        states.push({
+            on: on,
+            value: value,
+        });
+    }
+    return states as [LightState, LightState, LightState, LightState];
 }
 
 function updateText(id: string, value: string): void {
@@ -128,13 +139,16 @@ function updateBluetoothButton(status: BleStatus): void {
     bluetoothButton.disabled = false;
 }
 
-function updateSliderVisual(slider: HTMLInputElement, color: string) {
+function updateSliderVisual(slider: HTMLInputElement) {
+    const label = slider.parentElement!;
+    const color = getComputedStyle(label!).getPropertyValue('--color').trim();
     const [_, r, g, b] = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/)!;
     const value = parseInt(slider.value, 10);
     const percentage = Math.round((value / 255) * 100);
     slider.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percentage}%, rgba(${r}, ${g}, ${b}, 0.3) ${percentage}%, rgba(${r}, ${g}, ${b}, 0.3) 100%)`;
     const labelSpan = slider.parentElement?.querySelector("span");
     if (labelSpan) labelSpan.textContent = `${percentage}%`;
+    return value;
 }
 
 async function loadDeviceState(): Promise<void> {
