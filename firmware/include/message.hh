@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 enum class MessageType : uint8_t
 {
     ON_COLOR,
@@ -46,19 +48,19 @@ struct BleStatusMessage : Message
 
 struct DeviceNameMessage : Message
 {
-    char deviceName[DEVICE_NAME_TOTAL_LENGTH] = {};
+    std::array<char, DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
 
     explicit DeviceNameMessage(const std::array<char, DEVICE_NAME_TOTAL_LENGTH>& deviceName)
         : Message(MessageType::ON_DEVICE_NAME)
     {
-        std::strncpy(this->deviceName, deviceName.data(), DEVICE_NAME_MAX_LENGTH);
+        std::strncpy(this->deviceName.data(), deviceName.data(), DEVICE_NAME_MAX_LENGTH);
         this->deviceName[DEVICE_NAME_MAX_LENGTH] = '\0';
     }
 
     explicit DeviceNameMessage(const char* deviceName)
         : Message(MessageType::ON_DEVICE_NAME)
     {
-        std::strncpy(this->deviceName, deviceName, DEVICE_NAME_MAX_LENGTH);
+        std::strncpy(this->deviceName.data(), deviceName, DEVICE_NAME_MAX_LENGTH);
         this->deviceName[DEVICE_NAME_MAX_LENGTH] = '\0';
     }
 };

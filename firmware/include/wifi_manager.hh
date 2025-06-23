@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <WiFi.h>
 #include <esp_wpa2.h>
 #include <Preferences.h>
@@ -32,7 +33,7 @@ class WiFiManager
     std::function<void(char*)> deviceNameChanged;
     std::function<void()> gotIpChanged;
 
-    char deviceName[DEVICE_NAME_TOTAL_LENGTH] = {};
+    std::array<char, DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
 
 public:
     void begin()
@@ -144,7 +145,7 @@ public:
 
     [[nodiscard]] WiFiScanResult getScanResult() const
     {
-        std::lock_guard<std::mutex> lock(getWiFiScanResultMutex());
+        std::lock_guard lock(getWiFiScanResultMutex());
         return scanResult;
     }
 
@@ -180,25 +181,25 @@ public:
 
     const char* getDeviceName()
     {
-        std::lock_guard<std::mutex> lock(getDeviceNameMutex());
+        std::lock_guard lock(getDeviceNameMutex());
         if (deviceName[0] == '\0')
         {
-            loadDeviceName(deviceName);
+            loadDeviceName(deviceName.data());
         }
-        return deviceName;
+        return deviceName.data();
     }
 
     void setDeviceName(const char* name)
     {
         if (!name || name[0] == '\0') return;
 
-        std::lock_guard<std::mutex> lock(getDeviceNameMutex());
+        std::lock_guard lock(getDeviceNameMutex());
 
         char safeName[DEVICE_NAME_TOTAL_LENGTH];
         std::strncpy(safeName, name, DEVICE_NAME_MAX_LENGTH);
         safeName[DEVICE_NAME_MAX_LENGTH] = '\0';
 
-        if (std::strncmp(deviceName, safeName, DEVICE_NAME_MAX_LENGTH) == 0)
+        if (std::strncmp(deviceName.data(), safeName, DEVICE_NAME_MAX_LENGTH) == 0)
             return;
 
         Preferences prefs;
@@ -236,17 +237,17 @@ public:
         }
         if (isEap(config.encryptionType))
         {
-            prefs.getBytes("identity", config.credentials.eap.identity, WIFI_MAX_EAP_IDENTITY + 1);
-            prefs.getBytes("username", config.credentials.eap.username, WIFI_MAX_EAP_USERNAME + 1);
-            prefs.getBytes("eapPassword", config.credentials.eap.password, WIFI_MAX_EAP_PASSWORD + 1);
+            prefs.getBytes("identity", config.credentials.eap.identity.data(), WIFI_MAX_EAP_IDENTITY + 1);
+            prefs.getBytes("username", config.credentials.eap.username.data(), WIFI_MAX_EAP_USERNAME + 1);
+            prefs.getBytes("eapPassword", config.credentials.eap.password.data(), WIFI_MAX_EAP_PASSWORD + 1);
             config.credentials.eap.phase2Type = static_cast<WiFiPhaseTwoType>(prefs.getUChar(
                 "phase2Type", static_cast<uint8_t>(WiFiPhaseTwoType::ESP_EAP_TTLS_PHASE2_EAP)));
-            prefs.getBytes("ssid", config.ssid, WIFI_MAX_SSID_LENGTH + 1);
+            prefs.getBytes("ssid", config.ssid.data(), WIFI_MAX_SSID_LENGTH + 1);
         }
         else
         {
-            prefs.getBytes("ssid", config.ssid, WIFI_MAX_SSID_LENGTH + 1);
-            prefs.getBytes("password", config.credentials.simple.password, WIFI_MAX_PASSWORD_LENGTH + 1);
+            prefs.getBytes("ssid", config.ssid.data(), WIFI_MAX_SSID_LENGTH + 1);
+            prefs.getBytes("password", config.credentials.simple.password.data(), WIFI_MAX_PASSWORD_LENGTH + 1);
         }
         prefs.end();
         return config;
@@ -302,9 +303,9 @@ public:
         WiFi.disconnect(true);
 
         if (isEap(details))
-            connect(details.ssid, details.credentials.eap);
+            connect(details.ssid.data(), details.credentials.eap);
         else
-            connect(details.ssid, details.credentials.simple);
+            connect(details.ssid.data(), details.credentials.simple);
     }
 
 private:
@@ -315,17 +316,17 @@ private:
         prefs.putUChar("encryptionType", static_cast<uint8_t>(details.encryptionType));
         if (isEap(details))
         {
-            prefs.putBytes("identity", details.credentials.eap.identity, WIFI_MAX_EAP_IDENTITY + 1);
-            prefs.putBytes("username", details.credentials.eap.username, WIFI_MAX_EAP_USERNAME + 1);
-            prefs.putBytes("eapPassword", details.credentials.eap.password, WIFI_MAX_EAP_PASSWORD + 1);
+            prefs.putBytes("identity", details.credentials.eap.identity.data(), WIFI_MAX_EAP_IDENTITY + 1);
+            prefs.putBytes("username", details.credentials.eap.username.data(), WIFI_MAX_EAP_USERNAME + 1);
+            prefs.putBytes("eapPassword", details.credentials.eap.password.data(), WIFI_MAX_EAP_PASSWORD + 1);
             prefs.putUChar("phase2Type", static_cast<uint8_t>(details.credentials.eap.phase2Type));
-            prefs.putBytes("ssid", details.ssid, WIFI_MAX_SSID_LENGTH + 1);
+            prefs.putBytes("ssid", details.ssid.data(), WIFI_MAX_SSID_LENGTH + 1);
             prefs.remove("password");
         }
         else
         {
-            prefs.putBytes("ssid", details.ssid, WIFI_MAX_SSID_LENGTH + 1);
-            prefs.putBytes("password", details.credentials.simple.password, WIFI_MAX_PASSWORD_LENGTH + 1);
+            prefs.putBytes("ssid", details.ssid.data(), WIFI_MAX_SSID_LENGTH + 1);
+            prefs.putBytes("password", details.credentials.simple.password.data(), WIFI_MAX_PASSWORD_LENGTH + 1);
             prefs.remove("identity");
             prefs.remove("username");
             prefs.remove("eapPassword");
@@ -366,7 +367,7 @@ private:
 
     void setScanResult(const WiFiScanResult& r)
     {
-        std::lock_guard<std::mutex> lock(getWiFiScanResultMutex());
+        std::lock_guard lock(getWiFiScanResultMutex());
         if (r != scanResult)
         {
             scanResult = r;
@@ -392,18 +393,18 @@ private:
     static void connect(const char* ssid, const WiFiConnectionDetails::SimpleWiFiConnectionCredentials& details)
     {
         esp_wifi_sta_wpa2_ent_disable();
-        WiFi.begin(ssid, details.password[0] == '\0' ? nullptr : details.password);
+        WiFi.begin(ssid, details.password[0] == '\0' ? nullptr : details.password.data());
     }
 
     static void connect(const char* ssid, const WiFiConnectionDetails::EAPWiFiConnectionCredentials& details)
     {
         esp_wifi_sta_wpa2_ent_enable();
-        esp_wifi_sta_wpa2_ent_set_identity(reinterpret_cast<const unsigned char*>(details.identity),
-                                           static_cast<int>(strlen(details.identity)));
-        esp_wifi_sta_wpa2_ent_set_username(reinterpret_cast<const unsigned char*>(details.username),
-                                           static_cast<int>(strlen(details.username)));
-        esp_wifi_sta_wpa2_ent_set_password(reinterpret_cast<const unsigned char*>(details.password),
-                                           static_cast<int>(strlen(details.password)));
+        esp_wifi_sta_wpa2_ent_set_identity(reinterpret_cast<const unsigned char*>(details.identity.data()),
+                                           static_cast<int>(strlen(details.identity.data())));
+        esp_wifi_sta_wpa2_ent_set_username(reinterpret_cast<const unsigned char*>(details.username.data()),
+                                           static_cast<int>(strlen(details.username.data())));
+        esp_wifi_sta_wpa2_ent_set_password(reinterpret_cast<const unsigned char*>(details.password.data()),
+                                           static_cast<int>(strlen(details.password.data())));
         esp_wifi_sta_wpa2_ent_set_ttls_phase2_method(static_cast<esp_eap_ttls_phase2_types>(details.phase2Type));
         WiFi.begin(ssid);
     }
@@ -454,7 +455,7 @@ private:
                     if (result.contains(ssid))
                         continue; // Skip duplicates
 
-                    strncpy(result.networks[result.resultCount].ssid, ssid.c_str(), WIFI_MAX_SSID_LENGTH);
+                    strncpy(result.networks[result.resultCount].ssid.data(), ssid.c_str(), WIFI_MAX_SSID_LENGTH);
                     result.networks[result.resultCount].ssid[WIFI_MAX_SSID_LENGTH] = '\0';
                     result.networks[result.resultCount].encryptionType =
                         static_cast<WiFiEncryptionType>(WiFi.encryptionType(i));

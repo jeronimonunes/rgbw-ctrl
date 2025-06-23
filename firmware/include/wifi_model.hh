@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <WiFi.h>
 #include <cstring>
 
@@ -65,11 +66,11 @@ enum class WiFiPhaseTwoType : uint8_t
 struct WiFiNetwork
 {
     WiFiEncryptionType encryptionType = WiFiEncryptionType::INVALID;
-    char ssid[WIFI_MAX_SSID_LENGTH + 1] = {};
+    std::array<char, WIFI_MAX_SSID_LENGTH + 1> ssid = {};
 
     bool operator !=(const WiFiNetwork& other) const
     {
-        return encryptionType != other.encryptionType || std::strcmp(ssid, other.ssid) != 0;
+        return encryptionType != other.encryptionType || ssid != other.ssid;
     }
 
     bool operator ==(const WiFiNetwork& other) const
@@ -103,7 +104,7 @@ struct WiFiScanResult
         {
             if (networks[i].ssid[0] == '\0')
                 continue;
-            if (String(networks[i].ssid) == ssid)
+            if (String(networks[i].ssid.data()) == ssid)
                 return true;
         }
         return false;
@@ -112,7 +113,7 @@ struct WiFiScanResult
 
 struct WiFiDetails
 {
-    char ssid[WIFI_MAX_SSID_LENGTH + 1];
+    std::array<char, WIFI_MAX_SSID_LENGTH + 1> ssid = {};
     uint8_t mac[6];
     uint32_t ip;
     uint32_t gateway;
@@ -123,8 +124,8 @@ struct WiFiDetails
     {
         WiFiDetails details = {};
         WiFi.mode(WIFI_STA); // NOLINT
-        std::memset(details.ssid, 0, sizeof(details.ssid));
-        strncpy(details.ssid, WiFi.SSID().c_str(), WIFI_MAX_SSID_LENGTH);
+        std::memset(details.ssid.data(), 0, sizeof(details.ssid));
+        strncpy(details.ssid.data(), WiFi.SSID().c_str(), WIFI_MAX_SSID_LENGTH);
         details.ssid[WIFI_MAX_SSID_LENGTH] = '\0';
         WiFi.macAddress(details.mac);
         details.ip = static_cast<uint32_t>(WiFi.localIP());
@@ -134,7 +135,7 @@ struct WiFiDetails
         return details;
     }
 
-    static void toJson(JsonObject to)
+    static void toJson(const JsonObject& to)
     {
         to["ssid"] = WiFi.SSID();
         to["mac"] = WiFi.macAddress();
@@ -149,14 +150,14 @@ struct WiFiConnectionDetails
 {
     struct SimpleWiFiConnectionCredentials
     {
-        char password[WIFI_MAX_PASSWORD_LENGTH + 1];
+        std::array<char, WIFI_MAX_PASSWORD_LENGTH + 1> password;
     };
 
     struct EAPWiFiConnectionCredentials
     {
-        char password[WIFI_MAX_EAP_PASSWORD + 1];
-        char identity[WIFI_MAX_EAP_IDENTITY + 1];
-        char username[WIFI_MAX_EAP_USERNAME + 1];
+        std::array<char, WIFI_MAX_EAP_PASSWORD + 1> password = {};
+        std::array<char, WIFI_MAX_EAP_IDENTITY + 1> identity;
+        std::array<char, WIFI_MAX_EAP_USERNAME + 1> username = {};
         WiFiPhaseTwoType phase2Type;
     };
 
@@ -167,7 +168,7 @@ struct WiFiConnectionDetails
     };
 
     WiFiEncryptionType encryptionType = WiFiEncryptionType::INVALID;
-    char ssid[WIFI_MAX_SSID_LENGTH + 1] = {};
+    std::array<char, WIFI_MAX_SSID_LENGTH + 1> ssid = {};
     WiFiConnectionDetailsCredentials credentials = {};
 };
 

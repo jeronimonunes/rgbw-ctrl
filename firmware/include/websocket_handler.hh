@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include "message.hh"
 #include "ble_manager.hh"
 #include "throttled_value.hh"
@@ -40,11 +41,11 @@ public:
         alexaIntegration(alexaIntegration),
         bleManager(bleManager)
     {
-        ws.onEvent([this](AsyncWebSocket* server, AsyncWebSocketClient* client,
+        ws.onEvent([this](AsyncWebSocket*, AsyncWebSocketClient* client,
                           const AwsEventType type, void* arg, const uint8_t* data,
                           const size_t len)
         {
-            this->handleWebSocketEvent(server, client, type, arg, data, len);
+            this->handleWebSocketEvent(client, type, arg, data, len);
         });
     }
 
@@ -60,7 +61,7 @@ public:
     }
 
 private:
-    void handleWebSocketEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
+    void handleWebSocketEvent(AsyncWebSocketClient* client,
                               const AwsEventType type, void* arg, const uint8_t* data,
                               const size_t len)
     {
@@ -80,7 +81,7 @@ private:
             ESP_LOGE(LOG_TAG, "WebSocket error: %s", client->remoteIP().toString().c_str());
             break;
         case WS_EVT_DATA:
-            this->handleWebSocketMessage(server, client, arg, data, len);
+            this->handleWebSocketMessage(client, arg, data, len);
             break;
         default:
             break;
@@ -88,7 +89,6 @@ private:
     }
 
     void handleWebSocketMessage(
-        AsyncWebSocket* server,
         AsyncWebSocketClient* client,
         void* arg,
         const uint8_t* data,
@@ -134,12 +134,11 @@ private:
         const auto messageType = static_cast<MessageType>(messageTypeRaw);
         ESP_LOGD(LOG_TAG, "Received WebSocket message of type %d", static_cast<int>(messageType));
 
-        this->handleWebSocketMessage(messageType, server, client, data, len);
+        this->handleWebSocketMessage(messageType, client, data, len);
     }
 
     void handleWebSocketMessage(
         const MessageType messageType,
-        AsyncWebSocket* server,
         AsyncWebSocketClient* client,
         const uint8_t* data,
         const size_t len
@@ -148,19 +147,19 @@ private:
         switch (messageType)
         {
         case MessageType::ON_COLOR:
-            handleColorMessage(client, data, len);
+            handleColorMessage(data, len);
             break;
 
         case MessageType::ON_HTTP_CREDENTIALS:
-            handleHttpCredentialsMessage(client, data, len);
+            handleHttpCredentialsMessage(data, len);
             break;
 
         case MessageType::ON_DEVICE_NAME:
-            handleDeviceNameMessage(client, data, len);
+            handleDeviceNameMessage(data, len);
             break;
 
         case MessageType::ON_HEAP:
-            handleHeapMessage(client);
+            handleHeapMessage();
             break;
 
         case MessageType::ON_BLE_STATUS:
@@ -168,23 +167,23 @@ private:
             break;
 
         case MessageType::ON_WIFI_STATUS:
-            handleWiFiStatusMessage(client, data, len);
+            handleWiFiStatusMessage(data, len);
             break;
 
         case MessageType::ON_WIFI_SCAN_STATUS:
-            handleWiFiScanStatusMessage(client);
+            handleWiFiScanStatusMessage();
             break;
 
         case MessageType::ON_WIFI_DETAILS:
-            handleWiFiDetailsMessage(client, data, len);
+            handleWiFiDetailsMessage();
             break;
 
         case MessageType::ON_OTA_PROGRESS:
-            handleOtaProgressMessage(client, data, len);
+            handleOtaProgressMessage();
             break;
 
         case MessageType::ON_ALEXA_INTEGRATION_SETTINGS:
-            handleAlexaIntegrationSettingsMessage(client, data, len);
+            handleAlexaIntegrationSettingsMessage(data, len);
             break;
 
         default:
@@ -193,7 +192,7 @@ private:
         }
     }
 
-    void handleColorMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const
+    void handleColorMessage(const uint8_t* data, const size_t len) const
     {
         if (len < sizeof(ColorMessage)) return;
         const auto* message = reinterpret_cast<const ColorMessage*>(data);
@@ -201,21 +200,21 @@ private:
         alexaIntegration.updateDevices();
     }
 
-    void handleHttpCredentialsMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const
+    void handleHttpCredentialsMessage(const uint8_t* data, const size_t len) const
     {
         if (len < sizeof(HttpCredentialsMessage)) return;
         const auto* message = reinterpret_cast<const HttpCredentialsMessage*>(data);
         webServerHandler.updateCredentials(message->credentials);
     }
 
-    void handleDeviceNameMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const
+    void handleDeviceNameMessage(const uint8_t* data, const size_t len) const
     {
         if (len < sizeof(DeviceNameMessage)) return;
         const auto* message = reinterpret_cast<const DeviceNameMessage*>(data);
-        wifiManager.setDeviceName(message->deviceName);
+        wifiManager.setDeviceName(message->deviceName.data());
     }
 
-    static void handleHeapMessage(AsyncWebSocketClient* client)
+    static void handleHeapMessage()
     {
         ESP_LOGD(LOG_TAG, "Received HEAP message (ignored).");
     }
@@ -229,13 +228,13 @@ private:
         )
         {
         case BleStatus::ADVERTISING:
-            async_call([this]()
+            async_call([this]
             {
                 bleManager.start();
             }, 4096, 0);
             break;
         case BleStatus::OFF:
-            async_call([client,this]()
+            async_call([client,this]
             {
                 client->close();
                 delay(100);
@@ -247,29 +246,29 @@ private:
         }
     }
 
-    void handleWiFiStatusMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const
+    void handleWiFiStatusMessage(const uint8_t* data, const size_t len) const
     {
         if (len < sizeof(WiFiConnectionDetailsMessage)) return;
         const auto* message = reinterpret_cast<const WiFiConnectionDetailsMessage*>(data);
         wifiManager.connect(message->details);
     }
 
-    void handleWiFiScanStatusMessage(AsyncWebSocketClient* client) const
+    void handleWiFiScanStatusMessage() const
     {
         wifiManager.triggerScan();
     }
 
-    static void handleWiFiDetailsMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len)
+    static void handleWiFiDetailsMessage()
     {
         ESP_LOGD(LOG_TAG, "Received WIFI_DETAILS message (ignored).");
     }
 
-    static void handleOtaProgressMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len)
+    static void handleOtaProgressMessage()
     {
         ESP_LOGD(LOG_TAG, "Received OTA_PROGRESS message (ignored).");
     }
 
-    void handleAlexaIntegrationSettingsMessage(AsyncWebSocketClient* client, const uint8_t* data,
+    void handleAlexaIntegrationSettingsMessage(const uint8_t* data,
                                                const size_t len) const
     {
         if (len < sizeof(AlexaIntegrationSettingsMessage)) return;

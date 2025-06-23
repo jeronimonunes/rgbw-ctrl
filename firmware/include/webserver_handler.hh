@@ -1,15 +1,18 @@
 #pragma once
 
+#include <array>
 #include "ESPAsyncWebServer.h"
 
+#pragma pack(push, 1)
 struct HttpCredentials
 {
     static constexpr auto MAX_USERNAME_LENGTH = 32;
     static constexpr auto MAX_PASSWORD_LENGTH = 32;
 
-    char username[MAX_USERNAME_LENGTH + 1] = {};
-    char password[MAX_PASSWORD_LENGTH + 1] = {};
+    std::array<char, MAX_USERNAME_LENGTH + 1> username = {};
+    std::array<char, MAX_PASSWORD_LENGTH + 1> password = {};
 };
+#pragma pack(pop)
 
 class WebServerHandler
 {
@@ -56,8 +59,8 @@ public:
     {
         Preferences prefs;
         prefs.begin(PREFERENCES_NAME, false);
-        prefs.putString(PREFERENCES_USERNAME_KEY, credentials.username);
-        prefs.putString(PREFERENCES_PASSWORD_KEY, credentials.password);
+        prefs.putString(PREFERENCES_USERNAME_KEY, credentials.username.data());
+        prefs.putString(PREFERENCES_PASSWORD_KEY, credentials.password.data());
         prefs.end();
         updateServerCredentials(credentials);
     }
@@ -67,19 +70,19 @@ public:
         HttpCredentials credentials;
         if (Preferences prefs; prefs.begin(PREFERENCES_NAME, true))
         {
-            strncpy(credentials.username, prefs.getString(PREFERENCES_USERNAME_KEY, "admin").c_str(),
+            strncpy(credentials.username.data(), prefs.getString(PREFERENCES_USERNAME_KEY, "admin").c_str(),
                     HttpCredentials::MAX_USERNAME_LENGTH);
-            strncpy(credentials.password, prefs.getString(PREFERENCES_PASSWORD_KEY, "").c_str(),
+            strncpy(credentials.password.data(), prefs.getString(PREFERENCES_PASSWORD_KEY, "").c_str(),
                     HttpCredentials::MAX_PASSWORD_LENGTH);
             prefs.end();
             return credentials;
         }
         Preferences prefs;
         prefs.begin(PREFERENCES_NAME, false);
-        strncpy(credentials.username, "admin", HttpCredentials::MAX_USERNAME_LENGTH);
-        strncpy(credentials.password, generateRandomPassword().c_str(), HttpCredentials::MAX_PASSWORD_LENGTH);
-        prefs.putString(PREFERENCES_USERNAME_KEY, credentials.username);
-        prefs.putString(PREFERENCES_PASSWORD_KEY, credentials.password);
+        strncpy(credentials.username.data(), "admin", HttpCredentials::MAX_USERNAME_LENGTH);
+        strncpy(credentials.password.data(), generateRandomPassword().c_str(), HttpCredentials::MAX_PASSWORD_LENGTH);
+        prefs.putString(PREFERENCES_USERNAME_KEY, credentials.username.data());
+        prefs.putString(PREFERENCES_PASSWORD_KEY, credentials.password.data());
         prefs.end();
         return credentials;
     }
@@ -87,8 +90,8 @@ public:
 private:
     void updateServerCredentials(const HttpCredentials& credentials)
     {
-        authMiddleware.setUsername(credentials.username);
-        authMiddleware.setPassword(credentials.password);
+        authMiddleware.setUsername(credentials.username.data());
+        authMiddleware.setPassword(credentials.password.data());
         authMiddleware.setRealm("rgbw-ctrl");
         authMiddleware.setAuthFailureMessage("Authentication failed");
         authMiddleware.setAuthType(AUTH_BASIC);
