@@ -155,9 +155,9 @@ struct WiFiConnectionDetails
 
     struct EAPWiFiConnectionCredentials
     {
-        std::array<char, WIFI_MAX_EAP_PASSWORD + 1> password = {};
-        std::array<char, WIFI_MAX_EAP_IDENTITY + 1> identity;
+        std::array<char, WIFI_MAX_EAP_IDENTITY + 1> identity = {};
         std::array<char, WIFI_MAX_EAP_USERNAME + 1> username = {};
+        std::array<char, WIFI_MAX_EAP_PASSWORD + 1> password = {};
         WiFiPhaseTwoType phase2Type;
     };
 

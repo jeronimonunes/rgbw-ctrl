@@ -16,7 +16,7 @@ import {
   WiFiStatus
 } from './wifi.model';
 import {ALEXA_MAX_DEVICE_NAME_LENGTH, AlexaIntegrationSettings} from './alexa-integration-settings.model';
-import {HttpCredentials} from '../http-credentials.model';
+import {HttpCredentials, MAX_HTTP_PASSWORD_LENGTH, MAX_HTTP_USERNAME_LENGTH} from '../http-credentials.model';
 import {
   WEB_SOCKET_MESSAGE_TYPE_BYTE_SIZE,
   WebSocketBleStatusMessage,
@@ -126,12 +126,12 @@ function decodeSimpleWiFiConnectionDetails(reader: BufferReader): SimpleWiFiConn
 }
 
 export function decodeEAPWiFiConnectionDetails(reader: BufferReader): EAPWiFiConnectionCredentials {
-  const password = reader.readCString(WIFI_MAX_EAP_PASSWORD_LENGTH + 1);
   const identity = reader.readCString(WIFI_MAX_EAP_IDENTITY_LENGTH + 1);
   const username = reader.readCString(WIFI_MAX_EAP_USERNAME_LENGTH + 1);
+  const password = reader.readCString(WIFI_MAX_EAP_PASSWORD_LENGTH + 1);
   const phase2Type = reader.readByte() as WiFiPhaseTwoType;
 
-  return {phase2Type, identity, username, password};
+  return {identity, username, password, phase2Type};
 }
 
 export function decodeAlexaIntegrationSettings(buffer: Uint8Array): AlexaIntegrationSettings {
@@ -148,8 +148,8 @@ export function decodeAlexaIntegrationSettings(buffer: Uint8Array): AlexaIntegra
 
 export function decodeHttpCredentials(buffer: Uint8Array): HttpCredentials {
   const reader = new BufferReader(buffer);
-  const username = reader.readCString(WIFI_SSID_MAX_LENGTH + 1);
-  const password = reader.readCString(WIFI_MAX_PASSWORD_LENGTH + 1);
+  const username = reader.readCString(MAX_HTTP_USERNAME_LENGTH + 1);
+  const password = reader.readCString(MAX_HTTP_PASSWORD_LENGTH + 1);
   return {username, password};
 }
 
