@@ -26,7 +26,7 @@ class PushButton
     }
 
 public:
-    explicit PushButton(unsigned long thresholdMs = 2000)
+    explicit PushButton(const unsigned long thresholdMs = 2500)
         : longPressThresholdMs(thresholdMs)
     {
         pinMode(this->pin, INPUT_PULLUP);
@@ -46,7 +46,7 @@ public:
     {
         const bool currentState = digitalRead(pin);
 
-        if (currentState != lastState && (now - lastChange < debounceDelayMs))
+        if (currentState != lastState && now - lastChange < debounceDelayMs)
         {
             // Ignore bounce
             return;
@@ -62,7 +62,7 @@ public:
         else if (lastState == LOW && currentState == LOW)
         {
             // Button is being held
-            if (!longPressHandled && (now - lastDown >= longPressThresholdMs))
+            if (!longPressHandled && now - lastDown >= longPressThresholdMs)
             {
                 maybeInvoke(longPressCallback);
                 longPressHandled = true;
