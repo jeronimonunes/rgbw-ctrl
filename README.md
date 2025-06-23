@@ -11,6 +11,25 @@ ESP32 RGBW LED controller with web-based configuration and Alexa support. The fi
 | [/app](app) | Angular setup app |
 | [/doc](doc) | Additional documentation |
 
+## Angular Configuration App
+
+The `app` directory houses an Angular project used to configure the controller via Web Bluetooth.
+
+### Prerequisites
+- Node.js
+- npm
+
+### Getting Started
+```bash
+cd app
+npm install
+npm start
+```
+Use `npm run build` to create production files. The BLE connection workflow along with Alexa and Wi-Fi settings forms is implemented in `src/app`.
+
+You can deploy the built project to GitHub Pages using `npm run deploy`.
+
+
 ## BOOT Button Behavior
 The BOOT button on the board has multiple context-sensitive behaviors:
 
