@@ -29,6 +29,10 @@ export class BufferWriter {
   constructor(public readonly buffer: Uint8Array) {
   }
 
+  writeBoolean(value: boolean): void {
+    this.buffer[this.offset++] = value ? 1 : 0;
+  }
+
   writeUint8(value: number): void {
     this.buffer[this.offset++] = value;
   }
@@ -41,9 +45,6 @@ export class BufferWriter {
     this.offset += maxLength + 1;
   }
 
-  getOffset(): number {
-    return this.offset;
-  }
 }
 
 export function encodeWiFiConnectionDetails(details: WiFiConnectionDetails): Uint8Array {
@@ -98,7 +99,7 @@ export function encodeHttpCredentials(credentials: HttpCredentials): Uint8Array 
 
 export function encodeOutputState({values}: OutputState, writer = new BufferWriter(new Uint8Array(OUTPUT_STATE_BYTE_SIZE))) {
   values.forEach(({on, value}) => {
-    writer.writeUint8(on ? 1 : 0);
+    writer.writeBoolean(on);
     writer.writeUint8(value);
   });
   return new Uint8Array(writer.buffer.buffer);

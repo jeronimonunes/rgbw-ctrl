@@ -42,7 +42,7 @@ void setup()
     output.begin();
     wifiManager.begin();
     otaHandler.begin(webServerHandler);
-    wifiManager.setGotIpCallback([]()
+    wifiManager.setGotIpCallback([]
     {
         alexaIntegration.begin();
         webServerHandler.begin(
@@ -57,12 +57,12 @@ void setup()
     else
         bleManager.start();
 
-    boardButton.setLongPressCallback([]()
+    boardButton.setLongPressCallback([]
     {
         bleManager.start();
     });
 
-    boardButton.setShortPressCallback([]()
+    boardButton.setShortPressCallback([]
     {
         output.toggleAll();
         alexaIntegration.updateDevices();

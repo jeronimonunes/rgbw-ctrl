@@ -1,5 +1,7 @@
 #pragma once
 
+#include <mutex>
+
 template <typename T>
 class ThrottledValue
 {
@@ -7,25 +9,32 @@ class ThrottledValue
     unsigned long lastSendTime = 0;
     const unsigned long throttleInterval;
 
+    std::mutex mutex;
+
 public:
-    explicit ThrottledValue(unsigned long intervalMs)
+    explicit ThrottledValue(const unsigned long intervalMs)
         : throttleInterval(intervalMs)
     {
     }
 
     bool shouldSend(const unsigned long now, const T& newValue)
     {
-        if (newValue == lastValue || (now - lastSendTime) < throttleInterval)
+        if (!mutex.try_lock())
             return false;
+
+        if (newValue == lastValue || now - lastSendTime < throttleInterval)
+        {
+            mutex.unlock();
+            return false;
+        }
+        mutex.unlock();
         return true;
     }
 
     void setLastSent(const unsigned long time, const T& value)
     {
+        std::lock_guard lock(mutex);
         this->lastValue = value;
         this->lastSendTime = time;
     }
-
-    const T& getLastValue() const { return lastValue; }
-    unsigned long getLastSendTime() const { return lastSendTime; }
 };

@@ -299,8 +299,10 @@ private:
         static void restartAfterUpdate()
         {
             ESP_LOGI(LOG_TAG, "Restarting device after OTA update...");
-            vTaskDelay(pdMS_TO_TICKS(100));
-            ESP.restart();
+            async_call([]
+            {
+                ESP.restart();
+            }, 1024, 100);
         }
 
         static bool isRequestValidForUpload(const AsyncWebServerRequest* request)

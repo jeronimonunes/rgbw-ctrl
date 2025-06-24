@@ -71,7 +71,7 @@ private:
             ESP_LOGD(LOG_TAG, "WebSocket client connected: %s", client->remoteIP().toString().c_str());
             sendAllMessages(millis(), client);
             break;
-        case WS_EVT_DISCONNECT:
+        case WS_EVT_DISCONNECT: // NOLINT
             ESP_LOGD(LOG_TAG, "WebSocket client disconnected: %s", client->remoteIP().toString().c_str());
             break;
         case WS_EVT_PONG:
@@ -93,7 +93,7 @@ private:
         void* arg,
         const uint8_t* data,
         const size_t len
-    ) const
+    )
     {
         const auto info = static_cast<AwsFrameInfo*>(arg);
         if (info->opcode != WS_BINARY)
@@ -142,7 +142,7 @@ private:
         AsyncWebSocketClient* client,
         const uint8_t* data,
         const size_t len
-    ) const
+    )
     {
         switch (messageType)
         {
@@ -192,10 +192,11 @@ private:
         }
     }
 
-    void handleColorMessage(const uint8_t* data, const size_t len) const
+    void handleColorMessage(const uint8_t* data, const size_t len)
     {
         if (len < sizeof(ColorMessage)) return;
         const auto* message = reinterpret_cast<const ColorMessage*>(data);
+        outputThrottle.setLastSent(millis(), message->state);
         output.setState(message->state);
         alexaIntegration.updateDevices();
     }

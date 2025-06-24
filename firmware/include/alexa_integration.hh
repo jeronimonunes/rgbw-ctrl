@@ -346,7 +346,7 @@ private:
     {
         ESP_LOGI(LOG_TAG, "Received %s command: on=%d, brightness=%u", name, isOn, brightness);
         output.setOn(isOn, color);
-        output.setValue(brightness + 1, color);
+        output.setValue(brightness < 128 ? brightness : brightness + 1, color);
     }
 
     void updateRgbwDevice() const
