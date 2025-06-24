@@ -1,4 +1,4 @@
-import {from, fromEvent, map, mergeMap, tap, throttleTime} from "rxjs";
+import {from, fromEvent, mergeMap, tap, throttleTime} from "rxjs";
 import {
     initWebSocket,
     sendBleStatus,
@@ -84,7 +84,7 @@ webSocketHandlers.set(WebSocketMessageType.ON_COLOR, (message: ArrayBuffer) => {
         const switchEl = switches[index];
         slider.value = value.toString();
         switchEl.checked = on;
-        updateSliderVisual(slider, getComputedStyle(slider.parentElement!).getPropertyValue("--color").trim());
+        updateSliderVisual(slider);
     })
 });
 
