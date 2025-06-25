@@ -433,6 +433,10 @@ private:
                 && event == WifiScanEvent::StartScan)
             {
                 manager->setScanStatus(WifiScanStatus::RUNNING);
+                if (manager->getStatus() != WiFiStatus::CONNECTED)
+                {
+                    WiFi.disconnect();
+                }
                 WiFi.scanNetworks(true);
                 while (WiFi.scanComplete() == WIFI_SCAN_RUNNING)
                 {
