@@ -7,6 +7,7 @@
 
 #include "alexa_integration.hh"
 #include "async_call.hh"
+#include "esp_now_handler.hh"
 #include "throttled_value.hh"
 #include "version.hh"
 #include "wifi_manager.hh"
@@ -29,16 +30,15 @@ class BleManager
         static constexpr auto FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
         static constexpr auto HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
         static constexpr auto DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
+        static constexpr auto OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
+        static constexpr auto ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
+        static constexpr auto ESP_NOW_DEVICES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
 
         static constexpr auto WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ab";
-        static constexpr auto WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
-        static constexpr auto WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
-        static constexpr auto WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
-        static constexpr auto WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
-
-        static constexpr auto ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890ba";
-        static constexpr auto ALEXA_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
-        static constexpr auto ALEXA_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
+        static constexpr auto WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
+        static constexpr auto WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
+        static constexpr auto WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
+        static constexpr auto WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
     };
 
     static constexpr auto LOG_TAG = "BleManager";
@@ -63,7 +63,7 @@ class BleManager
     NimBLECharacteristic* wifiScanStatusCharacteristic = nullptr;
     NimBLECharacteristic* wifiScanResultCharacteristic = nullptr;
 
-    NimBLECharacteristic* alexaColorCharacteristic = nullptr;
+    NimBLECharacteristic* outputColorCharacteristic = nullptr;
 
 public:
     explicit BleManager(Output& output, WiFiManager& wifiManager, AlexaIntegration& alexaIntegration,
@@ -161,8 +161,8 @@ private:
         Output::State state = output.getState();
         if (!colorNotificationThrottle.shouldSend(now, state))
             return;
-        alexaColorCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
-        if (alexaColorCharacteristic->notify())
+        outputColorCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
+        if (outputColorCharacteristic->notify())
         {
             colorNotificationThrottle.setLastSent(now, state);
         }
@@ -186,20 +186,18 @@ private:
         server = BLEDevice::createServer();
         server->setCallbacks(new BLEServerCallback(this));
 
-        setupBleDeviceNameService();
+        setupBleDeviceDetailsService();
         setupBleWiFiService();
-        setupBleAlexaService();
     }
 
-    void setupBleDeviceNameService()
+    void setupBleDeviceDetailsService()
     {
         const auto deviceDetailsService = server->createService(BLE_UUID::DEVICE_DETAILS_SERVICE);
 
-        const auto restartCharacteristic = deviceDetailsService->createCharacteristic(
+        deviceDetailsService->createCharacteristic(
             BLE_UUID::DEVICE_RESTART_CHARACTERISTIC,
             WRITE
-        );
-        restartCharacteristic->setCallbacks(new RestartCallback(this));
+        )->setCallbacks(new RestartCallback(this));
 
         deviceNameCharacteristic = deviceDetailsService->createCharacteristic(
             BLE_UUID::DEVICE_NAME_CHARACTERISTIC,
@@ -207,22 +205,36 @@ private:
         );
         deviceNameCharacteristic->setCallbacks(new DeviceNameCallback(this));
 
-        const auto firmwareVersionCharacteristic = deviceDetailsService->createCharacteristic(
+        deviceDetailsService->createCharacteristic(
             BLE_UUID::FIRMWARE_VERSION_CHARACTERISTIC,
             READ
-        );
-        firmwareVersionCharacteristic->setCallbacks(new FirmwareVersionCallback());
+        )->setCallbacks(new FirmwareVersionCallback());
 
-        const auto httpCredentialsCharacteristic = deviceDetailsService->createCharacteristic(
+        deviceDetailsService->createCharacteristic(
             BLE_UUID::HTTP_CREDENTIALS_CHARACTERISTIC,
             READ | WRITE
-        );
-        httpCredentialsCharacteristic->setCallbacks(new HttpCredentialsCallback(this));
+        )->setCallbacks(new HttpCredentialsCallback(this));
 
         deviceHeapCharacteristic = deviceDetailsService->createCharacteristic(
             BLE_UUID::DEVICE_HEAP_CHARACTERISTIC,
             NOTIFY
         );
+
+        outputColorCharacteristic = deviceDetailsService->createCharacteristic(
+            BLE_UUID::OUTPUT_COLOR_CHARACTERISTIC,
+            READ | WRITE | NOTIFY
+        );
+        outputColorCharacteristic->setCallbacks(new OutputColorCallback(this));
+
+        deviceDetailsService->createCharacteristic(
+            BLE_UUID::ALEXA_SETTINGS_CHARACTERISTIC,
+            READ | WRITE
+        )->setCallbacks(new AlexaCallback(this));
+
+        deviceDetailsService->createCharacteristic(
+            BLE_UUID::ESP_NOW_DEVICES_CHARACTERISTIC,
+            READ | WRITE
+        )->setCallbacks(new EspNowDevicesCallback());
 
         deviceDetailsService->start();
     }
@@ -256,25 +268,6 @@ private:
         wifiScanResultCharacteristic->setCallbacks(new WiFiScanResultCallback(this));
 
         bleWiFiService->start();
-    }
-
-    void setupBleAlexaService()
-    {
-        const auto alexaService = server->createService(BLE_UUID::ALEXA_SERVICE);
-
-        const auto alexaCharacteristic = alexaService->createCharacteristic(
-            BLE_UUID::ALEXA_CHARACTERISTIC,
-            READ | WRITE
-        );
-        alexaCharacteristic->setCallbacks(new AlexaCallback(this));
-
-        alexaColorCharacteristic = alexaService->createCharacteristic(
-            BLE_UUID::ALEXA_COLOR_CHARACTERISTIC,
-            READ | WRITE | NOTIFY
-        );
-        alexaColorCharacteristic->setCallbacks(new AlexaColorCallback(this));
-
-        alexaService->start();
     }
 
     void attachWiFiManagerCallbacks() const
@@ -409,6 +402,80 @@ private:
         }
     };
 
+    class OutputColorCallback final : public NimBLECharacteristicCallbacks
+    {
+        BleManager* net;
+
+    public:
+        explicit OutputColorCallback(BleManager* net): net(net)
+        {
+        }
+
+        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            Output::State state = {};
+            constexpr uint8_t size = sizeof(Output::State);
+            if (pCharacteristic->getValue().size() != size)
+            {
+                ESP_LOGE(LOG_TAG, "Received invalid Alexa color values length: %d", pCharacteristic->getValue().size());
+                return;
+            }
+            memcpy(&state, pCharacteristic->getValue().data(), size);
+            net->output.setState(state);
+            net->alexaIntegration.updateDevices();
+            net->colorNotificationThrottle.setLastSent(millis(), state);
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            auto state = net->output.getState();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
+        }
+    };
+
+    class AlexaCallback final : public NimBLECharacteristicCallbacks
+    {
+        BleManager* net;
+
+    public:
+        explicit AlexaCallback(BleManager* net): net(net)
+        {
+        }
+
+        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            AlexaIntegrationSettings settings;
+            if (pCharacteristic->getValue().size() != sizeof(AlexaIntegrationSettings))
+            {
+                ESP_LOGE(LOG_TAG, "Received invalid Alexa settings length: %d", pCharacteristic->getValue().size());
+                return;
+            }
+            memcpy(&settings, pCharacteristic->getValue().data(), sizeof(AlexaIntegrationSettings));
+            net->alexaIntegration.applySettings(settings);
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            auto settings = net->alexaIntegration.getSettings();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&settings), sizeof(AlexaIntegrationSettings));
+        }
+    };
+
+    class EspNowDevicesCallback final : public NimBLECharacteristicCallbacks
+    {
+        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            const auto value = pCharacteristic->getValue();
+            EspNowHandler::setAllowedMacsMessage(value.data(), value.size());
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            const auto value = EspNowHandler::getAllowedMacsMessage();
+            pCharacteristic->setValue(value.data(), value.size());
+        }
+    };
+
     class WiFiDetailsCallback final : public NimBLECharacteristicCallbacks
     {
         BleManager* net;
@@ -488,65 +555,6 @@ private:
         {
             WiFiScanResult scanResult = net->wifiManager.getScanResult();
             pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanResult), sizeof(scanResult));
-        }
-    };
-
-    class AlexaCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit AlexaCallback(BleManager* net): net(net)
-        {
-        }
-
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            AlexaIntegrationSettings settings;
-            if (pCharacteristic->getValue().size() != sizeof(AlexaIntegrationSettings))
-            {
-                ESP_LOGE(LOG_TAG, "Received invalid Alexa settings length: %d", pCharacteristic->getValue().size());
-                return;
-            }
-            memcpy(&settings, pCharacteristic->getValue().data(), sizeof(AlexaIntegrationSettings));
-            net->alexaIntegration.applySettings(settings);
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            auto settings = net->alexaIntegration.getSettings();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&settings), sizeof(AlexaIntegrationSettings));
-        }
-    };
-
-    class AlexaColorCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit AlexaColorCallback(BleManager* net): net(net)
-        {
-        }
-
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            Output::State state = {};
-            constexpr uint8_t size = sizeof(Output::State);
-            if (pCharacteristic->getValue().size() != size)
-            {
-                ESP_LOGE(LOG_TAG, "Received invalid Alexa color values length: %d", pCharacteristic->getValue().size());
-                return;
-            }
-            memcpy(&state, pCharacteristic->getValue().data(), size);
-            net->output.setState(state);
-            net->alexaIntegration.updateDevices();
-            net->colorNotificationThrottle.setLastSent(millis(), state);
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            auto state = net->output.getState();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
         }
     };
 

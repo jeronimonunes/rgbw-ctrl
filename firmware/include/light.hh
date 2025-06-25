@@ -161,15 +161,22 @@ public:
         update();
     }
 
-    void toJson(const JsonObject& to) const
-    {
-        state.toJson(to);
-    }
-
     void setState(const State& state)
     {
         this->state = state;
         update();
+    }
+
+    void makeVisible()
+    {
+        state.on = true;
+        if (state.value == OFF_VALUE)
+            state.value = ON_VALUE;
+    }
+
+    void toJson(const JsonObject& to) const
+    {
+        state.toJson(to);
     }
 
     [[nodiscard]] bool isOn() const { return state.on; }

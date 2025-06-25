@@ -47,6 +47,14 @@ export class BufferWriter {
 
 }
 
+export function encodeMacAddress(mac: string, writer: BufferWriter) {
+  const macBytes = mac.split(':').map(part => parseInt(part, 16));
+  if (macBytes.length !== 6) {
+    throw new Error('Invalid MAC address format');
+  }
+  macBytes.forEach(byte => writer.writeUint8(byte));
+}
+
 export function encodeWiFiConnectionDetails(details: WiFiConnectionDetails): Uint8Array {
   const writer = new BufferWriter(new Uint8Array(WIFI_CONNECTION_DETAILS_LENGTH));
   writer.writeUint8(details.encryptionType);
@@ -160,4 +168,11 @@ export function encodeWiFiScanStatusMessage(): Uint8Array {
 
 export function encodeOtaProgressMessage(): Uint8Array {
   return new Uint8Array([WebSocketMessageType.ON_OTA_PROGRESS]);
+}
+
+export function encodeEspNowMessage(allowedMacs: string[]) {
+  const writer = new BufferWriter(new Uint8Array(1 + allowedMacs.length * 6));
+  writer.writeUint8(allowedMacs.length);
+  allowedMacs.forEach(mac => encodeMacAddress(mac, writer));
+  return writer.buffer;
 }

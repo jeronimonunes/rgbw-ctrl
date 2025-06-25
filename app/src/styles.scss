@@ -3,6 +3,12 @@
 // For more information: https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
 
+[color=warn] {
+  @include mat.icon-button-overrides((
+    icon-color: red,
+  ));
+}
+
 html {
   @include mat.theme((
     color: (

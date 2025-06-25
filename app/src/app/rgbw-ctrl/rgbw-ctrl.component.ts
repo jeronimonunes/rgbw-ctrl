@@ -4,7 +4,7 @@ import {CommonModule, NgOptimizedImage} from '@angular/common';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatCardModule} from '@angular/material/card';
-import {FormControl, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import {FormArray, FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators} from '@angular/forms';
 import {
   ALEXA_MAX_DEVICE_NAME_LENGTH,
   AlexaIntegrationMode,
@@ -18,6 +18,7 @@ import {
   encodeAlexaIntegrationSettings,
   encodeHttpCredentials, encodeOutputState,
   encodeWiFiConnectionDetails,
+  decodeEspNowDeviceMessage,
   isEnterprise,
   textEncoder,
   WiFiConnectionDetails,
@@ -25,7 +26,7 @@ import {
   WiFiEncryptionType,
   WiFiNetwork,
   WiFiScanStatus,
-  WiFiStatus
+  WiFiStatus, encodeEspNowMessage
 } from '../model';
 import {MatListModule} from '@angular/material/list';
 import {MatLineModule} from '@angular/material/core';
@@ -60,16 +61,15 @@ const DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
 const FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
 const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
 const DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
+const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
+const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
+const ESP_NOW_DEVICES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
 
 const WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ab";
-const WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
-const WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
-const WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
-const WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
-
-const ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890ba";
-const ALEXA_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
-const ALEXA_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
+const WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
+const WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
+const WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
+const WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
 
 @Component({
   selector: 'app-rgbw-ctrl',
@@ -117,27 +117,25 @@ export class RgbwCtrlComponent implements OnDestroy {
 
   private server: BluetoothRemoteGATTServer | null = null;
 
-  private deviceNameService: BluetoothRemoteGATTService | null = null;
   private deviceRestartCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private deviceNameCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private firmwareVersionCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private httpCredentialsCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private deviceHeapCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+  private outputColorCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+  private alexaSettingsCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+  private espNowDevicesCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
 
-  private wifiService: BluetoothRemoteGATTService | null = null;
   private wifiDetailsCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private wifiStatusCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private wifiScanStatusCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private wifiScanResultCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
 
-  private alexaService: BluetoothRemoteGATTService | null = null;
-  private alexaCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private alexaColorCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-
   initialized: boolean = false;
   loadingAlexa: boolean = false;
   loadingHttpCredentials = false;
-  readingAlexaColor = false;
+  readingOutputColor = false;
+  readingEspNowDevices = false;
 
   firmwareVersion: string | null = null;
   deviceName: string | null = null;
@@ -214,6 +212,8 @@ export class RgbwCtrlComponent implements OnDestroy {
     }),
   });
 
+  espNowDevicesForm = new FormArray<FormControl<string>>([]);
+
   get scanning() {
     return this.wifiScanStatus === WiFiScanStatus.RUNNING;
   }
@@ -238,7 +238,7 @@ export class RgbwCtrlComponent implements OnDestroy {
       })
     ).subscribe(value => {
       const {r, g, b, w} = value!;
-      if (this.alexaColorCharacteristic) {
+      if (this.outputColorCharacteristic) {
         const pr = perceptualMap(r!.value!);
         const pg = perceptualMap(g!.value!);
         const pb = perceptualMap(b!.value!);
@@ -251,7 +251,7 @@ export class RgbwCtrlComponent implements OnDestroy {
             {value: pw, on: w!.on!}
           ]
         });
-        this.alexaColorCharacteristic.writeValue(buffer)
+        this.outputColorCharacteristic.writeValue(buffer)
           .catch(console.error);
       }
     });
@@ -268,21 +268,19 @@ export class RgbwCtrlComponent implements OnDestroy {
     this.server?.disconnect();
     this.server = null;
 
-    // Clear GATT services and characteristics
-    this.deviceNameService = null;
+    // Clear GATT characteristics
     this.deviceRestartCharacteristic = null;
     this.deviceNameCharacteristic = null;
     this.firmwareVersionCharacteristic = null;
+    this.outputColorCharacteristic = null;
+    this.alexaSettingsCharacteristic = null;
+    this.espNowDevicesCharacteristic = null;
 
-    this.wifiService = null;
     this.wifiDetailsCharacteristic = null;
     this.wifiStatusCharacteristic = null;
     this.wifiScanStatusCharacteristic = null;
     this.wifiScanResultCharacteristic = null;
 
-    this.alexaService = null;
-    this.alexaCharacteristic = null;
-    this.alexaColorCharacteristic = null;
 
     // Clear local UI state
     this.deviceName = null;
@@ -294,7 +292,8 @@ export class RgbwCtrlComponent implements OnDestroy {
 
     this.loadingAlexa = false;
     this.loadingHttpCredentials = false;
-    this.readingAlexaColor = false;
+    this.readingOutputColor = false;
+    this.readingEspNowDevices = false;
 
     this.alexaIntegrationForm.reset();
   }
@@ -304,7 +303,7 @@ export class RgbwCtrlComponent implements OnDestroy {
     try {
       const device = await navigator.bluetooth.requestDevice({
         filters: [{namePrefix: BLE_NAME}],
-        optionalServices: [WIFI_SERVICE, DEVICE_DETAILS_SERVICE, ALEXA_SERVICE]
+        optionalServices: [WIFI_SERVICE, DEVICE_DETAILS_SERVICE]
       });
 
       if (!device.gatt) {
@@ -315,13 +314,13 @@ export class RgbwCtrlComponent implements OnDestroy {
       this.server = await device.gatt.connect();
 
       await this.initBleWiFiServices(this.server);
-      await this.initBleDeviceNameServices(this.server);
-      await this.initBleAlexaIntegrationServices(this.server);
+      await this.initBleDeviceDetailsServices(this.server);
       device.addEventListener('gattserverdisconnected', () => {
         this.disconnect();
         this.snackBar.open('Device disconnected', 'Reconnect', {duration: 3000})
           .onAction().subscribe(() => this.connectBleDevice());
       });
+
 
       await this.readDeviceName();
       await this.readFirmwareVersion();
@@ -331,7 +330,8 @@ export class RgbwCtrlComponent implements OnDestroy {
       await this.readWiFiScanStatus();
       await this.readWiFiScanResult();
       await this.readAlexaIntegration();
-      await this.readAlexaColor();
+      await this.readOutputColor();
+      await this.readEspNowDevices();
       this.snackBar.open('Device connected', 'Close', {duration: 3000});
       this.initialized = true;
       if (this.wifiScanResult.length === 0) {
@@ -425,7 +425,7 @@ export class RgbwCtrlComponent implements OnDestroy {
     const payload = encodeAlexaIntegrationSettings(settings);
     let loading = this.matDialog.open(LoadingComponent, {disableClose: true});
     try {
-      await this.alexaCharacteristic!.writeValue(payload);
+      await this.alexaSettingsCharacteristic!.writeValue(payload);
       this.snackBar.open('Alexa settings updated', 'Close', {duration: 2500});
     } catch (e) {
       console.log('Failed to update Alexa settings:', e);
@@ -462,49 +462,89 @@ export class RgbwCtrlComponent implements OnDestroy {
     }
   }
 
-  private async initBleWiFiServices(server: BluetoothRemoteGATTServer) {
-    this.wifiService = await server.getPrimaryService(WIFI_SERVICE);
+  addEspNowDeviceFormEntry() {
+    const formControl = new FormControl<string>('', {
+      nonNullable: true,
+      validators: [
+        Validators.required,
+        Validators.pattern(/^[0-9a-fA-F]{2}([:-][0-9a-fA-F]{2}){5}$/),
+        this.unique()
+      ]
+    });
+    this.espNowDevicesForm.push(formControl, {emitEvent: false});
+    this.espNowDevicesForm.updateValueAndValidity({emitEvent: false})
+  }
 
-    this.wifiDetailsCharacteristic = await this.wifiService.getCharacteristic(WIFI_DETAILS_CHARACTERISTIC);
+  unique(): ValidatorFn {
+    return c => {
+      for (let i = 0; i < this.espNowDevicesForm.length; i++) {
+        const control = this.espNowDevicesForm.at(i);
+        if (control === c) continue;
+        if (control.value === c.value) {
+          return {unique: {value: c.value}};
+        }
+      }
+      return null;
+    }
+  }
+
+  async saveEspNowDevices() {
+    const loading = this.matDialog.open(LoadingComponent, {disableClose: true});
+    try {
+      const value = this.espNowDevicesForm.getRawValue();
+      console.log(value);
+      const buffer = encodeEspNowMessage(value);
+      console.log(buffer);
+      await this.espNowDevicesCharacteristic?.writeValue(buffer);
+    } catch (e) {
+      console.error('Failed to update ESP-NOW devices:', e);
+      this.snackBar.open('Failed to update ESP-NOW devices', 'Close', {duration: 3000});
+    } finally {
+      loading.close();
+    }
+  }
+
+  private async initBleWiFiServices(server: BluetoothRemoteGATTServer) {
+    const wifiService = await server.getPrimaryService(WIFI_SERVICE);
+
+    this.wifiDetailsCharacteristic = await wifiService.getCharacteristic(WIFI_DETAILS_CHARACTERISTIC);
     this.wifiDetailsCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.wifiDetailsChanged(ev.target.value));
     await this.wifiDetailsCharacteristic.startNotifications();
 
-    this.wifiStatusCharacteristic = await this.wifiService.getCharacteristic(WIFI_STATUS_CHARACTERISTIC);
+    this.wifiStatusCharacteristic = await wifiService.getCharacteristic(WIFI_STATUS_CHARACTERISTIC);
     this.wifiStatusCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.wifiStatusChanged(ev.target.value));
     await this.wifiStatusCharacteristic.startNotifications();
 
-    this.wifiScanStatusCharacteristic = await this.wifiService.getCharacteristic(WIFI_SCAN_STATUS_CHARACTERISTIC);
+    this.wifiScanStatusCharacteristic = await wifiService.getCharacteristic(WIFI_SCAN_STATUS_CHARACTERISTIC);
     this.wifiScanStatusCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.wifiScanStatusChanged(ev.target.value));
     await this.wifiScanStatusCharacteristic.startNotifications();
 
-    this.wifiScanResultCharacteristic = await this.wifiService.getCharacteristic(WIFI_SCAN_RESULT_CHARACTERISTIC);
+    this.wifiScanResultCharacteristic = await wifiService.getCharacteristic(WIFI_SCAN_RESULT_CHARACTERISTIC);
     this.wifiScanResultCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.wifiScanResultChanged(ev.target.value));
     await this.wifiScanResultCharacteristic.startNotifications();
   }
 
-  private async initBleDeviceNameServices(server: BluetoothRemoteGATTServer) {
-    this.deviceNameService = await server.getPrimaryService(DEVICE_DETAILS_SERVICE);
+  private async initBleDeviceDetailsServices(server: BluetoothRemoteGATTServer) {
+    const deviceDetailsService = await server.getPrimaryService(DEVICE_DETAILS_SERVICE);
 
-    this.deviceRestartCharacteristic = await this.deviceNameService.getCharacteristic(DEVICE_RESTART_CHARACTERISTIC);
-    this.firmwareVersionCharacteristic = await this.deviceNameService.getCharacteristic(FIRMWARE_VERSION_CHARACTERISTIC);
-    this.httpCredentialsCharacteristic = await this.deviceNameService.getCharacteristic(HTTP_CREDENTIALS_CHARACTERISTIC);
+    this.deviceRestartCharacteristic = await deviceDetailsService.getCharacteristic(DEVICE_RESTART_CHARACTERISTIC);
+    this.firmwareVersionCharacteristic = await deviceDetailsService.getCharacteristic(FIRMWARE_VERSION_CHARACTERISTIC);
+    this.httpCredentialsCharacteristic = await deviceDetailsService.getCharacteristic(HTTP_CREDENTIALS_CHARACTERISTIC);
 
-    this.deviceNameCharacteristic = await this.deviceNameService.getCharacteristic(DEVICE_NAME_CHARACTERISTIC);
+    this.deviceNameCharacteristic = await deviceDetailsService.getCharacteristic(DEVICE_NAME_CHARACTERISTIC);
     this.deviceNameCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceNameChanged(ev.target.value));
     await this.deviceNameCharacteristic.startNotifications();
 
-
-    this.deviceHeapCharacteristic = await this.deviceNameService.getCharacteristic(DEVICE_HEAP_CHARACTERISTIC);
+    this.deviceHeapCharacteristic = await deviceDetailsService.getCharacteristic(DEVICE_HEAP_CHARACTERISTIC);
     this.deviceHeapCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceHeapChanged(ev.target.value));
     await this.deviceHeapCharacteristic.startNotifications();
-  }
 
-  private async initBleAlexaIntegrationServices(server: BluetoothRemoteGATTServer) {
-    this.alexaService = await server.getPrimaryService(ALEXA_SERVICE);
-    this.alexaCharacteristic = await this.alexaService.getCharacteristic(ALEXA_CHARACTERISTIC);
-    this.alexaColorCharacteristic = await this.alexaService.getCharacteristic(ALEXA_COLOR_CHARACTERISTIC);
-    this.alexaColorCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.alexaColorChanged(ev.target.value));
-    await this.alexaColorCharacteristic.startNotifications();
+    this.outputColorCharacteristic = await deviceDetailsService.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
+    this.outputColorCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.outputColorChanged(ev.target.value));
+    await this.outputColorCharacteristic.startNotifications();
+
+    this.alexaSettingsCharacteristic = await deviceDetailsService.getCharacteristic(ALEXA_SETTINGS_CHARACTERISTIC);
+    this.espNowDevicesCharacteristic = await deviceDetailsService.getCharacteristic(ESP_NOW_DEVICES_CHARACTERISTIC);
   }
 
   private wifiStatusChanged(view: DataView) {
@@ -538,7 +578,7 @@ export class RgbwCtrlComponent implements OnDestroy {
     this.deviceHeap = view.getUint32(0, true);
   }
 
-  private alexaColorChanged(view: DataView) {
+  private outputColorChanged(view: DataView) {
     const state = decodeOutputState(new Uint8Array(view.buffer));
     const inversePerceptualMap = (pwm: number): number => {
       if (pwm <= 0) return 0;
@@ -565,6 +605,17 @@ export class RgbwCtrlComponent implements OnDestroy {
         on: state.values[3].on
       }
     }, {emitEvent: false});
+  }
+
+  private espNowDevicesChangedChanged(view: DataView) {
+    const {allowedMacs} = decodeEspNowDeviceMessage(view.buffer);
+    while (this.espNowDevicesForm.length > allowedMacs.length) {
+      this.espNowDevicesForm.removeAt(0);
+    }
+    while (this.espNowDevicesForm.length < allowedMacs.length) {
+      this.addEspNowDeviceFormEntry();
+    }
+    this.espNowDevicesForm.reset(allowedMacs, {emitEvent: false});
   }
 
   private httpCredentialsChanged(view: DataView) {
@@ -608,17 +659,27 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   private async readAlexaIntegration() {
-    const view = await this.alexaCharacteristic!.readValue();
+    const view = await this.alexaSettingsCharacteristic!.readValue();
     const alexaDetails = decodeAlexaIntegrationSettings(new Uint8Array(view.buffer));
     this.resetAlexaIntegrationForm(alexaDetails.integrationMode);
     this.alexaIntegrationForm.reset(alexaDetails, {emitEvent: true});
   }
 
-  async readAlexaColor() {
-    this.readingAlexaColor = true;
-    const view = await this.alexaColorCharacteristic!.readValue();
-    this.alexaColorChanged(view);
-    this.readingAlexaColor = false;
+  async readOutputColor() {
+    this.readingOutputColor = true;
+    const view = await this.outputColorCharacteristic!.readValue();
+    this.outputColorChanged(view);
+    this.readingOutputColor = false;
+  }
+
+  async readEspNowDevices() {
+    this.readingEspNowDevices = true;
+    try {
+      const view = await this.espNowDevicesCharacteristic!.readValue();
+      this.espNowDevicesChangedChanged(view);
+    } finally {
+      this.readingEspNowDevices = false;
+    }
   }
 
   private async sendWifiConfig(details: Uint8Array) {

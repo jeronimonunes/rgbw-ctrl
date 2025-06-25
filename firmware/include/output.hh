@@ -61,6 +61,15 @@ public:
         return lights.at(static_cast<size_t>(color)).setOn(on);
     }
 
+    void toggle(Color color)
+    {
+        auto& light = lights.at(static_cast<size_t>(color));
+        const bool on = !light.isVisible();
+        light.setOn(on);
+        if (on)
+            light.makeVisible();
+    }
+
     void toggleAll()
     {
         const bool on = anyVisible();
@@ -76,6 +85,18 @@ public:
                 light.setValue(Light::ON_VALUE);
             }
         }
+    }
+
+    void turnOffAll()
+    {
+        for (auto& light : lights)
+            light.setOn(false);
+    }
+
+    void turnOnAll()
+    {
+        for (auto& light : lights)
+            light.makeVisible();
     }
 
     void increaseBrightness()

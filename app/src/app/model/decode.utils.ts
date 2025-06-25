@@ -224,3 +224,15 @@ export function decodeWebSocketHeapInfoMessage(buffer: ArrayBuffer): WebSocketHe
     freeHeap
   };
 }
+
+export function decodeEspNowDeviceMessage(buffer: ArrayBuffer): { allowedMacs: string[] } {
+  const data = new Uint8Array(buffer);
+  const count = data[0];
+  const allowedMacs: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const start = 1 + i * 6;
+    const macBytes = data.subarray(start, start + 6);
+    allowedMacs.push(macBytesToString(macBytes));
+  }
+  return {allowedMacs};
+}

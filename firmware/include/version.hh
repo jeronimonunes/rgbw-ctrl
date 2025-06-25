@@ -1,3 +1,3 @@
 #pragma once
 
-constexpr auto FIRMWARE_VERSION = "1.0.0";
+constexpr auto FIRMWARE_VERSION = "2.0.0";
