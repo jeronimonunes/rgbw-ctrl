@@ -8,6 +8,7 @@
 class WebSocketHandler
 {
     static constexpr auto LOG_TAG = "WebSocketHandler";
+    static constexpr auto HEAP_MESSAGE_INTERVAL_MS = 1000;
 
     Output& output;
     OtaHandler& otaHandler;
@@ -22,7 +23,7 @@ class WebSocketHandler
     ThrottledValue<BleStatus> bleStatusThrottle{100};
     ThrottledValue<std::array<char, DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{100};
     ThrottledValue<OtaState> otaStateThrottle{100};
-    ThrottledValue<uint32_t> heapInfoThrottle{500};
+    unsigned long lastSentHeapInfo = 0;
 
 public:
     WebSocketHandler(
@@ -304,7 +305,7 @@ private:
         sendBleStatusMessage(now, client);
         sendDeviceNameMessage(now, client);
         sendOtaProgressMessage(now, client);
-        sendHeapInfoMessage(now, client);
+        sendHeapInfoMessage(now);
     }
 
     void sendOutputColorMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
@@ -333,10 +334,13 @@ private:
             otaHandler.getState(), otaStateThrottle, now, client);
     }
 
-    void sendHeapInfoMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
+    void sendHeapInfoMessage(const unsigned long now)
     {
+        if (now - lastSentHeapInfo < HEAP_MESSAGE_INTERVAL_MS)
+            return;
+        lastSentHeapInfo = now;
         const auto freeHeap = ESP.getFreeHeap();
-        sendThrottledMessage<uint32_t, HeapMessage>(
-            freeHeap, heapInfoThrottle, now, client);
+        const HeapMessage message(freeHeap);
+        ws.binaryAll(reinterpret_cast<const uint8_t*>(&message), sizeof(HeapMessage));
     }
 };

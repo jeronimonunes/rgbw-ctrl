@@ -18,6 +18,9 @@ import {
 } from "../../app/src/app/model"
 import {getState, resetSystem, restartSystem} from "../../app/src/app/rest-api.ts";
 
+loadDeviceState()
+    .then(() => initWebSocket(`ws://${location.host}/ws`, onConnected, onDisconnected));
+
 const sliders = Array.from(document.querySelectorAll<HTMLInputElement>('label.slider input[type="range"]'));
 const switches = Array.from(document.querySelectorAll<HTMLInputElement>('label.switch input[type="checkbox"]'));
 const resetButton = document.querySelector<HTMLButtonElement>("#restart-btn")!;
@@ -176,5 +179,21 @@ async function loadDeviceState(): Promise<void> {
     }
 }
 
-loadDeviceState()
-    .then(() => initWebSocket(`ws://${location.host}/ws`));
+function onConnected() {
+    hideLoadingOverlay();
+}
+
+function onDisconnected() {
+    showLoadingOverlay("Reconnecting...");
+}
+
+function showLoadingOverlay(text = "Loading...") {
+    const overlay = document.getElementById('loading-overlay');
+    overlay!.querySelector("p")!.textContent = text;
+    overlay!.classList.remove('hidden');
+}
+
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loading-overlay');
+    overlay!.classList.add('hidden');
+}

@@ -35,7 +35,7 @@ class EspNowHandler
     static constexpr uint8_t MAC_SIZE = 6;
     static constexpr uint8_t MAX_MACS_PER_MESSAGE = 85;
 
-    static std::function<void(const uint8_t* mac, EspNowMessage* message)> callback;
+    static std::function<void(EspNowMessage* message)> callback;
     static std::vector<std::array<uint8_t, MAC_SIZE>> allowedMacs;
 
     static void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, const int len)
@@ -53,12 +53,11 @@ class EspNowHandler
 
         const auto message = reinterpret_cast<EspNowMessage*>(const_cast<uint8_t*>(incomingData));
 
-        if (callback)
-            callback(mac, message);
+        if (callback) callback(message);
     }
 
 public:
-    static void begin(std::function<void(const uint8_t* mac, EspNowMessage* message)> callback)
+    static void begin(std::function<void(EspNowMessage* message)> callback)
     {
         if (esp_now_init() != ESP_OK)
         {

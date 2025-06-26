@@ -4,7 +4,6 @@ import {
   encodeBleStatusMessage,
   encodeColorMessage,
   encodeDeviceNameMessage,
-  encodeHeapMessage,
   encodeHttpCredentialsMessage,
   encodeOtaProgressMessage,
   encodeWiFiConnectionDetailsMessage,
@@ -14,23 +13,30 @@ import {
   WiFiConnectionDetails
 } from "./model";
 
-const RECONNECT_INTERVAL = 1000; // ms
+const AUTO_CLOSE_TIMEOUT_MS = 1500;
+const RECONNECT_INTERVAL_MS = 500;
 
 export const webSocketHandlers = new Map<WebSocketMessageType, (data: ArrayBuffer) => void>();
 
 let socket: WebSocket;
 let reconnecting = false;
+let autoCloseTimeout: ReturnType<typeof setTimeout> | null = null;
 
-export function initWebSocket(url: string) {
+export function initWebSocket(url: string, onConnected?: () => void, onDisconnected?: () => void) {
   socket = new WebSocket(url);
   socket.binaryType = "arraybuffer";
 
   socket.onopen = () => {
     console.info("WebSocket connected");
     reconnecting = false;
+    onConnected && onConnected();
+    setupAutoClose(onDisconnected);
   };
 
-  socket.onmessage = (event: MessageEvent<ArrayBuffer>) => handleMessage(event.data);
+  socket.onmessage = (event: MessageEvent<ArrayBuffer>) => {
+    setupAutoClose(onDisconnected);
+    handleMessage(event.data);
+  }
 
   socket.onerror = (err) => {
     console.error("WebSocket error", err);
@@ -39,18 +45,29 @@ export function initWebSocket(url: string) {
 
   socket.onclose = () => {
     console.warn("WebSocket closed");
-    tryReconnect(url);
+    autoCloseTimeout && clearTimeout(autoCloseTimeout)
+    onDisconnected && onDisconnected();
+    tryReconnect(url, onConnected, onDisconnected);
   };
 }
 
-function tryReconnect(url: string) {
+function setupAutoClose(onclose?: () => void) {
+  autoCloseTimeout && clearTimeout(autoCloseTimeout);
+  autoCloseTimeout = setTimeout(() => {
+    console.warn("WebSocket auto-closing due to inactivity");
+    socket.close();
+    onclose && onclose();
+  }, AUTO_CLOSE_TIMEOUT_MS);
+}
+
+function tryReconnect(url: string, onConnected?: () => void, onDisconnected?: () => void) {
   if (reconnecting) return;
   reconnecting = true;
 
   setTimeout(() => {
     console.info("Reconnecting WebSocket...");
-    initWebSocket(url);
-  }, RECONNECT_INTERVAL);
+    initWebSocket(url, onConnected, onDisconnected);
+  }, RECONNECT_INTERVAL_MS);
 }
 
 function send(message: Uint8Array) {
@@ -74,46 +91,33 @@ function handleMessage(message: ArrayBuffer) {
 }
 
 export function sendColorMessage(state: [LightState, LightState, LightState, LightState]): void {
-  const message = encodeColorMessage(state);
-  send(message);
+  send(encodeColorMessage(state));
 }
 
 export function sendDeviceName(name: string): void {
-  const buffer = encodeDeviceNameMessage(name);
-  send(buffer);
+  send(encodeDeviceNameMessage(name));
 }
 
 export function sendHttpCredentials(username: string, password: string): void {
-  const buffer = encodeHttpCredentialsMessage({username, password});
-  send(buffer);
+  send(encodeHttpCredentialsMessage({username, password}));
 }
 
 export function sendWiFiConnectionDetails(details: WiFiConnectionDetails): void {
-  const buffer = encodeWiFiConnectionDetailsMessage(details);
-  send(buffer);
+  send(encodeWiFiConnectionDetailsMessage(details));
 }
 
 export function sendBleStatus(status: number): void {
-  const buffer = encodeBleStatusMessage(status);
-  send(buffer);
+  send(encodeBleStatusMessage(status));
 }
 
 export function sendAlexaIntegrationSettings(settings: AlexaIntegrationSettings): void {
-  const buffer = encodeAlexaIntegrationSettingsMessage(settings);
-  send(buffer);
-}
-
-export function sendHeapPing(): void {
-  const buffer = encodeHeapMessage();
-  send(buffer);
+  send(encodeAlexaIntegrationSettingsMessage(settings));
 }
 
 export function sendWiFiScanRequest(): void {
-  const buffer = encodeWiFiScanStatusMessage();
-  send(buffer);
+  send(encodeWiFiScanStatusMessage());
 }
 
 export function sendOtaProgressRequest(): void {
-  const buffer = encodeOtaProgressMessage();
-  send(buffer);
+  send(encodeOtaProgressMessage());
 }

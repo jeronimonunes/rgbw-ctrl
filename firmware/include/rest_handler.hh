@@ -2,6 +2,7 @@
 
 #include <ArduinoJson.h>
 #include <AsyncJson.h>
+#include <nvs_flash.h>
 
 #include "version.hh"
 #include "wifi_manager.hh"
@@ -65,7 +66,7 @@ public:
 
     void handleRestartRequest(AsyncWebServerRequest* request) const
     {
-        request->onDisconnect([this]()
+        request->onDisconnect([this]
         {
             bleManager.stop();
             esp_restart();
@@ -75,7 +76,7 @@ public:
 
     void handleResetRequest(AsyncWebServerRequest* request) const
     {
-        request->onDisconnect([this]()
+        request->onDisconnect([this]
         {
             nvs_flash_erase();
             delay(300);
@@ -94,7 +95,7 @@ public:
         }
 
         auto state = request->getParam("state")->value() == "on";
-        request->onDisconnect([this, state]()
+        request->onDisconnect([this, state]
         {
             if (state)
                 bleManager.start();
@@ -143,8 +144,7 @@ public:
 
         void handleRequest(AsyncWebServerRequest* request) override
         {
-            const auto path = request->url().substring(5);
-            switch (getEndpoint(path))
+            switch (const auto path = request->url().substring(5); getEndpoint(path))
             {
             case RestEndpoint::State:
                 restHandler->handleStateRequest(request);
