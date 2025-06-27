@@ -28,6 +28,7 @@ import {
 } from './websocket-message.model';
 import {LightState} from './light.model';
 import {OUTPUT_STATE_BYTE_SIZE, OutputState} from './output.model';
+import {ESP_NOW_DEVICE_LENGTH, ESP_NOW_DEVICE_NAME_TOTAL_LENGTH, EspNowDevice} from './esp-now.model';
 
 export const textDecoder = new TextDecoder('utf-8');
 
@@ -171,6 +172,19 @@ export function decodeOutputState(buffer: Uint8Array): OutputState {
   }
 }
 
+export function decodeEspNowDevice(data: Uint8Array): EspNowDevice[] {
+  const count = data[0];
+  const espNowDevices = new Array<EspNowDevice>(count);
+  for (let i = 0; i < count; i++) {
+    const offset = 1 + i * ESP_NOW_DEVICE_LENGTH;
+    const name = decodeCString(data.subarray(offset, offset + ESP_NOW_DEVICE_NAME_TOTAL_LENGTH));
+    const address = macBytesToString(data.subarray(offset + ESP_NOW_DEVICE_NAME_TOTAL_LENGTH, offset + ESP_NOW_DEVICE_LENGTH));
+    espNowDevices[i] = {name, address};
+  }
+  return espNowDevices;
+}
+
+
 export function decodeDeviceNameMessage(buffer: ArrayBuffer): WebSocketDeviceNameMessage {
   const data = new Uint8Array(buffer);
   const deviceName = decodeCString(data.subarray(1));
@@ -223,16 +237,4 @@ export function decodeWebSocketHeapInfoMessage(buffer: ArrayBuffer): WebSocketHe
     type,
     freeHeap
   };
-}
-
-export function decodeEspNowDeviceMessage(buffer: ArrayBuffer): { allowedMacs: string[] } {
-  const data = new Uint8Array(buffer);
-  const count = data[0];
-  const allowedMacs: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const start = 1 + i * 6;
-    const macBytes = data.subarray(start, start + 6);
-    allowedMacs.push(macBytesToString(macBytes));
-  }
-  return {allowedMacs};
 }

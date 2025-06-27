@@ -466,12 +466,12 @@ private:
         void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
             const auto value = pCharacteristic->getValue();
-            EspNowHandler::setAllowedMacsMessage(value.data(), value.size());
+            EspNowHandler::setDevicesBuffer(value.data(), value.size());
         }
 
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            const auto value = EspNowHandler::getAllowedMacsMessage();
+            const auto value = EspNowHandler::getDevicesBuffer();
             pCharacteristic->setValue(value.data(), value.size());
         }
     };

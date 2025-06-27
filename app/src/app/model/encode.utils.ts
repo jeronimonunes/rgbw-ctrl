@@ -20,6 +20,7 @@ import {
 import {BleStatus} from './ble.model';
 import {LightState} from './light.model';
 import {OUTPUT_STATE_BYTE_SIZE, OutputState} from './output.model';
+import {ESP_NOW_DEVICE_LENGTH, ESP_NOW_DEVICE_NAME_MAX_LENGTH, EspNowDevice} from './esp-now.model';
 
 export const textEncoder = new TextEncoder();
 
@@ -113,6 +114,11 @@ export function encodeOutputState({values}: OutputState, writer = new BufferWrit
   return new Uint8Array(writer.buffer.buffer);
 }
 
+export function encodeEspNowDevice({name, address}: EspNowDevice, writer: BufferWriter) {
+  writer.writeCString(name, ESP_NOW_DEVICE_NAME_MAX_LENGTH);
+  encodeMacAddress(address, writer)
+}
+
 export function encodeColorMessage(values: [LightState, LightState, LightState, LightState]): Uint8Array {
   const writer = new BufferWriter(new Uint8Array(1 + OUTPUT_STATE_BYTE_SIZE));
   writer.writeUint8(WebSocketMessageType.ON_COLOR);
@@ -158,10 +164,6 @@ export function encodeBleStatusMessage(status: BleStatus): Uint8Array {
   return buffer;
 }
 
-export function encodeHeapMessage(): Uint8Array {
-  return new Uint8Array([WebSocketMessageType.ON_HEAP]);
-}
-
 export function encodeWiFiScanStatusMessage(): Uint8Array {
   return new Uint8Array([WebSocketMessageType.ON_WIFI_SCAN_STATUS]);
 }
@@ -170,9 +172,9 @@ export function encodeOtaProgressMessage(): Uint8Array {
   return new Uint8Array([WebSocketMessageType.ON_OTA_PROGRESS]);
 }
 
-export function encodeEspNowMessage(allowedMacs: string[]) {
-  const writer = new BufferWriter(new Uint8Array(1 + allowedMacs.length * 6));
-  writer.writeUint8(allowedMacs.length);
-  allowedMacs.forEach(mac => encodeMacAddress(mac, writer));
+export function encodeEspNowMessage(devices: EspNowDevice[]) {
+  const writer = new BufferWriter(new Uint8Array(1 + ESP_NOW_DEVICE_LENGTH * devices.length));
+  writer.writeUint8(devices.length);
+  devices.forEach(dev => encodeEspNowDevice(dev, writer));
   return writer.buffer;
 }

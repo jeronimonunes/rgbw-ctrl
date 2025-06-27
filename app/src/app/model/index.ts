@@ -3,6 +3,7 @@ export * from './ble.model';
 export * from './decode.utils';
 export * from './device-state.model';
 export * from './encode.utils';
+export * from './esp-now.model';
 export * from './light.model';
 export * from './ota.model';
 export * from './output.model'

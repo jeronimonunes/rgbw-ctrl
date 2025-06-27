@@ -10,15 +10,19 @@ import {
   AlexaIntegrationMode,
   decodeAlexaIntegrationSettings,
   decodeCString,
-  decodeHttpCredentials, decodeOutputState,
+  decodeEspNowDevice,
+  decodeHttpCredentials,
+  decodeOutputState,
   decodeWiFiDetails,
   decodeWiFiScanResult,
   decodeWiFiScanStatus,
   decodeWiFiStatus,
   encodeAlexaIntegrationSettings,
-  encodeHttpCredentials, encodeOutputState,
-  encodeWiFiConnectionDetails,
-  decodeEspNowDeviceMessage,
+  encodeEspNowMessage,
+  encodeHttpCredentials,
+  encodeOutputState,
+  encodeWiFiConnectionDetails, ESP_NOW_DEVICE_NAME_MAX_LENGTH,
+  ESP_NOW_MAX_DEVICES_PER_MESSAGE,
   isEnterprise,
   textEncoder,
   WiFiConnectionDetails,
@@ -26,7 +30,7 @@ import {
   WiFiEncryptionType,
   WiFiNetwork,
   WiFiScanStatus,
-  WiFiStatus, encodeEspNowMessage
+  WiFiStatus
 } from '../model';
 import {MatListModule} from '@angular/material/list';
 import {MatLineModule} from '@angular/material/core';
@@ -106,6 +110,8 @@ export class RgbwCtrlComponent implements OnDestroy {
   readonly ALEXA_MAX_DEVICE_NAME_LENGTH = ALEXA_MAX_DEVICE_NAME_LENGTH - 1;
   readonly MAX_HTTP_USERNAME_LENGTH = MAX_HTTP_USERNAME_LENGTH;
   readonly MAX_HTTP_PASSWORD_LENGTH = MAX_HTTP_PASSWORD_LENGTH;
+  readonly ESP_NOW_DEVICE_NAME_MAX_LENGTH = ESP_NOW_DEVICE_NAME_MAX_LENGTH;
+  readonly ESP_NOW_MAX_DEVICES_PER_MESSAGE = ESP_NOW_MAX_DEVICES_PER_MESSAGE;
 
   private colorSubscription: Subscription;
   alexaIntegrationModes = [
@@ -212,7 +218,10 @@ export class RgbwCtrlComponent implements OnDestroy {
     }),
   });
 
-  espNowDevicesForm = new FormArray<FormControl<string>>([]);
+  espNowDevicesForm = new FormArray<FormGroup<{
+    name: FormControl<string>,
+    address: FormControl<string>
+  }>>([], {validators: Validators.maxLength(ESP_NOW_MAX_DEVICES_PER_MESSAGE)});
 
   get scanning() {
     return this.wifiScanStatus === WiFiScanStatus.RUNNING;
@@ -312,7 +321,6 @@ export class RgbwCtrlComponent implements OnDestroy {
       }
 
       this.server = await device.gatt.connect();
-
       await this.initBleWiFiServices(this.server);
       await this.initBleDeviceDetailsServices(this.server);
       device.addEventListener('gattserverdisconnected', () => {
@@ -463,24 +471,34 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   addEspNowDeviceFormEntry() {
-    const formControl = new FormControl<string>('', {
-      nonNullable: true,
-      validators: [
-        Validators.required,
-        Validators.pattern(/^[0-9a-fA-F]{2}([:-][0-9a-fA-F]{2}){5}$/),
-        this.unique()
-      ]
+    const formGroup = new FormGroup({
+      name: new FormControl<string>('', {
+        nonNullable: true,
+        validators: [
+          Validators.required,
+          Validators.maxLength(ESP_NOW_DEVICE_NAME_MAX_LENGTH),
+          this.unique('name')
+        ]
+      }),
+      address: new FormControl<string>('', {
+        nonNullable: true,
+        validators: [
+          Validators.required,
+          Validators.pattern(/^[0-9a-fA-F]{2}([:-][0-9a-fA-F]{2}){5}$/),
+          this.unique('address')
+        ]
+      })
     });
-    this.espNowDevicesForm.push(formControl, {emitEvent: false});
+    this.espNowDevicesForm.push(formGroup, {emitEvent: false});
     this.espNowDevicesForm.updateValueAndValidity({emitEvent: false})
   }
 
-  unique(): ValidatorFn {
+  unique(controlField: 'address' | 'name'): ValidatorFn {
     return c => {
       for (let i = 0; i < this.espNowDevicesForm.length; i++) {
-        const control = this.espNowDevicesForm.at(i);
-        if (control === c) continue;
-        if (control.value === c.value) {
+        const group = this.espNowDevicesForm.at(i);
+        if (group.get(controlField) === c) break;
+        if (group.value[controlField] === c.value) {
           return {unique: {value: c.value}};
         }
       }
@@ -492,9 +510,7 @@ export class RgbwCtrlComponent implements OnDestroy {
     const loading = this.matDialog.open(LoadingComponent, {disableClose: true});
     try {
       const value = this.espNowDevicesForm.getRawValue();
-      console.log(value);
       const buffer = encodeEspNowMessage(value);
-      console.log(buffer);
       await this.espNowDevicesCharacteristic?.writeValue(buffer);
     } catch (e) {
       console.error('Failed to update ESP-NOW devices:', e);
@@ -608,14 +624,14 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   private espNowDevicesChangedChanged(view: DataView) {
-    const {allowedMacs} = decodeEspNowDeviceMessage(view.buffer);
-    while (this.espNowDevicesForm.length > allowedMacs.length) {
+    const devices = decodeEspNowDevice(new Uint8Array(view.buffer));
+    while (this.espNowDevicesForm.length > devices.length) {
       this.espNowDevicesForm.removeAt(0);
     }
-    while (this.espNowDevicesForm.length < allowedMacs.length) {
+    while (this.espNowDevicesForm.length < devices.length) {
       this.addEspNowDeviceFormEntry();
     }
-    this.espNowDevicesForm.reset(allowedMacs, {emitEvent: false});
+    this.espNowDevicesForm.reset(devices, {emitEvent: false});
   }
 
   private httpCredentialsChanged(view: DataView) {

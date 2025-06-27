@@ -25,18 +25,30 @@ struct EspNowMessage
 
     Type type;
 };
+
+struct EspNowDevice
+{
+    static constexpr auto NAME_MAX_LENGTH = 23;
+    static constexpr auto NAME_TOTAL_LENGTH = 24;
+    static constexpr uint8_t MAC_SIZE = 6;
+
+    std::array<char, NAME_TOTAL_LENGTH> name;
+    std::array<uint8_t, MAC_SIZE> mac;
+};
+
+static_assert(sizeof(EspNowDevice) == EspNowDevice::NAME_TOTAL_LENGTH + EspNowDevice::MAC_SIZE,
+              "Unexpected EspNowDevice size");
 #pragma pack(pop)
 
 class EspNowHandler
 {
     static constexpr auto LOG_TAG = "EspNowHandler";
     static constexpr auto PREFERENCES_NAME = "esp-now";
-    static constexpr auto PREFERENCES_KEY = "allowedMacs";
-    static constexpr uint8_t MAC_SIZE = 6;
-    static constexpr uint8_t MAX_MACS_PER_MESSAGE = 85;
+    static constexpr auto PREFERENCES_KEY = "devices";
+    static constexpr uint8_t MAX_DEVICES_PER_MESSAGE = 15;
 
     static std::function<void(EspNowMessage* message)> callback;
-    static std::vector<std::array<uint8_t, MAC_SIZE>> allowedMacs;
+    static std::vector<EspNowDevice> devices;
 
     static void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, const int len)
     {
@@ -57,7 +69,7 @@ class EspNowHandler
     }
 
 public:
-    static void begin(std::function<void(EspNowMessage* message)> callback)
+    static void begin(std::function<void(EspNowMessage* message)> cb)
     {
         if (esp_now_init() != ESP_OK)
         {
@@ -65,60 +77,85 @@ public:
             return;
         }
 
-        restoreAllowedMacs();
+        restoreDevices();
         esp_now_register_recv_cb(onDataReceived);
-        EspNowHandler::callback = std::move(callback);
+        callback = std::move(cb);
         ESP_LOGI(LOG_TAG, "ESP-NOW initialized and callback registered");
     }
 
-    static std::vector<std::array<uint8_t, MAC_SIZE>> getAllowedMacs()
+    [[nodiscard]] static std::vector<EspNowDevice> getDevices()
     {
         std::lock_guard lock(getMutex());
-        return allowedMacs;
+        return devices;
     }
 
-    static void setAllowedMacs(std::vector<std::array<uint8_t, MAC_SIZE>>&& newAllowedMacs)
+    static void setDevices(std::vector<EspNowDevice>&& newDevices)
     {
         std::lock_guard lock(getMutex());
-        allowedMacs = std::move(newAllowedMacs);
-        persistAllowedMacs();
+        devices = std::move(newDevices);
+        persistDevices();
     }
 
-    [[nodiscard]] static std::vector<uint8_t> getAllowedMacsMessage()
+    static std::optional<EspNowDevice> findDeviceByMac(const uint8_t* mac)
+    {
+        std::lock_guard lock(getMutex());
+        auto it = std::find_if(devices.begin(), devices.end(), [mac](const auto& device)
+        {
+            return std::equal(device.mac.begin(), device.mac.end(), mac);
+        });
+        if (it != devices.end()) return *it;
+        return std::nullopt;
+    }
+
+    static std::optional<EspNowDevice> findDeviceByName(std::string_view name)
+    {
+        std::lock_guard lock(getMutex());
+        auto it = std::find_if(devices.begin(), devices.end(), [name](const auto& device)
+        {
+            return std::string_view(device.name.data(), strnlen(device.name.data(), device.name.size())) == name;
+        });
+        if (it != devices.end()) return *it;
+        return std::nullopt;
+    }
+
+    [[nodiscard]] static std::vector<uint8_t> getDevicesBuffer()
     {
         std::lock_guard lock(getMutex());
         std::vector<uint8_t> buffer;
-        const uint8_t count = allowedMacs.size() > MAX_MACS_PER_MESSAGE
-                                  ? MAX_MACS_PER_MESSAGE
-                                  : static_cast<uint8_t>(allowedMacs.size());
+        const uint8_t count = devices.size() > MAX_DEVICES_PER_MESSAGE
+                                  ? MAX_DEVICES_PER_MESSAGE
+                                  : static_cast<uint8_t>(devices.size());
+        buffer.reserve(1 + count * sizeof(EspNowDevice));
         buffer.push_back(count);
         for (size_t i = 0; i < count; ++i)
         {
-            buffer.insert(buffer.end(), allowedMacs[i].begin(), allowedMacs[i].end());
+            const auto& [name, mac] = devices[i];
+            buffer.insert(buffer.end(), name.begin(), name.end());
+            buffer.insert(buffer.end(), mac.begin(), mac.end());
         }
         return buffer;
     }
 
-    static void setAllowedMacsMessage(const uint8_t* data, const size_t length)
+    static void setDevicesBuffer(const uint8_t* data, const size_t length)
     {
-        if (length < 1 || data == nullptr) return;
-
+        if (!data || length < 1) return;
         const uint8_t count = data[0];
-        std::vector<std::array<uint8_t, MAC_SIZE>> result;
-        result.reserve(count);
 
-        if (const size_t expectedSize = 1 + count * MAC_SIZE;
-            length < expectedSize)
-            return;
+        if (const size_t expectedSize = 1 + count * sizeof(EspNowDevice); length < expectedSize) return;
+
+        std::vector<EspNowDevice> result;
+        result.reserve(count);
 
         for (uint8_t i = 0; i < count; ++i)
         {
-            std::array<uint8_t, MAC_SIZE> mac; // NOLINT
-            std::copy_n(&data[1 + i * MAC_SIZE], MAC_SIZE, mac.begin());
-            result.push_back(mac);
+            EspNowDevice device; // NOLINT
+            const size_t offset = 1 + i * sizeof(EspNowDevice);
+            std::copy_n(&data[offset], EspNowDevice::NAME_TOTAL_LENGTH, device.name.begin());
+            std::copy_n(&data[offset + EspNowDevice::NAME_TOTAL_LENGTH], EspNowDevice::MAC_SIZE, device.mac.begin());
+            result.push_back(device);
         }
 
-        setAllowedMacs(std::move(result));
+        setDevices(std::move(result));
     }
 
 private:
@@ -131,19 +168,19 @@ private:
     static bool isMacAllowed(const uint8_t* mac)
     {
         std::lock_guard lock(getMutex());
-        return std::any_of(allowedMacs.begin(), allowedMacs.end(), [mac](const auto& allowed)
+        return std::any_of(devices.begin(), devices.end(), [mac](const auto& device)
         {
-            return std::equal(allowed.begin(), allowed.end(), mac);
+            return std::equal(device.mac.begin(), device.mac.end(), mac);
         });
     }
 
-    static void persistAllowedMacs()
+    static void persistDevices()
     {
         if (Preferences prefs; prefs.begin(PREFERENCES_NAME, false))
         {
-            prefs.putBytes(PREFERENCES_KEY, allowedMacs.data(), allowedMacs.size() * MAC_SIZE);
+            prefs.putBytes(PREFERENCES_KEY, devices.data(), devices.size() * sizeof(EspNowDevice));
             prefs.end();
-            ESP_LOGI(LOG_TAG, "Allowed MACs saved to Preferences");
+            ESP_LOGI(LOG_TAG, "Devices saved to Preferences");
         }
         else
         {
@@ -151,17 +188,17 @@ private:
         }
     }
 
-    static void restoreAllowedMacs()
+    static void restoreDevices()
     {
         if (Preferences prefs; prefs.begin(PREFERENCES_NAME, true))
         {
             if (const size_t len = prefs.getBytesLength(PREFERENCES_KEY);
-                len > 0 && len % MAC_SIZE == 0)
+                len > 0 && len % sizeof(EspNowDevice) == 0)
             {
                 std::lock_guard lock(getMutex());
-                allowedMacs.resize(len / MAC_SIZE);
-                prefs.getBytes(PREFERENCES_KEY, allowedMacs.data(), len);
-                ESP_LOGI(LOG_TAG, "Allowed MACs restored from Preferences");
+                devices.resize(len / sizeof(EspNowDevice));
+                prefs.getBytes(PREFERENCES_KEY, devices.data(), len);
+                ESP_LOGI(LOG_TAG, "Devices restored from Preferences");
             }
             prefs.end();
         }
