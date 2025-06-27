@@ -14,7 +14,8 @@ import {
     decodeWebSocketOnOtaProgressMessage,
     LightState,
     otaStatusToString,
-    WebSocketMessageType
+    WebSocketMessageType,
+    EspNowDevice
 } from "../../app/src/app/model"
 import {getState, resetSystem, restartSystem} from "../../app/src/app/rest-api.ts";
 
@@ -174,6 +175,8 @@ async function loadDeviceState(): Promise<void> {
         updateText("alexa-names", state.alexa.names.join(", "));
 
         updateText("ota-status", state.ota.status);
+
+        updateEspNowDevices(state.espNow.devices);
     } catch (error) {
         console.error("Failed to load device state", error);
     }
@@ -196,4 +199,46 @@ function showLoadingOverlay(text = "Loading...") {
 function hideLoadingOverlay() {
     const overlay = document.getElementById('loading-overlay');
     overlay!.classList.add('hidden');
+}
+
+function updateEspNowDevices(devices: EspNowDevice[]) {
+    const espNowTable = document.querySelector("#esp-now-info>table") as HTMLDivElement;
+    const espNowNoDevices = document.querySelector("#esp-now-info>p") as HTMLParagraphElement;
+    espNowTable.innerHTML = ""; // Clear existing list
+    if (devices.length === 0) {
+        espNowNoDevices.style.display = "block";
+        return;
+    }
+    espNowNoDevices.style.display = "none";
+    createEspNowListHeader(espNowTable);
+
+    devices.forEach(device => {
+        createEspNowListItem(espNowTable, device);
+    });
+}
+
+function createEspNowListHeader(espNowTable: HTMLDivElement) {
+    const tr = document.createElement("tr");
+    const thName = document.createElement("th");
+    thName.textContent = "Device Name";
+
+    const thMac = document.createElement("th");
+    thMac.textContent = "MAC Address";
+
+    tr.appendChild(thName);
+    tr.appendChild(thMac);
+    espNowTable.appendChild(tr);
+}
+
+function createEspNowListItem(espNowTable: HTMLDivElement, device: EspNowDevice) {
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    tdName.textContent = device.name;
+
+    const tdMac = document.createElement("td");
+    tdMac.textContent = device.address;
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdMac);
+    espNowTable.appendChild(tr);
 }

@@ -58,6 +58,7 @@ public:
         output.toJson(doc["output"].to<JsonArray>());
         bleManager.toJson(doc["ble"].to<JsonObject>());
         otaHandler.getState().toJson(doc["ota"].to<JsonObject>());
+        EspNowHandler::toJson(doc["espNow"].to<JsonObject>());
 
         response->addHeader("Cache-Control", "no-store");
         response->setLength();

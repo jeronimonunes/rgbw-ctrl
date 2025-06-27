@@ -7,6 +7,8 @@
 #include <esp_now.h>
 #include <Preferences.h>
 
+#include "AsyncJson.h"
+
 #pragma pack(push, 1)
 struct EspNowMessage
 {
@@ -33,7 +35,7 @@ struct EspNowDevice
     static constexpr uint8_t MAC_SIZE = 6;
 
     std::array<char, NAME_TOTAL_LENGTH> name;
-    std::array<uint8_t, MAC_SIZE> mac;
+    std::array<uint8_t, MAC_SIZE> address;
 };
 
 static_assert(sizeof(EspNowDevice) == EspNowDevice::NAME_TOTAL_LENGTH + EspNowDevice::MAC_SIZE,
@@ -43,6 +45,7 @@ static_assert(sizeof(EspNowDevice) == EspNowDevice::NAME_TOTAL_LENGTH + EspNowDe
 class EspNowHandler
 {
     static constexpr auto LOG_TAG = "EspNowHandler";
+
     static constexpr auto PREFERENCES_NAME = "esp-now";
     static constexpr auto PREFERENCES_KEY = "devices";
     static constexpr uint8_t MAX_DEVICES_PER_MESSAGE = 15;
@@ -99,9 +102,9 @@ public:
     static std::optional<EspNowDevice> findDeviceByMac(const uint8_t* mac)
     {
         std::lock_guard lock(getMutex());
-        auto it = std::find_if(devices.begin(), devices.end(), [mac](const auto& device)
+        const auto it = std::find_if(devices.begin(), devices.end(), [mac](const auto& device)
         {
-            return std::equal(device.mac.begin(), device.mac.end(), mac);
+            return std::equal(device.address.begin(), device.address.end(), mac);
         });
         if (it != devices.end()) return *it;
         return std::nullopt;
@@ -110,7 +113,7 @@ public:
     static std::optional<EspNowDevice> findDeviceByName(std::string_view name)
     {
         std::lock_guard lock(getMutex());
-        auto it = std::find_if(devices.begin(), devices.end(), [name](const auto& device)
+        const auto it = std::find_if(devices.begin(), devices.end(), [name](const auto& device)
         {
             return std::string_view(device.name.data(), strnlen(device.name.data(), device.name.size())) == name;
         });
@@ -151,11 +154,27 @@ public:
             EspNowDevice device; // NOLINT
             const size_t offset = 1 + i * sizeof(EspNowDevice);
             std::copy_n(&data[offset], EspNowDevice::NAME_TOTAL_LENGTH, device.name.begin());
-            std::copy_n(&data[offset + EspNowDevice::NAME_TOTAL_LENGTH], EspNowDevice::MAC_SIZE, device.mac.begin());
+            std::copy_n(&data[offset + EspNowDevice::NAME_TOTAL_LENGTH], EspNowDevice::MAC_SIZE, device.address.begin());
             result.push_back(device);
         }
 
         setDevices(std::move(result));
+    }
+
+    static void toJson(const JsonObject& espNow)
+    {
+        const auto arr = espNow["devices"].to<JsonArray>();
+        const auto devices = getDevices(); // NOLINT
+        for (const auto& [name, mac] : devices)
+        {
+            char macStr[18];
+            snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            macStr[sizeof(macStr) - 1] = '\0';
+            const auto& obj = arr.add<JsonObject>();
+            obj["name"] = name.data();
+            obj["address"] = macStr;
+        }
     }
 
 private:
@@ -170,7 +189,7 @@ private:
         std::lock_guard lock(getMutex());
         return std::any_of(devices.begin(), devices.end(), [mac](const auto& device)
         {
-            return std::equal(device.mac.begin(), device.mac.end(), mac);
+            return std::equal(device.address.begin(), device.address.end(), mac);
         });
     }
 

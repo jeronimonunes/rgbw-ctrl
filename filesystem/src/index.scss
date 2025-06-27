@@ -223,6 +223,40 @@ a {
   }
 }
 
+#esp-now-info {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+
+    th, td {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f4f4f4;
+      font-weight: bold;
+    }
+
+    tr:nth-child(even) {
+      background-color: #fafafa;
+    }
+
+    tr:hover {
+      background-color: #f0f0f0;
+    }
+  }
+
+  p {
+    font-style: italic;
+    color: #888;
+  }
+}
+
+
 #loading-overlay {
   position: fixed;
   top: 0;

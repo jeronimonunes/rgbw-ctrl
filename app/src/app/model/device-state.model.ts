@@ -1,5 +1,6 @@
 import {OtaStatusString} from './ota.model';
 import {LightState} from './light.model';
+import {EspNowDevice} from './esp-now.model';
 
 export type WiFiStatusString =
   | "DISCONNECTED"
@@ -30,7 +31,6 @@ export type WiFiDetailsState = {
   dns: string
 };
 
-
 export type DeviceState = {
   "deviceName": string,
   "firmwareVersion": string,
@@ -51,5 +51,8 @@ export type DeviceState = {
     status: OtaStatusString,
     totalBytesExpected: number,
     totalBytesReceived: number,
+  },
+  "espNow": {
+    devices: EspNowDevice[];
   }
 }
