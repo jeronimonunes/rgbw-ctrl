@@ -17,7 +17,7 @@
   --table-row-hover: #f0f0f0;
   --overlay-bg: rgba(0, 0, 0, 0.6);
   --button-disabled-bg: #a5d6a7;
-  --button-text: white;
+  --button-text: black;
   --select-option-bg: #fff;
   --select-option-color: #333;
 }
@@ -42,7 +42,7 @@
     --table-row-hover: #2a2a2a;
     --overlay-bg: rgba(0, 0, 0, 0.8);
     --button-disabled-bg: #557755;
-    --button-text: black;
+    --button-text: white;
     --select-option-bg: #2a2a2a;
     --select-option-color: #f0f0f0;
   }
@@ -54,4 +54,8 @@
   .switch input:checked + span {
     background-color: var(--color);
   }
+}
+
+.slider, .switch, #controls button, #esp-now-info table th, td, html, body, section, button, input, #loading-overlay, #file-label {
+  transition: background-color 0.6s ease, color 0.6s ease, border-color 0.6s ease;
 }

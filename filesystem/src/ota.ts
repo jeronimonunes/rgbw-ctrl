@@ -12,7 +12,7 @@ feedback.id = "feedback";
 feedback.style.gridColumn = "span 2";
 feedback.style.marginTop = "1em";
 feedback.style.fontSize = "0.9em";
-document.querySelector(".upload-container")!.appendChild(feedback);
+document.querySelector("section")!.appendChild(feedback);
 
 fileInput.addEventListener("change", () => {
     progressBar.style.width = "0%";

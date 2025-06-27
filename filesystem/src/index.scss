@@ -1,12 +1,4 @@
-@import './theme';
-
-html, body, section, button, input, #loading-overlay {
-  transition: background-color 0.6s ease, color 0.6s ease, border-color 0.6s ease;
-}
-
-.slider, .switch, #controls button, #esp-now-info table th, td {
-  transition: background-color 0.6s ease, color 0.6s ease, border-color 0.6s ease;
-}
+@use './theme';
 
 body {
   font-family: system-ui, sans-serif;
