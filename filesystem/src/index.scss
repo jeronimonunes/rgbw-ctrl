@@ -1,7 +1,69 @@
+:root {
+  --green: rgb(76, 214, 65);
+  --green-light: rgba(76, 214, 65, 0.3);
+  --blue: rgb(60, 170, 223);
+  --blue-light: rgba(60, 170, 223, 0.3);
+  --red: rgb(235, 43, 71);
+  --red-light: rgba(235, 43, 71, 0.3);
+  --white: rgb(239, 233, 195);
+  --white-light: rgba(239, 233, 195, 0.3);
+
+  --bg-color: #f0f0f0;
+  --text-color: #333;
+  --section-bg: #fff;
+  --section-shadow: rgba(0, 0, 0, 0.1);
+  --table-header-bg: #f4f4f4;
+  --table-row-alt: #fafafa;
+  --table-row-hover: #f0f0f0;
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --button-disabled-bg: #a5d6a7;
+  --button-text: white;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --green: rgb(76, 214, 65);
+    --green-light: rgba(76, 214, 65, 0.3);
+    --blue: rgb(60, 170, 223);
+    --blue-light: rgba(60, 170, 223, 0.3);
+    --red: rgb(235, 43, 71);
+    --red-light: rgba(235, 43, 71, 0.3);
+    --white: rgb(239, 233, 195);
+    --white-light: rgba(239, 233, 195, 0.3);
+
+    --bg-color: #121212;
+    --text-color: #f0f0f0;
+    --section-bg: #1e1e1e;
+    --section-shadow: rgba(0, 0, 0, 0.4);
+    --table-header-bg: #2a2a2a;
+    --table-row-alt: #1a1a1a;
+    --table-row-hover: #2a2a2a;
+    --overlay-bg: rgba(0, 0, 0, 0.8);
+    --button-disabled-bg: #557755;
+    --button-text: black;
+  }
+
+  .slider input[type='range']::-webkit-slider-thumb {
+    background-color: #bbb;
+  }
+
+  .switch input:checked + span {
+    background-color: var(--color);
+  }
+}
+
+html, body, section, button, input, #loading-overlay {
+  transition: background-color 0.6s ease, color 0.6s ease, border-color 0.6s ease;
+}
+
+.slider, .switch, #controls button, #esp-now-info table th, td {
+  transition: background-color 0.6s ease, color 0.6s ease, border-color 0.6s ease;
+}
+
 body {
   font-family: system-ui, sans-serif;
-  background: #f0f0f0;
-  color: #333;
+  background: var(--bg-color);
+  color: var(--text-color);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -20,7 +82,7 @@ h1 {
 }
 
 section {
-  background: #fff;
+  background: var(--section-bg);
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
   padding: 1em 1.5em;
@@ -33,7 +95,7 @@ section {
     text-align: center;
     margin-top: 0;
     font-size: 1.2em;
-    color: rgb(76, 214, 65);
+    color: var(--green);
   }
 
   ul {
@@ -62,8 +124,8 @@ section {
   a {
     text-align: center;
     padding: 10px 20px;
-    background: rgb(76, 214, 65);
-    color: white;
+    background: var(--green);
+    color: var(--button-text);
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -76,7 +138,7 @@ section {
     }
 
     &.active {
-      background: rgb(60, 170, 223);
+      background: var(--blue);
 
       &:hover {
         filter: brightness(1.1);
@@ -84,7 +146,7 @@ section {
     }
 
     &:disabled {
-      background: #a5d6a7;
+      background: var(--button-disabled-bg);
       cursor: not-allowed;
       opacity: 0.7;
     }
@@ -103,10 +165,10 @@ section {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #fff;
+    background: var(--section-bg);
     border-radius: 8px;
     padding: 0.5em 1em;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px var(--section-shadow);
 
     span {
       width: 2em;
@@ -196,23 +258,23 @@ section {
 }
 
 .r {
-  --color: rgb(235, 43, 71);
-  --color-lighter: rgba(235, 43, 71, 0.3);
+  --color: var(--red);
+  --color-lighter: var(--red-light);
 }
 
 .g {
-  --color: rgb(76, 214, 65);
-  --color-lighter: rgba(76, 214, 65, 0.3);
+  --color: var(--green);
+  --color-lighter: var(--green-light);
 }
 
 .b {
-  --color: rgb(60, 170, 223);
-  --color-lighter: rgba(60, 170, 223, 0.3);
+  --color: var(--blue);
+  --color-lighter: var(--blue-light);
 }
 
 .w {
-  --color: rgb(239, 233, 195);
-  --color-lighter: rgba(239, 233, 195, 0.3);
+  --color: var(--white);
+  --color-lighter: var(--white-light);
 }
 
 #esp-now-info {
@@ -224,27 +286,25 @@ section {
 
     th, td {
       padding: 0.5rem 0.75rem;
-      border: 1px solid #ccc;
+      border: 1px solid var(--section-shadow);
       text-align: left;
     }
 
     th {
-      background-color: #f4f4f4;
-      font-weight: bold;
+      background-color: var(--table-header-bg);
     }
-
     tr:nth-child(even) {
-      background-color: #fafafa;
+      background-color: var(--table-row-alt);
     }
-
     tr:hover {
-      background-color: #f0f0f0;
+      background-color: var(--table-row-hover);
     }
   }
 
   p {
     font-style: italic;
-    color: #888;
+    color: var(--text-color);
+    opacity: 0.6;
   }
 }
 
