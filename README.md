@@ -1,6 +1,10 @@
 # RGBW Controller
 
 ESP32 RGBW LED controller with web-based configuration and Alexa support. The firmware exposes Bluetooth Low Energy for initial setup, Wi‑Fi connectivity, a REST API, real‑time WebSocket control and OTA updates.
+## Requirements
+- Node.js and npm
+- PlatformIO CLI
+
 
 ## Project structure
 
