@@ -1,7 +1,10 @@
+@import './theme';
+
 body {
   font-family: Arial, sans-serif;
   text-align: center;
-  background: #f0f0f0;
+  background: var(--bg-color);
+  color: var(--text-color);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -29,9 +32,9 @@ h1 img {
 
 #file-label {
   grid-column: span 2;
-  background: #fff;
+  background: var(--section-bg);
   padding: 0.5em 1em;
-  border: 1px solid #ccc;
+  border: 1px solid var(--section-shadow);
   border-radius: 4px;
   cursor: pointer;
 }
@@ -44,14 +47,15 @@ h1 img {
   grid-column: span 2;
   font-style: italic;
   font-size: 0.9em;
-  color: #333;
+  color: var(--text-color);
 }
 
 select {
   width: 100%;
-  border: 1px solid #ccc;
+  border: 1px solid var(--section-shadow);
   border-radius: 4px;
-  background-color: #fff;
+  background-color: var(--section-bg);
+  color: var(--text-color);
   font-size: 1em;
   appearance: none;
   background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='gray' class='bi bi-chevron-down' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 5.646a.5.5 0 0 1 .708 0L8 11.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
@@ -63,25 +67,30 @@ select {
   cursor: pointer;
 }
 
+select option {
+  background-color: var(--select-option-bg);
+  color: var(--select-option-color);
+}
+
 select:focus {
   outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 3px rgba(76, 175, 80, 0.5);
-  background-color: #f9fff9;
+  border-color: var(--green);
+  box-shadow: 0 0 3px var(--green-light);
+  background-color: var(--white-light);
 }
 
 button {
   grid-column: span 2;
   padding: 0.5em 1em;
-  background-color: #4CAF50;
+  background-color: var(--green);
   border: none;
   border-radius: 4px;
-  color: white;
+  color: var(--button-text);
   cursor: pointer;
 }
 
 button:disabled {
-  background-color: #a5d6a7;
+  background-color: var(--button-disabled-bg);
   cursor: not-allowed;
   opacity: 0.7;
 }
@@ -89,7 +98,7 @@ button:disabled {
 #progress-container {
   grid-column: span 2;
   width: 100%;
-  background-color: #ddd;
+  background-color: var(--section-bg);
   border-radius: 4px;
   overflow: hidden;
   height: 20px;
@@ -99,6 +108,6 @@ button:disabled {
 #progress-bar {
   height: 100%;
   width: 0;
-  background-color: #4CAF50;
+  background-color: var(--green);
   transition: width 0.1s;
 }
