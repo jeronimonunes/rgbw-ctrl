@@ -14,60 +14,59 @@ import {
 } from "./model";
 
 const AUTO_CLOSE_TIMEOUT_MS = 1500;
-const RECONNECT_INTERVAL_MS = 500;
 
 export const webSocketHandlers = new Map<WebSocketMessageType, (data: ArrayBuffer) => void>();
 
-let socket: WebSocket;
-let reconnecting = false;
-let autoCloseTimeout: ReturnType<typeof setTimeout> | null = null;
+let timeoutChecker: ReturnType<typeof setInterval> | null = null;
+let lastReceivedMessageTime = Date.now();
+let socket: WebSocket | null = null;
 
 export function initWebSocket(url: string, onConnected?: () => void, onDisconnected?: () => void) {
+  if (!socket) {
+    connectWebSocket(url, onConnected, onDisconnected);
+    timeoutChecker && clearInterval(timeoutChecker);
+    timeoutChecker = setInterval(() => {
+      if (socket && socket.readyState === WebSocket.OPEN && lastReceivedMessageTime + AUTO_CLOSE_TIMEOUT_MS < Date.now()) {
+        console.warn("WebSocket connection timed out, closing socket");
+        socket.close();
+        socket = null;
+        onDisconnected?.();
+        connectWebSocket(url, onConnected, onDisconnected);
+      }
+    }, AUTO_CLOSE_TIMEOUT_MS)
+  }
+}
+
+export function disconnectWebSocket() {
+  socket?.close();
+  timeoutChecker && clearInterval(timeoutChecker);
+  timeoutChecker = null;
+}
+
+function connectWebSocket(url: string, onConnected?: () => void, onDisconnected?: () => void) {
   socket = new WebSocket(url);
   socket.binaryType = "arraybuffer";
+  lastReceivedMessageTime = Date.now();
 
   socket.onopen = () => {
     console.info("WebSocket connected");
-    reconnecting = false;
-    onConnected && onConnected();
-    setupAutoClose(onDisconnected);
+    lastReceivedMessageTime = Date.now();
+    onConnected?.();
   };
 
   socket.onmessage = (event: MessageEvent<ArrayBuffer>) => {
-    setupAutoClose(onDisconnected);
+    lastReceivedMessageTime = Date.now();
     handleMessage(event.data);
   }
 
   socket.onerror = (err) => {
     console.error("WebSocket error", err);
-    tryReconnect(url);
   };
 
   socket.onclose = () => {
     console.warn("WebSocket closed");
-    autoCloseTimeout && clearTimeout(autoCloseTimeout)
-    onDisconnected && onDisconnected();
-    tryReconnect(url, onConnected, onDisconnected);
+    onDisconnected?.();
   };
-}
-
-function setupAutoClose(onclose?: () => void) {
-  autoCloseTimeout && clearTimeout(autoCloseTimeout);
-  autoCloseTimeout = setTimeout(() => {
-    console.warn("WebSocket auto-closing due to inactivity");
-    socket.close();
-    onclose && onclose();
-  }, AUTO_CLOSE_TIMEOUT_MS);
-}
-
-function tryReconnect(url: string, onConnected?: () => void, onDisconnected?: () => void) {
-  if (reconnecting) return;
-  reconnecting = true;
-
-  setTimeout(() => {
-    console.info("Reconnecting WebSocket...");
-    initWebSocket(url, onConnected, onDisconnected);
-  }, RECONNECT_INTERVAL_MS);
 }
 
 function send(message: Uint8Array) {
