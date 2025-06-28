@@ -497,7 +497,6 @@ export class RgbwCtrlComponent implements OnDestroy {
     return c => {
       for (let i = 0; i < this.espNowDevicesForm.length; i++) {
         const group = this.espNowDevicesForm.at(i);
-        if (group.get(controlField) === c) break;
         if (group.value[controlField] === c.value) {
           return {unique: {value: c.value}};
         }

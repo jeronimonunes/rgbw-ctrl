@@ -471,8 +471,7 @@
         <mat-card-subtitle>Authorised devices</mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
-        <form autocomplete="off"
-              style="display: grid; gap: 1rem; grid-template-columns: 1fr 1fr auto; align-items: center">
+        <form autocomplete="off" id="espNowDevicesForm">
           <ng-container *ngFor="let control of espNowDevicesForm.controls; index as i">
             <mat-form-field appearance="outline" floatLabel="always">
               <mat-label>Device name</mat-label>
@@ -511,21 +510,23 @@
               <mat-icon>remove</mat-icon>
             </button>
           </ng-container>
-          <span *ngIf="espNowDevicesForm.length === 0" style="margin: auto">No devices allowed</span>
-          <div style="place-self: end; margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem; grid-column: span 3">
-            <!-- TODO: limit the number of devices -->
-            <button mat-icon-button color="primary" type="button"
-                    [disabled]="!connected || espNowDevicesForm.controls.length >= ESP_NOW_MAX_DEVICES_PER_MESSAGE" matTooltip="Add new ESP-NOW remote"
-                    (click)="addEspNowDeviceFormEntry()">
-              <mat-icon>add</mat-icon>
-            </button>
-            <button mat-raised-button color="primary" type="button"
-                    [disabled]="espNowDevicesForm.invalid || !connected || espNowDevicesForm.untouched"
-                    (click)="saveEspNowDevices()">
-              Save
-            </button>
-          </div>
         </form>
+        <span *ngIf="espNowDevicesForm.length === 0" style="margin: auto">No devices allowed</span>
+        <div
+          style="place-self: end; margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem; grid-column: span 3">
+          <!-- TODO: limit the number of devices -->
+          <button mat-icon-button color="primary" type="button"
+                  [disabled]="!connected || espNowDevicesForm.controls.length >= ESP_NOW_MAX_DEVICES_PER_MESSAGE"
+                  matTooltip="Add new ESP-NOW remote"
+                  (click)="addEspNowDeviceFormEntry()">
+            <mat-icon>add</mat-icon>
+          </button>
+          <button mat-raised-button color="primary" type="button"
+                  [disabled]="espNowDevicesForm.invalid || !connected || espNowDevicesForm.untouched"
+                  (click)="saveEspNowDevices()">
+            Save
+          </button>
+        </div>
       </mat-card-content>
     </mat-card>
   </mat-card-content>

@@ -2,7 +2,7 @@
 
 #include <array>
 #include <mutex>
-#include <vector>
+#include <optional>
 #include <algorithm>
 #include <esp_now.h>
 #include <Preferences.h>
@@ -38,6 +38,14 @@ struct EspNowDevice
     std::array<uint8_t, MAC_SIZE> address;
 };
 
+struct EspNowDeviceData
+{
+    static constexpr uint8_t MAX_DEVICES_PER_MESSAGE = 10;
+
+    uint8_t deviceCount = 0;
+    std::array<EspNowDevice, MAX_DEVICES_PER_MESSAGE> devices = {};
+};
+
 static_assert(sizeof(EspNowDevice) == EspNowDevice::NAME_TOTAL_LENGTH + EspNowDevice::MAC_SIZE,
               "Unexpected EspNowDevice size");
 #pragma pack(pop)
@@ -47,11 +55,11 @@ class EspNowHandler
     static constexpr auto LOG_TAG = "EspNowHandler";
 
     static constexpr auto PREFERENCES_NAME = "esp-now";
-    static constexpr auto PREFERENCES_KEY = "devices";
-    static constexpr uint8_t MAX_DEVICES_PER_MESSAGE = 15;
+    static constexpr auto PREFERENCES_COUNT_KEY = "devCount";
+    static constexpr auto PREFERENCES_DATA_KEY = "devData";
 
     static std::function<void(EspNowMessage* message)> callback;
-    static std::vector<EspNowDevice> devices;
+    static EspNowDeviceData deviceData;
 
     static void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, const int len)
     {
@@ -86,38 +94,39 @@ public:
         ESP_LOGI(LOG_TAG, "ESP-NOW initialized and callback registered");
     }
 
-    [[nodiscard]] static std::vector<EspNowDevice> getDevices()
+    [[nodiscard]] static EspNowDeviceData getDeviceData()
     {
         std::lock_guard lock(getMutex());
-        return devices;
+        return deviceData;
     }
 
-    static void setDevices(std::vector<EspNowDevice>&& newDevices)
+    static void setDeviceData(const EspNowDeviceData& data)
     {
         std::lock_guard lock(getMutex());
-        devices = std::move(newDevices);
+        deviceData = data;
         persistDevices();
     }
 
     static std::optional<EspNowDevice> findDeviceByMac(const uint8_t* mac)
     {
         std::lock_guard lock(getMutex());
-        const auto it = std::find_if(devices.begin(), devices.end(), [mac](const auto& device)
+        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
         {
-            return std::equal(device.address.begin(), device.address.end(), mac);
-        });
-        if (it != devices.end()) return *it;
+            if (std::equal(deviceData.devices[i].address.begin(), deviceData.devices[i].address.end(), mac))
+                return deviceData.devices[i];
+        }
         return std::nullopt;
     }
 
-    static std::optional<EspNowDevice> findDeviceByName(std::string_view name)
+    static std::optional<EspNowDevice> findDeviceByName(const std::string_view name)
     {
         std::lock_guard lock(getMutex());
-        const auto it = std::find_if(devices.begin(), devices.end(), [name](const auto& device)
+        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
         {
-            return std::string_view(device.name.data(), strnlen(device.name.data(), device.name.size())) == name;
-        });
-        if (it != devices.end()) return *it;
+            const auto& devName = deviceData.devices[i].name;
+            if (std::string_view(devName.data(), strnlen(devName.data(), devName.size())) == name)
+                return deviceData.devices[i];
+        }
         return std::nullopt;
     }
 
@@ -125,16 +134,13 @@ public:
     {
         std::lock_guard lock(getMutex());
         std::vector<uint8_t> buffer;
-        const uint8_t count = devices.size() > MAX_DEVICES_PER_MESSAGE
-                                  ? MAX_DEVICES_PER_MESSAGE
-                                  : static_cast<uint8_t>(devices.size());
-        buffer.reserve(1 + count * sizeof(EspNowDevice));
-        buffer.push_back(count);
-        for (size_t i = 0; i < count; ++i)
+        buffer.reserve(1 + deviceData.deviceCount * sizeof(EspNowDevice));
+        buffer.push_back(deviceData.deviceCount);
+        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
         {
-            const auto& [name, mac] = devices[i];
+            const auto& [name, address] = deviceData.devices[i];
             buffer.insert(buffer.end(), name.begin(), name.end());
-            buffer.insert(buffer.end(), mac.begin(), mac.end());
+            buffer.insert(buffer.end(), address.begin(), address.end());
         }
         return buffer;
     }
@@ -142,31 +148,33 @@ public:
     static void setDevicesBuffer(const uint8_t* data, const size_t length)
     {
         if (!data || length < 1) return;
+
         const uint8_t count = data[0];
+        if (const size_t expectedSize = 1 + count * sizeof(EspNowDevice);
+            length < expectedSize)
+            return;
 
-        if (const size_t expectedSize = 1 + count * sizeof(EspNowDevice); length < expectedSize) return;
+        EspNowDeviceData newData = {};
+        newData.deviceCount = std::min(count, EspNowDeviceData::MAX_DEVICES_PER_MESSAGE);
 
-        std::vector<EspNowDevice> result;
-        result.reserve(count);
-
-        for (uint8_t i = 0; i < count; ++i)
+        for (uint8_t i = 0; i < newData.deviceCount; ++i)
         {
-            EspNowDevice device; // NOLINT
             const size_t offset = 1 + i * sizeof(EspNowDevice);
-            std::copy_n(&data[offset], EspNowDevice::NAME_TOTAL_LENGTH, device.name.begin());
-            std::copy_n(&data[offset + EspNowDevice::NAME_TOTAL_LENGTH], EspNowDevice::MAC_SIZE, device.address.begin());
-            result.push_back(device);
+            std::copy_n(&data[offset], EspNowDevice::NAME_TOTAL_LENGTH, newData.devices[i].name.begin());
+            std::copy_n(&data[offset + EspNowDevice::NAME_TOTAL_LENGTH], EspNowDevice::MAC_SIZE,
+                        newData.devices[i].address.begin());
         }
 
-        setDevices(std::move(result));
+        setDeviceData(newData);
     }
 
     static void toJson(const JsonObject& espNow)
     {
         const auto arr = espNow["devices"].to<JsonArray>();
-        const auto devices = getDevices(); // NOLINT
-        for (const auto& [name, mac] : devices)
+        std::lock_guard lock(getMutex());
+        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
         {
+            const auto& [name, mac] = deviceData.devices[i];
             char macStr[18];
             snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -187,17 +195,21 @@ private:
     static bool isMacAllowed(const uint8_t* mac)
     {
         std::lock_guard lock(getMutex());
-        return std::any_of(devices.begin(), devices.end(), [mac](const auto& device)
+        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
         {
-            return std::equal(device.address.begin(), device.address.end(), mac);
-        });
+            if (std::equal(deviceData.devices[i].address.begin(), deviceData.devices[i].address.end(), mac))
+                return true;
+        }
+        return false;
     }
 
     static void persistDevices()
     {
         if (Preferences prefs; prefs.begin(PREFERENCES_NAME, false))
         {
-            prefs.putBytes(PREFERENCES_KEY, devices.data(), devices.size() * sizeof(EspNowDevice));
+            const auto dataSize = deviceData.deviceCount * sizeof(EspNowDevice);
+            prefs.putUInt(PREFERENCES_COUNT_KEY, deviceData.deviceCount);
+            prefs.putBytes(PREFERENCES_DATA_KEY, deviceData.devices.data(), dataSize);
             prefs.end();
             ESP_LOGI(LOG_TAG, "Devices saved to Preferences");
         }
@@ -211,12 +223,12 @@ private:
     {
         if (Preferences prefs; prefs.begin(PREFERENCES_NAME, true))
         {
-            if (const size_t len = prefs.getBytesLength(PREFERENCES_KEY);
-                len > 0 && len % sizeof(EspNowDevice) == 0)
+            deviceData.deviceCount = prefs.getUInt(PREFERENCES_COUNT_KEY, 0);
+            if (const auto dataSize = deviceData.deviceCount * sizeof(EspNowDevice);
+                prefs.getBytesLength(PREFERENCES_DATA_KEY) == dataSize)
             {
-                std::lock_guard lock(getMutex());
-                devices.resize(len / sizeof(EspNowDevice));
-                prefs.getBytes(PREFERENCES_KEY, devices.data(), len);
+                deviceData.devices = {};
+                prefs.getBytes(PREFERENCES_DATA_KEY, deviceData.devices.data(), dataSize);
                 ESP_LOGI(LOG_TAG, "Devices restored from Preferences");
             }
             prefs.end();

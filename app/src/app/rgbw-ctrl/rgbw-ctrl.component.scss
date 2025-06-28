@@ -21,7 +21,7 @@ $warm-white: rgb(239, 233, 195);
 mat-card {
   min-width: 340px;
   width: 100%;
-  max-width: 600px;
+  max-width: 700px;
 }
 
 mat-card-header {
@@ -82,15 +82,10 @@ mat-list-item.selected {
   align-items: center;
   justify-content: center;
 
-  & > *[role=img] {
+  & > *[role=img], & > *[role=img] svg {
     width: 16px;
     height: 16px;
     font-size: 16px;
-
-    svg {
-      width: 16px;
-      height: 16px;
-    }
   }
 
   .mat-mdc-button-touch-target {
@@ -152,4 +147,25 @@ mat-slider.w, mat-slide-toggle.w {
   grid-template-columns: 1fr auto;
   align-items: center;
   column-gap: 0.5rem;
+}
+
+#espNowDevicesForm {
+  display: grid;
+  row-gap: 1.5rem;
+  column-gap: 0.5rem;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+
+  @media (max-width: 645px) {
+    grid-template-columns: 1fr auto;
+
+    > mat-form-field {
+      grid-column: span 2;
+    }
+
+    > button {
+      grid-column: span 2;
+      justify-self: end;
+    }
+  }
 }
