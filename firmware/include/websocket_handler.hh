@@ -24,6 +24,7 @@ class WebSocketHandler
     ThrottledValue<std::array<char, DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{100};
     ThrottledValue<OtaState> otaStateThrottle{100};
     ThrottledValue<EspNowDeviceData> espNowDevicesThrottle{100};
+    ThrottledValue<std::array<char, 6>> firmwareVersionThrottle{100};
     unsigned long lastSentHeapInfo = 0;
 
 public:
@@ -54,7 +55,10 @@ public:
     void handle(const unsigned long now)
     {
         ws.cleanupClients();
-        sendAllMessages(now);
+        if (ws.count())
+        {
+            sendAllMessages(now);
+        }
     }
 
     AsyncWebHandler* getAsyncWebHandler()
@@ -308,6 +312,7 @@ private:
         sendDeviceNameMessage(now, client);
         sendOtaProgressMessage(now, client);
         sendEspNowDevicesMessage(now, client);
+        sendFirmwareVersionMessage(now, client);
     }
 
     void sendOutputColorMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
@@ -350,5 +355,11 @@ private:
     {
         sendThrottledMessage<EspNowDeviceData, EspNowDevicesMessage>(
             EspNowHandler::getDeviceData(), espNowDevicesThrottle, now, client);
+    }
+
+    void sendFirmwareVersionMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
+    {
+        sendThrottledMessage<std::array<char, 6>, FirmwareVersionMessage>(
+            FIRMWARE_VERSION, firmwareVersionThrottle, now, client);
     }
 };

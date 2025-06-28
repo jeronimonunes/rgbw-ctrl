@@ -5,7 +5,6 @@ import {
   encodeColorMessage,
   encodeDeviceNameMessage,
   encodeHttpCredentialsMessage,
-  encodeOtaProgressMessage,
   encodeWiFiConnectionDetailsMessage,
   encodeWiFiScanStatusMessage,
   LightState,
@@ -26,10 +25,9 @@ export function initWebSocket(url: string, onConnected?: () => void, onDisconnec
     connectWebSocket(url, onConnected, onDisconnected);
     timeoutChecker && clearInterval(timeoutChecker);
     timeoutChecker = setInterval(() => {
-      if (socket && socket.readyState === WebSocket.OPEN && lastReceivedMessageTime + AUTO_CLOSE_TIMEOUT_MS < Date.now()) {
+      if (socket == null || (socket.readyState === WebSocket.OPEN && lastReceivedMessageTime + AUTO_CLOSE_TIMEOUT_MS < Date.now())) {
         console.warn("WebSocket connection timed out, closing socket");
-        socket.close();
-        socket = null;
+        socket?.close();
         onDisconnected?.();
         connectWebSocket(url, onConnected, onDisconnected);
       }
@@ -66,6 +64,7 @@ function connectWebSocket(url: string, onConnected?: () => void, onDisconnected?
   socket.onclose = () => {
     console.warn("WebSocket closed");
     onDisconnected?.();
+    socket = null;
   };
 }
 
@@ -115,8 +114,4 @@ export function sendAlexaIntegrationSettings(settings: AlexaIntegrationSettings)
 
 export function sendWiFiScanRequest(): void {
   send(encodeWiFiScanStatusMessage());
-}
-
-export function sendOtaProgressRequest(): void {
-  send(encodeOtaProgressMessage());
 }

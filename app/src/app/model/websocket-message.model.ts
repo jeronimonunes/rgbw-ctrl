@@ -19,7 +19,8 @@ export enum WebSocketMessageType {
   ON_WIFI_DETAILS = 7,
   ON_OTA_PROGRESS = 8,
   ON_ALEXA_INTEGRATION_SETTINGS = 9,
-  ON_ESP_NOW_DEVICES = 10
+  ON_ESP_NOW_DEVICES = 10,
+  ON_FIRMWARE_VERSION = 11
 }
 
 export interface WebSocketColorMessage {
@@ -76,6 +77,11 @@ export interface WebSocketEspNowDevicesMessage {
   devices: EspNowDevice[];
 }
 
+export interface WebSocketFirmwareVersionMessage {
+  type: WebSocketMessageType.ON_FIRMWARE_VERSION;
+  firmwareVersion: string;
+}
+
 export type WebSocketMessage =
   | WebSocketColorMessage
   | WebSocketHttpCredentialsMessage
@@ -87,4 +93,5 @@ export type WebSocketMessage =
   | WebSocketWiFiStatusMessage
   | WebSocketWiFiScanStatusMessage
   | WebSocketOtaProgressMessage
-  | WebSocketEspNowDevicesMessage;
+  | WebSocketEspNowDevicesMessage
+  | WebSocketFirmwareVersionMessage;

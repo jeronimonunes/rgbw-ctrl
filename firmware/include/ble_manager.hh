@@ -370,7 +370,7 @@ private:
     public:
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            pCharacteristic->setValue(FIRMWARE_VERSION);
+            pCharacteristic->setValue(FIRMWARE_VERSION.data());
         }
     };
 

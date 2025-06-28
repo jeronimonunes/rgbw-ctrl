@@ -15,6 +15,7 @@ enum class MessageType : uint8_t
     ON_OTA_PROGRESS,
     ON_ALEXA_INTEGRATION_SETTINGS,
     ON_ESP_NOW_DEVICES,
+    ON_FIRMWARE_VERSION,
 };
 
 #pragma pack(push, 1)
@@ -123,6 +124,16 @@ struct EspNowDevicesMessage : Message
 
     explicit EspNowDevicesMessage(const EspNowDeviceData& data)
         : Message(MessageType::ON_ESP_NOW_DEVICES), data(data)
+    {
+    }
+};
+
+struct FirmwareVersionMessage : Message
+{
+    std::array<char, 6> version;
+
+    explicit FirmwareVersionMessage(const std::array<char, 6>& version)
+        : Message(MessageType::ON_FIRMWARE_VERSION), version(version)
     {
     }
 };

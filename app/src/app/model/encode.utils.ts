@@ -168,10 +168,6 @@ export function encodeWiFiScanStatusMessage(): Uint8Array {
   return new Uint8Array([WebSocketMessageType.ON_WIFI_SCAN_STATUS]);
 }
 
-export function encodeOtaProgressMessage(): Uint8Array {
-  return new Uint8Array([WebSocketMessageType.ON_OTA_PROGRESS]);
-}
-
 export function encodeEspNowMessage(devices: EspNowDevice[]) {
   const writer = new BufferWriter(new Uint8Array(1 + ESP_NOW_DEVICE_LENGTH * devices.length));
   writer.writeUint8(devices.length);

@@ -13,6 +13,7 @@ import {
     decodeWebSocketOnColorMessage,
     decodeWebSocketOnOtaProgressMessage,
     decodeWebSocketEspNowDevicesMessage,
+    decodeFirmwareVersionMessage,
     LightState,
     otaStatusToString,
     WebSocketMessageType,
@@ -115,6 +116,11 @@ webSocketHandlers.set(WebSocketMessageType.ON_HEAP, (message: ArrayBuffer) => {
 webSocketHandlers.set(WebSocketMessageType.ON_ESP_NOW_DEVICES, (message: ArrayBuffer) => {
     const {devices} = decodeWebSocketEspNowDevicesMessage(message);
     updateEspNowDevices(devices);
+});
+
+webSocketHandlers.set(WebSocketMessageType.ON_FIRMWARE_VERSION, (message: ArrayBuffer) => {
+    const {firmwareVersion} = decodeFirmwareVersionMessage(message);
+    updateText("firmware-version", firmwareVersion);
 });
 
 function getOutputState(): [LightState, LightState, LightState, LightState] {

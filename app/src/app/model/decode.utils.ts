@@ -23,6 +23,7 @@ import {
   WebSocketColorMessage,
   WebSocketDeviceNameMessage,
   WebSocketEspNowDevicesMessage,
+  WebSocketFirmwareVersionMessage,
   WebSocketHeapInfoMessage,
   WebSocketMessageType,
   WebSocketOtaProgressMessage
@@ -246,5 +247,14 @@ export function decodeWebSocketEspNowDevicesMessage(buffer: ArrayBuffer): WebSoc
   return {
     type: WebSocketMessageType.ON_ESP_NOW_DEVICES,
     devices
+  };
+}
+
+export function decodeFirmwareVersionMessage(buffer: ArrayBuffer): WebSocketFirmwareVersionMessage {
+  const data = new Uint8Array(buffer);
+  const version = decodeCString(data.subarray(1));
+  return {
+    type: WebSocketMessageType.ON_FIRMWARE_VERSION,
+    firmwareVersion: version
   };
 }
