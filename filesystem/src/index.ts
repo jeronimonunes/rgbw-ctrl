@@ -4,7 +4,7 @@ import {
     sendBleStatus,
     sendColorMessage,
     webSocketHandlers
-} from "../../app/src/app/web-socket.handler.ts";
+} from "../../app/src/app/websocket.handler.ts";
 import {
     BleStatus,
     decodeDeviceNameMessage,
