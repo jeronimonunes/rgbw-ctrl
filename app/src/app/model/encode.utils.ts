@@ -144,7 +144,7 @@ export function encodeDeviceNameMessage(deviceName: string): Uint8Array {
 export function encodeWiFiConnectionDetailsMessage(details: WiFiConnectionDetails): Uint8Array {
   const detailsBuffer = encodeWiFiConnectionDetails(details);
   const buffer = new Uint8Array(1 + detailsBuffer.length);
-  buffer[0] = WebSocketMessageType.ON_WIFI_DETAILS;
+  buffer[0] = WebSocketMessageType.ON_WIFI_CONNECTION_DETAILS;
   buffer.set(detailsBuffer, 1);
   return buffer;
 }

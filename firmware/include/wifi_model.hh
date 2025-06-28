@@ -114,25 +114,37 @@ struct WiFiScanResult
 struct WiFiDetails
 {
     std::array<char, WIFI_MAX_SSID_LENGTH + 1> ssid = {};
-    uint8_t mac[6];
+    std::array<uint8_t, 6> mac;
     uint32_t ip;
     uint32_t gateway;
     uint32_t subnet;
     uint32_t dns;
 
-    static WiFiDetails fromWiFi()
+    bool operator==(const WiFiDetails& other) const
     {
-        WiFiDetails details = {};
-        WiFi.mode(WIFI_STA); // NOLINT
-        std::memset(details.ssid.data(), 0, sizeof(details.ssid));
-        strncpy(details.ssid.data(), WiFi.SSID().c_str(), WIFI_MAX_SSID_LENGTH);
-        details.ssid[WIFI_MAX_SSID_LENGTH] = '\0';
-        WiFi.macAddress(details.mac);
-        details.ip = static_cast<uint32_t>(WiFi.localIP());
-        details.gateway = static_cast<uint32_t>(WiFi.gatewayIP());
-        details.subnet = static_cast<uint32_t>(WiFi.subnetMask());
-        details.dns = static_cast<uint32_t>(WiFi.dnsIP());
-        return details;
+        return ssid == other.ssid &&
+            mac == other.mac &&
+            ip == other.ip &&
+            gateway == other.gateway &&
+            subnet == other.subnet &&
+            dns == other.dns;
+    }
+
+    bool operator!=(const WiFiDetails& other) const
+    {
+        return ssid != other.ssid ||
+            mac != other.mac ||
+            ip != other.ip ||
+            gateway != other.gateway ||
+            subnet != other.subnet ||
+            dns != other.dns;
+    }
+
+    void setSsid(const String& newSsid)
+    {
+        std::memset(ssid.data(), 0, sizeof(ssid));
+        strncpy(ssid.data(), newSsid.c_str(), WIFI_MAX_SSID_LENGTH);
+        ssid[WIFI_MAX_SSID_LENGTH] = '\0';
     }
 
     static void toJson(const JsonObject& to)

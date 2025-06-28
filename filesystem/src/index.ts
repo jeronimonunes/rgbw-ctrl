@@ -14,12 +14,15 @@ import {
     decodeWebSocketOnOtaProgressMessage,
     decodeWebSocketEspNowDevicesMessage,
     decodeFirmwareVersionMessage,
+    decodeWebSocketWiFiDetailsMessage,
     LightState,
     otaStatusToString,
     WebSocketMessageType,
+    WiFiDetails,
     EspNowDevice
 } from "../../app/src/app/model"
 import {getState, resetSystem, restartSystem} from "../../app/src/app/rest-api.ts";
+import {numberToIp} from "../../app/src/app/model/decode.utils.ts";
 
 loadDeviceState()
     .then(() => initWebSocket(`ws://${location.host}/ws`, onConnected, onDisconnected));
@@ -122,6 +125,11 @@ webSocketHandlers.set(WebSocketMessageType.ON_FIRMWARE_VERSION, (message: ArrayB
     const {firmwareVersion} = decodeFirmwareVersionMessage(message);
     updateText("firmware-version", firmwareVersion);
 });
+
+webSocketHandlers.set(WebSocketMessageType.ON_WIFI_DETAILS, (message: ArrayBuffer) => {
+    const {details} = decodeWebSocketWiFiDetailsMessage(message);
+    updateWiFiDetails(details);
+})
 
 function getOutputState(): [LightState, LightState, LightState, LightState] {
     const states: LightState[] = [];
@@ -253,4 +261,13 @@ function createEspNowListItem(espNowTable: HTMLDivElement, device: EspNowDevice)
     tr.appendChild(tdName);
     tr.appendChild(tdMac);
     espNowTable.appendChild(tr);
+}
+
+function updateWiFiDetails(details: WiFiDetails) {
+    updateText("wifi-ssid", details.ssid);
+    updateText("wifi-mac", details.mac);
+    updateText("wifi-ip", numberToIp(details.ip));
+    updateText("wifi-gateway", numberToIp(details.gateway));
+    updateText("wifi-subnet", numberToIp(details.subnet));
+    updateText("wifi-dns", numberToIp(details.dns));
 }

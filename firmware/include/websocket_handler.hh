@@ -25,6 +25,7 @@ class WebSocketHandler
     ThrottledValue<OtaState> otaStateThrottle{100};
     ThrottledValue<EspNowDeviceData> espNowDevicesThrottle{100};
     ThrottledValue<std::array<char, 6>> firmwareVersionThrottle{100};
+    ThrottledValue<WiFiDetails> wifiDetailsThrottle{100};
     unsigned long lastSentHeapInfo = 0;
 
 public:
@@ -313,6 +314,7 @@ private:
         sendOtaProgressMessage(now, client);
         sendEspNowDevicesMessage(now, client);
         sendFirmwareVersionMessage(now, client);
+        sendWiFiDetailsMessage(now, client);
     }
 
     void sendOutputColorMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
@@ -361,5 +363,11 @@ private:
     {
         sendThrottledMessage<std::array<char, 6>, FirmwareVersionMessage>(
             FIRMWARE_VERSION, firmwareVersionThrottle, now, client);
+    }
+
+    void sendWiFiDetailsMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
+    {
+        sendThrottledMessage<WiFiDetails, WiFiDetailsMessage>(
+            wifiManager.getWifiDetails(), wifiDetailsThrottle, now, client);
     }
 };

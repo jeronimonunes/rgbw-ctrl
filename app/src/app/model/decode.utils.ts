@@ -24,6 +24,7 @@ import {
   WebSocketDeviceNameMessage,
   WebSocketEspNowDevicesMessage,
   WebSocketFirmwareVersionMessage,
+  WebSocketWiFiDetailsMessage,
   WebSocketHeapInfoMessage,
   WebSocketMessageType,
   WebSocketOtaProgressMessage
@@ -45,7 +46,16 @@ function macBytesToString(mac: Uint8Array): string {
     .join(':');
 }
 
-class BufferReader {
+export function numberToIp(value: number): string {
+  return [
+    (value >> 0) & 0xFF,
+    (value >> 8) & 0xFF,
+    (value >> 16) & 0xFF,
+    (value >> 24) & 0xFF,
+  ].join('.')
+}
+
+export class BufferReader {
   private offset = 0;
 
   constructor(private buffer: Uint8Array) {
@@ -84,9 +94,7 @@ export function decodeWiFiScanStatus(buffer: Uint8Array) {
   return buffer[0] as WiFiScanStatus;
 }
 
-export function decodeWiFiDetails(buffer: Uint8Array): WiFiDetails {
-  const reader = new BufferReader(buffer);
-
+export function decodeWiFiDetails(reader: BufferReader): WiFiDetails {
   const ssid = reader.readCString(WIFI_SSID_MAX_LENGTH + 1);
   const mac = macBytesToString(reader.readBytes(6));
   const ip = reader.readUint32();
@@ -256,5 +264,15 @@ export function decodeFirmwareVersionMessage(buffer: ArrayBuffer): WebSocketFirm
   return {
     type: WebSocketMessageType.ON_FIRMWARE_VERSION,
     firmwareVersion: version
+  };
+}
+
+export function decodeWebSocketWiFiDetailsMessage(buffer: ArrayBuffer): WebSocketWiFiDetailsMessage {
+  const reader = new BufferReader(new Uint8Array(buffer));
+  const type = reader.readByte();
+  const details = decodeWiFiDetails(reader);
+  return {
+    type,
+    details
   };
 }

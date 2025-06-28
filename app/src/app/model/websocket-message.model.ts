@@ -1,26 +1,27 @@
 import {AlexaIntegrationSettings} from "./alexa-integration-settings.model";
 import {HttpCredentials} from "../http-credentials.model";
-import {WiFiConnectionDetails, WiFiScanStatus, WiFiStatus} from "./wifi.model";
+import {WiFiDetails, WiFiConnectionDetails, WiFiScanStatus, WiFiStatus} from "./wifi.model";
 import {BleStatus} from './ble.model';
 import {LightState} from './light.model';
 import {OtaState} from './ota.model';
-import { EspNowDevice } from "./esp-now.model";
+import {EspNowDevice} from "./esp-now.model";
 
 export const WEB_SOCKET_MESSAGE_TYPE_BYTE_SIZE = 1;
 
 export enum WebSocketMessageType {
-  ON_COLOR = 0,
-  ON_HTTP_CREDENTIALS = 1,
-  ON_DEVICE_NAME = 2,
-  ON_HEAP = 3,
-  ON_BLE_STATUS = 4,
-  ON_WIFI_STATUS = 5,
-  ON_WIFI_SCAN_STATUS = 6,
-  ON_WIFI_DETAILS = 7,
-  ON_OTA_PROGRESS = 8,
-  ON_ALEXA_INTEGRATION_SETTINGS = 9,
-  ON_ESP_NOW_DEVICES = 10,
-  ON_FIRMWARE_VERSION = 11
+  ON_COLOR,
+  ON_HTTP_CREDENTIALS,
+  ON_DEVICE_NAME,
+  ON_HEAP,
+  ON_BLE_STATUS,
+  ON_WIFI_STATUS,
+  ON_WIFI_SCAN_STATUS,
+  ON_WIFI_DETAILS,
+  ON_WIFI_CONNECTION_DETAILS,
+  ON_OTA_PROGRESS,
+  ON_ALEXA_INTEGRATION_SETTINGS,
+  ON_ESP_NOW_DEVICES,
+  ON_FIRMWARE_VERSION
 }
 
 export interface WebSocketColorMessage {
@@ -82,6 +83,11 @@ export interface WebSocketFirmwareVersionMessage {
   firmwareVersion: string;
 }
 
+export interface WebSocketWiFiDetailsMessage {
+  type: WebSocketMessageType.ON_WIFI_DETAILS;
+  details: WiFiDetails
+}
+
 export type WebSocketMessage =
   | WebSocketColorMessage
   | WebSocketHttpCredentialsMessage
@@ -94,4 +100,5 @@ export type WebSocketMessage =
   | WebSocketWiFiScanStatusMessage
   | WebSocketOtaProgressMessage
   | WebSocketEspNowDevicesMessage
-  | WebSocketFirmwareVersionMessage;
+  | WebSocketFirmwareVersionMessage
+  | WebSocketWiFiDetailsMessage;

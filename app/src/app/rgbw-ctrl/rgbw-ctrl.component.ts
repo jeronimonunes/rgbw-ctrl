@@ -7,7 +7,7 @@ import {MatCardModule} from '@angular/material/card';
 import {FormArray, FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators} from '@angular/forms';
 import {
   ALEXA_MAX_DEVICE_NAME_LENGTH,
-  AlexaIntegrationMode,
+  AlexaIntegrationMode, BufferReader,
   decodeAlexaIntegrationSettings,
   decodeCString,
   decodeEspNowDevice,
@@ -575,7 +575,7 @@ export class RgbwCtrlComponent implements OnDestroy {
 
   private wifiDetailsChanged(view: DataView) {
     const buffer = new Uint8Array(view.buffer);
-    this.wifiDetails = decodeWiFiDetails(buffer);
+    this.wifiDetails = decodeWiFiDetails(new BufferReader(buffer));
   }
 
   private wifiScanStatusChanged(view: DataView) {

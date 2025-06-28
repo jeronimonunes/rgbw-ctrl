@@ -12,6 +12,7 @@ enum class MessageType : uint8_t
     ON_WIFI_STATUS,
     ON_WIFI_SCAN_STATUS,
     ON_WIFI_DETAILS,
+    ON_WIFI_CONNECTION_DETAILS,
     ON_OTA_PROGRESS,
     ON_ALEXA_INTEGRATION_SETTINGS,
     ON_ESP_NOW_DEVICES,
@@ -82,6 +83,16 @@ struct WiFiConnectionDetailsMessage : Message
     WiFiConnectionDetails details;
 
     explicit WiFiConnectionDetailsMessage(const WiFiConnectionDetails& details)
+        : Message(MessageType::ON_WIFI_CONNECTION_DETAILS), details(details)
+    {
+    }
+};
+
+struct WiFiDetailsMessage : Message
+{
+    WiFiDetails details;
+
+    explicit WiFiDetailsMessage(const WiFiDetails& details)
         : Message(MessageType::ON_WIFI_DETAILS), details(details)
     {
     }

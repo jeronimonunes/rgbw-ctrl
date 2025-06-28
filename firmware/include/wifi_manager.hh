@@ -22,6 +22,7 @@ class WiFiManager
 
     std::atomic<WiFiStatus> wifiStatus = WiFiStatus::DISCONNECTED;
     std::atomic<WifiScanStatus> scanStatus = WifiScanStatus::COMPLETED;
+    WiFiDetails wifiDetails = {};
 
     QueueHandle_t wifiScanQueue = nullptr;
     WiFiScanResult scanResult;
@@ -40,6 +41,7 @@ public:
     {
         WiFi.persistent(false);
         WiFi.mode(WIFI_MODE_STA); // NOLINT
+        fillWiFiDetails();
         WiFi.onEvent([this](const WiFiEvent_t event, const WiFiEventInfo_t& info)
         {
             switch (event)
@@ -93,6 +95,11 @@ public:
             return false;
         }
         return true;
+    }
+
+    [[nodiscard]] WiFiDetails getWifiDetails() const
+    {
+        return wifiDetails;
     }
 
     [[nodiscard]] WiFiStatus getStatus() const
@@ -269,23 +276,6 @@ public:
         prefs.end();
     }
 
-    static bool isEap(const WiFiConnectionDetails& details)
-    {
-        return isEap(details.encryptionType);
-    }
-
-    static bool isEap(const WiFiEncryptionType& encryptionType)
-    {
-        switch (encryptionType)
-        {
-        case WiFiEncryptionType::WPA2_ENTERPRISE:
-        case WiFiEncryptionType::WPA3_ENT_192:
-            return true;
-        default:
-            return false;
-        }
-    }
-
     void connect(const WiFiConnectionDetails& details)
     {
         if (details.ssid[0] == '\0')
@@ -309,6 +299,23 @@ public:
     }
 
 private:
+    static bool isEap(const WiFiConnectionDetails& details)
+    {
+        return isEap(details.encryptionType);
+    }
+
+    static bool isEap(const WiFiEncryptionType& encryptionType)
+    {
+        switch (encryptionType)
+        {
+        case WiFiEncryptionType::WPA2_ENTERPRISE:
+        case WiFiEncryptionType::WPA3_ENT_192:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     static void saveCredentials(const WiFiConnectionDetails& details)
     {
         Preferences prefs;
@@ -341,18 +348,25 @@ private:
         ESP_LOGI(LOG_TAG, "WiFi status changed: %d -> %d",
                  static_cast<int>(wifiStatus.load()), static_cast<int>(newStatus));
         wifiStatus = newStatus;
+        fillWiFiDetails();
         if (statusChanged)
         {
             statusChanged(wifiStatus);
         }
-        if (detailsChanged && (
-            newStatus == WiFiStatus::CONNECTED
-            || newStatus == WiFiStatus::DISCONNECTED
-            || newStatus == WiFiStatus::CONNECTED_NO_IP
-        ))
+        if (detailsChanged)
         {
-            detailsChanged(WiFiDetails::fromWiFi());
+            detailsChanged(wifiDetails);
         }
+    }
+
+    void fillWiFiDetails()
+    {
+        wifiDetails.setSsid(WiFi.SSID());
+        WiFi.macAddress(wifiDetails.mac.data());
+        wifiDetails.ip = static_cast<uint32_t>(WiFi.localIP());
+        wifiDetails.gateway = static_cast<uint32_t>(WiFi.gatewayIP());
+        wifiDetails.subnet = static_cast<uint32_t>(WiFi.subnetMask());
+        wifiDetails.dns = static_cast<uint32_t>(WiFi.dnsIP());
     }
 
     void setScanStatus(const WifiScanStatus status)

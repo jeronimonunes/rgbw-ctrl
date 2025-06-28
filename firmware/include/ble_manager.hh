@@ -487,7 +487,7 @@ private:
 
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            WiFiDetails details = WiFiDetails::fromWiFi();
+            WiFiDetails details = net->wifiManager.getWifiDetails();
             pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&details), sizeof(details));
         }
     };
