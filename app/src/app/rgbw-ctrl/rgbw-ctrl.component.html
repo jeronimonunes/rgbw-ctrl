@@ -4,19 +4,19 @@
 </h1>
 
 <div class="button-container">
-  <button mat-raised-button color="warn" (click)="disconnect()" *ngIf="connected; else connectButton"
+  <button mat-stroked-button color="warn" (click)="disconnect()" *ngIf="connected; else connectButton"
           matTooltip="Disconnect from BLE device">
     <mat-icon aria-label="Disconnect Bluetooth">bluetooth_disabled</mat-icon>
     Disconnect from your device
   </button>
   <ng-template #connectButton>
-    <button mat-raised-button color="accent" (click)="connectBleDevice()" matTooltip="Connect to BLE device">
+    <button mat-stroked-button color="accent" (click)="connectBleDevice()" matTooltip="Connect to BLE device">
       <mat-icon aria-label="Connect Bluetooth">bluetooth</mat-icon>
       Connect to your device
     </button>
   </ng-template>
 
-  <button mat-raised-button color="warn" (click)="restartDevice()" [disabled]="!connected"
+  <button mat-stroked-button color="warn" (click)="restartDevice()" [disabled]="!connected"
           matTooltip="Restart the device">
     <mat-icon>restart_alt</mat-icon>
     Restart Device
