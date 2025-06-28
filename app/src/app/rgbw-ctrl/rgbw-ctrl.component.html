@@ -505,7 +505,7 @@
             </mat-form-field>
             <button mat-icon-button matTooltip="Remove this device" color="warn" type="button"
                     style="margin-bottom: 20px"
-                    (click)="espNowDevicesForm.removeAt(i); espNowDevicesForm.markAsDirty(); espNowDevicesForm.markAsTouched()"
+                    (click)="removeEspNowDevice(i)"
                     [attr.aria-label]="'Remove this device'">
               <mat-icon>remove</mat-icon>
             </button>

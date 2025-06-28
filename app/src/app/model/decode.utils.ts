@@ -22,6 +22,7 @@ import {
   WebSocketBleStatusMessage,
   WebSocketColorMessage,
   WebSocketDeviceNameMessage,
+  WebSocketEspNowDevicesMessage,
   WebSocketHeapInfoMessage,
   WebSocketMessageType,
   WebSocketOtaProgressMessage
@@ -236,5 +237,14 @@ export function decodeWebSocketHeapInfoMessage(buffer: ArrayBuffer): WebSocketHe
   return {
     type,
     freeHeap
+  };
+}
+
+export function decodeWebSocketEspNowDevicesMessage(buffer: ArrayBuffer): WebSocketEspNowDevicesMessage {
+  const data = new Uint8Array(buffer);
+  const devices = decodeEspNowDevice(data.subarray(1));
+  return {
+    type: WebSocketMessageType.ON_ESP_NOW_DEVICES,
+    devices
   };
 }

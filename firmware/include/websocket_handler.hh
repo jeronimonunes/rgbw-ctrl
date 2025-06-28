@@ -23,6 +23,7 @@ class WebSocketHandler
     ThrottledValue<BleStatus> bleStatusThrottle{100};
     ThrottledValue<std::array<char, DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{100};
     ThrottledValue<OtaState> otaStateThrottle{100};
+    ThrottledValue<EspNowDeviceData> espNowDevicesThrottle{100};
     unsigned long lastSentHeapInfo = 0;
 
 public:
@@ -301,11 +302,12 @@ private:
 
     void sendAllMessages(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
+        sendHeapInfoMessage(now);
         sendOutputColorMessage(now, client);
         sendBleStatusMessage(now, client);
         sendDeviceNameMessage(now, client);
         sendOtaProgressMessage(now, client);
-        sendHeapInfoMessage(now);
+        sendEspNowDevicesMessage(now, client);
     }
 
     void sendOutputColorMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
@@ -342,5 +344,11 @@ private:
         const auto freeHeap = ESP.getFreeHeap();
         const HeapMessage message(freeHeap);
         ws.binaryAll(reinterpret_cast<const uint8_t*>(&message), sizeof(HeapMessage));
+    }
+
+    void sendEspNowDevicesMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
+    {
+        sendThrottledMessage<EspNowDeviceData, EspNowDevicesMessage>(
+            EspNowHandler::getDeviceData(), espNowDevicesThrottle, now, client);
     }
 };

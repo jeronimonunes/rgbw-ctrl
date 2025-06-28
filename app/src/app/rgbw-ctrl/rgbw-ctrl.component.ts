@@ -493,11 +493,17 @@ export class RgbwCtrlComponent implements OnDestroy {
     this.espNowDevicesForm.updateValueAndValidity({emitEvent: false})
   }
 
+  removeEspNowDevice(i: number) {
+    this.espNowDevicesForm.removeAt(i);
+    this.espNowDevicesForm.markAsDirty();
+    this.espNowDevicesForm.markAsTouched();
+  }
+
   unique(controlField: 'address' | 'name'): ValidatorFn {
     return c => {
       for (let i = 0; i < this.espNowDevicesForm.length; i++) {
         const group = this.espNowDevicesForm.at(i);
-        if (group.value[controlField] === c.value) {
+        if (c.parent !== group && group.value[controlField] === c.value) {
           return {unique: {value: c.value}};
         }
       }

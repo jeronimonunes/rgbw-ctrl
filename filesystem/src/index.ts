@@ -12,6 +12,7 @@ import {
     decodeWebSocketOnBleStatusMessage,
     decodeWebSocketOnColorMessage,
     decodeWebSocketOnOtaProgressMessage,
+    decodeWebSocketEspNowDevicesMessage,
     LightState,
     otaStatusToString,
     WebSocketMessageType,
@@ -109,6 +110,11 @@ webSocketHandlers.set(WebSocketMessageType.ON_OTA_PROGRESS, (message: ArrayBuffe
 webSocketHandlers.set(WebSocketMessageType.ON_HEAP, (message: ArrayBuffer) => {
     const {freeHeap} = decodeWebSocketHeapInfoMessage(message);
     updateText("heap", `${freeHeap}`);
+});
+
+webSocketHandlers.set(WebSocketMessageType.ON_ESP_NOW_DEVICES, (message: ArrayBuffer) => {
+    const {devices} = decodeWebSocketEspNowDevicesMessage(message);
+    updateEspNowDevices(devices);
 });
 
 function getOutputState(): [LightState, LightState, LightState, LightState] {

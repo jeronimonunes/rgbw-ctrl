@@ -14,6 +14,7 @@ enum class MessageType : uint8_t
     ON_WIFI_DETAILS,
     ON_OTA_PROGRESS,
     ON_ALEXA_INTEGRATION_SETTINGS,
+    ON_ESP_NOW_DEVICES,
 };
 
 #pragma pack(push, 1)
@@ -112,6 +113,16 @@ struct HeapMessage : Message
 
     explicit HeapMessage(const uint32_t freeHeap)
         : Message(MessageType::ON_HEAP), freeHeap(freeHeap)
+    {
+    }
+};
+
+struct EspNowDevicesMessage : Message
+{
+    EspNowDeviceData data;
+
+    explicit EspNowDevicesMessage(const EspNowDeviceData& data)
+        : Message(MessageType::ON_ESP_NOW_DEVICES), data(data)
     {
     }
 };

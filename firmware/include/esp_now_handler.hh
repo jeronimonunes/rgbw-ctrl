@@ -36,6 +36,16 @@ struct EspNowDevice
 
     std::array<char, NAME_TOTAL_LENGTH> name;
     std::array<uint8_t, MAC_SIZE> address;
+
+    bool operator==(const EspNowDevice& other) const
+    {
+        return name == other.name && address == other.address;
+    }
+
+    bool operator!=(const EspNowDevice& other) const
+    {
+        return name != other.name && address != other.address;
+    }
 };
 
 struct EspNowDeviceData
@@ -44,6 +54,16 @@ struct EspNowDeviceData
 
     uint8_t deviceCount = 0;
     std::array<EspNowDevice, MAX_DEVICES_PER_MESSAGE> devices = {};
+
+    bool operator==(const EspNowDeviceData& other) const
+    {
+        return deviceCount == other.deviceCount && devices == other.devices;
+    }
+
+    bool operator!=(const EspNowDeviceData& other) const
+    {
+        return deviceCount != other.deviceCount || devices != other.devices;
+    }
 };
 
 static_assert(sizeof(EspNowDevice) == EspNowDevice::NAME_TOTAL_LENGTH + EspNowDevice::MAC_SIZE,

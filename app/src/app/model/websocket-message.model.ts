@@ -4,6 +4,7 @@ import {WiFiConnectionDetails, WiFiScanStatus, WiFiStatus} from "./wifi.model";
 import {BleStatus} from './ble.model';
 import {LightState} from './light.model';
 import {OtaState} from './ota.model';
+import { EspNowDevice } from "./esp-now.model";
 
 export const WEB_SOCKET_MESSAGE_TYPE_BYTE_SIZE = 1;
 
@@ -18,6 +19,7 @@ export enum WebSocketMessageType {
   ON_WIFI_DETAILS = 7,
   ON_OTA_PROGRESS = 8,
   ON_ALEXA_INTEGRATION_SETTINGS = 9,
+  ON_ESP_NOW_DEVICES = 10
 }
 
 export interface WebSocketColorMessage {
@@ -69,6 +71,11 @@ export interface WebSocketOtaProgressMessage extends OtaState {
   type: WebSocketMessageType.ON_OTA_PROGRESS;
 }
 
+export interface WebSocketEspNowDevicesMessage {
+  type: WebSocketMessageType.ON_ESP_NOW_DEVICES;
+  devices: EspNowDevice[];
+}
+
 export type WebSocketMessage =
   | WebSocketColorMessage
   | WebSocketHttpCredentialsMessage
@@ -79,4 +86,5 @@ export type WebSocketMessage =
   | WebSocketHeapInfoMessage
   | WebSocketWiFiStatusMessage
   | WebSocketWiFiScanStatusMessage
-  | WebSocketOtaProgressMessage;
+  | WebSocketOtaProgressMessage
+  | WebSocketEspNowDevicesMessage;
