@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseVersion:
+        description: Version to release
+        type: string
+        required: true
+
+jobs:
+  release:
+    permissions:
+      id-token: write
+      contents: write
+      pages: write
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate Inputs
+        run: |
+          node -e "/^\d+\.\d+(\.\d+)?(\.\d+)?$/.test('${{ github.event.inputs.releaseVersion }}') || process.exit(1)"
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            app/package-lock.json
+            filesystem/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Setup Application Dependencies
+        run: |
+          cd app && npm install
+
+      - name: Install Home Page Application Dependencies
+        run: |
+          cd filesystem && npm install
+
+      - name: Build Setup Application
+        run: |
+          cd app && npm run build
+
+      - name: Build Home Page Application
+        run: |
+          cd filesystem && npm run build
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-pio
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build PlatformIO Project
+        run: cd firmware && pio run
+
+      - name: Build FileSystem
+        run: cd firmware && pio run -t buildfs
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./app/dist/rgbw-ctrl-setup/browser
+
+      - name: Deploy GitHub Pages
+        uses: actions/deploy-pages@v4
+
+      - name: Package Release Artifacts
+        run: |
+          mkdir -p release
+          cp firmware/.pio/build/*/firmware.bin release/
+          cp firmware/.pio/build/*/littlefs.bin release/
+          zip -r ${{ github.event.inputs.releaseVersion }}.zip release
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.releaseVersion }}
+          name: Release v${{ github.event.inputs.releaseVersion }}
+          files: ${{ github.event.inputs.releaseVersion }}.zip
+      
