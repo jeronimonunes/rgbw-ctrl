@@ -10,7 +10,7 @@ Allows scheduling any `std::function<void()>` to run after a specified time with
 ### Behavior
 
 * Creates a task named "AsyncCallTask"
-* Waits for the configured delay using `vTaskDelayUntil()` for precise timing
+* Waits for the configured delay using `delay()`
 * Executes the given callback
 * Deletes the task automatically
 

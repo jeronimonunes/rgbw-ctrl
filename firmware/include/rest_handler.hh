@@ -10,9 +10,9 @@
 #include "ble_manager.hh"
 #include "ota_handler.hh"
 
-enum class RestEndpoint
+enum class RestEndpoint : uint8_t
 {
-    State, Color, Bluetooth, Restart, Reset, Unknown
+    State, Bluetooth, Color, Brightness, Restart, Reset, Unknown
 };
 
 class RestHandler
@@ -113,7 +113,19 @@ public:
         const auto b = extractParam(request, "b", Color::Blue);
         const auto w = extractParam(request, "w", Color::White);
         output.setColor(r, g, b, w);
+        output.setOn(r > 0, g > 0, b > 0, w > 0);
         sendMessageJsonResponse(request, "Color updated");
+    }
+
+    void handleBrightnessRequest(AsyncWebServerRequest* request) const
+    {
+        if (!request->hasParam("value"))
+            return sendMessageJsonResponse(request, "Missing 'value' parameter");
+        const auto value = std::clamp(
+            static_cast<uint8_t>(request->getParam("value")->value().toInt()),
+            Light::OFF_VALUE, Light::ON_VALUE);
+        output.setAll(value, value > 0);
+        sendMessageJsonResponse(request, "OK");
     }
 
     static void sendMessageJsonResponse(AsyncWebServerRequest* request, const char* message)
@@ -133,6 +145,7 @@ public:
         return output.getValue(color);
     }
 
+private:
     class AsyncRestWebHandler final : public AsyncWebHandler
     {
         RestHandler* restHandler;
@@ -167,6 +180,8 @@ public:
             case RestEndpoint::Reset:
                 restHandler->handleResetRequest(request);
                 break;
+            case RestEndpoint::Brightness:
+                restHandler->handleBrightnessRequest(request);
             default:
                 request->send(404, "text/plain", "Not Found");
             }
@@ -176,6 +191,7 @@ public:
         {
             if (path == "/state") return RestEndpoint::State;
             if (path == "/color") return RestEndpoint::Color;
+            if (path == "/brightness") return RestEndpoint::Brightness;
             if (path == "/bluetooth") return RestEndpoint::Bluetooth;
             if (path == "/system/restart") return RestEndpoint::Restart;
             if (path == "/system/reset") return RestEndpoint::Reset;

@@ -126,6 +126,23 @@ public:
         lights.at(static_cast<size_t>(Color::White)).setValue(w);
     }
 
+    void setOn(const bool r, const bool g, const bool b, const bool w)
+    {
+        lights.at(static_cast<size_t>(Color::Red)).setOn(r);
+        lights.at(static_cast<size_t>(Color::Green)).setOn(g);
+        lights.at(static_cast<size_t>(Color::Blue)).setOn(b);
+        lights.at(static_cast<size_t>(Color::White)).setOn(w);
+    }
+
+    void setAll(const uint8_t value, const bool on)
+    {
+        for (auto& light : lights)
+        {
+            light.setValue(value);
+            light.setOn(on);
+        }
+    }
+
     void setState(const State& state)
     {
         for (size_t i = 0; i < std::min(lights.size(), state.values.size()); ++i)
