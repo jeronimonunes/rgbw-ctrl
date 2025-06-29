@@ -1,11 +1,12 @@
 # Filesystem
 
 Web UI assets served directly from the ESP32. Built with Vite and TypeScript.
+Requires **Node.js 20+**.
 
 - Source code lives in `src/`.
 - Run the following to install dependencies and bundle the assets:
   ```bash
-  npm install
+  npm ci
   npm run dev   # start a local preview server
   npm run build
   ```

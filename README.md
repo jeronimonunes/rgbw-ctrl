@@ -2,8 +2,8 @@
 
 ESP32 RGBW LED controller with web-based configuration and Alexa support. The firmware exposes Bluetooth Low Energy for initial setup, Wi‑Fi connectivity, a REST API, real‑time WebSocket control and OTA updates.
 ## Requirements
-- Node.js and npm
-- PlatformIO CLI
+- Node.js 20+ and npm
+- PlatformIO CLI 6+
 
 
 ## Project structure
@@ -15,12 +15,29 @@ ESP32 RGBW LED controller with web-based configuration and Alexa support. The fi
 | [/app](app) | Angular setup app |
 | [/doc](doc) | Additional documentation |
 
+## Quick start
+
+1. Install Node.js dependencies for the UI projects:
+   ```bash
+   cd filesystem && npm ci && npm run build
+   cd ../app && npm ci
+   ```
+2. Compile and upload the firmware with PlatformIO:
+   ```bash
+   cd ../firmware
+   pio run -t upload
+   ```
+3. Upload the bundled web UI:
+   ```bash
+   pio run -t uploadfs   # via USB
+   ```
+
 ## Angular Configuration App
 
 The `app` directory houses an Angular project used to configure the controller via Web Bluetooth.
 
 ### Prerequisites
-- Node.js
+- Node.js 20+
 - npm
 
 ### Getting Started

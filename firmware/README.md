@@ -1,7 +1,7 @@
 # Firmware
 
 ESP32 source code for the RGBW controller. This PlatformIO project builds the firmware that runs on the device.
-Requires the PlatformIO CLI or VS Code extension.
+Requires the PlatformIO CLI (version 6+) or VS Code extension. Building the bundled web UI also requires **Node.js 20+**.
 
 - Edit code in `src/` and headers in `include/`.
 - Configuration lives in `platformio.ini` and `partitions.csv`.
