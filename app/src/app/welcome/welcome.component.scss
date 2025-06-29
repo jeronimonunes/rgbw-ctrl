@@ -1,0 +1,15 @@
+:host {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+mat-card {
+  max-width: 600px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+mat-card h1 {
+  margin-top: 0;
+}
