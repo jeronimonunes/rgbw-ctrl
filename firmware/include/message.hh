@@ -4,10 +4,11 @@
 
 enum class MessageType : uint8_t
 {
+    ON_HEAP,
+    ON_DEVICE_NAME,
+    ON_FIRMWARE_VERSION,
     ON_COLOR,
     ON_HTTP_CREDENTIALS,
-    ON_DEVICE_NAME,
-    ON_HEAP,
     ON_BLE_STATUS,
     ON_WIFI_STATUS,
     ON_WIFI_SCAN_STATUS,
@@ -16,7 +17,6 @@ enum class MessageType : uint8_t
     ON_OTA_PROGRESS,
     ON_ALEXA_INTEGRATION_SETTINGS,
     ON_ESP_NOW_DEVICES,
-    ON_FIRMWARE_VERSION,
 };
 
 #pragma pack(push, 1)
@@ -94,6 +94,26 @@ struct WiFiDetailsMessage : Message
 
     explicit WiFiDetailsMessage(const WiFiDetails& details)
         : Message(MessageType::ON_WIFI_DETAILS), details(details)
+    {
+    }
+};
+
+struct WiFiStatusMessage : Message
+{
+    WiFiStatus status;
+
+    explicit WiFiStatusMessage(const WiFiStatus& status)
+        : Message(MessageType::ON_WIFI_STATUS), status(status)
+    {
+    }
+};
+
+struct AlexaSettingsMessage : Message
+{
+    AlexaIntegrationSettings settings;
+
+    explicit AlexaSettingsMessage(const AlexaIntegrationSettings& settings)
+        : Message(MessageType::ON_ALEXA_INTEGRATION_SETTINGS), settings(settings)
     {
     }
 };

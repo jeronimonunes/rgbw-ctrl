@@ -22,7 +22,7 @@ public:
         if (!mutex.try_lock())
             return false;
 
-        if (newValue == lastValue || now - lastSendTime < throttleInterval)
+        if (now - lastSendTime < throttleInterval || newValue == lastValue)
         {
             mutex.unlock();
             return false;

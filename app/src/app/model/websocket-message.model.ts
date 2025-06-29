@@ -9,10 +9,11 @@ import {EspNowDevice} from "./esp-now.model";
 export const WEB_SOCKET_MESSAGE_TYPE_BYTE_SIZE = 1;
 
 export enum WebSocketMessageType {
+  ON_HEAP,
+  ON_DEVICE_NAME,
+  ON_FIRMWARE_VERSION,
   ON_COLOR,
   ON_HTTP_CREDENTIALS,
-  ON_DEVICE_NAME,
-  ON_HEAP,
   ON_BLE_STATUS,
   ON_WIFI_STATUS,
   ON_WIFI_SCAN_STATUS,
@@ -21,7 +22,6 @@ export enum WebSocketMessageType {
   ON_OTA_PROGRESS,
   ON_ALEXA_INTEGRATION_SETTINGS,
   ON_ESP_NOW_DEVICES,
-  ON_FIRMWARE_VERSION
 }
 
 export interface WebSocketColorMessage {
@@ -86,6 +86,16 @@ export interface WebSocketFirmwareVersionMessage {
 export interface WebSocketWiFiDetailsMessage {
   type: WebSocketMessageType.ON_WIFI_DETAILS;
   details: WiFiDetails
+}
+
+export interface WebSocketWiFiStatusMessage {
+  type: WebSocketMessageType.ON_WIFI_STATUS;
+  status: WiFiStatus;
+}
+
+export interface WebSocketAlexaIntegrationSettingsMessage {
+  type: WebSocketMessageType.ON_ALEXA_INTEGRATION_SETTINGS;
+  settings: AlexaIntegrationSettings;
 }
 
 export type WebSocketMessage =

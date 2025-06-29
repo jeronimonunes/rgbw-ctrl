@@ -90,3 +90,22 @@ export function isEnterprise(encryptionType: WiFiEncryptionType): boolean {
   return ENTERPRISE_ENCRYPTION_TYPES.includes(encryptionType);
 }
 
+export function wifiStatusToString(wifiStatus: WiFiStatus): string {
+  switch (wifiStatus) {
+    case WiFiStatus.DISCONNECTED:
+      return "Disconnected";
+    case WiFiStatus.CONNECTED:
+      return "Connected";
+    case WiFiStatus.CONNECTED_NO_IP:
+      return "Connected but no IP";
+    case WiFiStatus.WRONG_PASSWORD:
+      return "Wrong password";
+    case WiFiStatus.NO_AP_FOUND:
+      return "No access point found";
+    case WiFiStatus.CONNECTION_FAILED:
+      return "Connection failed";
+    default:
+      return "Unknown status";
+  }
+
+}

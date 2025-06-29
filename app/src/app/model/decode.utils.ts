@@ -19,15 +19,17 @@ import {ALEXA_MAX_DEVICE_NAME_LENGTH, AlexaIntegrationSettings} from './alexa-in
 import {HttpCredentials, MAX_HTTP_PASSWORD_LENGTH, MAX_HTTP_USERNAME_LENGTH} from '../http-credentials.model';
 import {
   WEB_SOCKET_MESSAGE_TYPE_BYTE_SIZE,
+  WebSocketAlexaIntegrationSettingsMessage,
   WebSocketBleStatusMessage,
   WebSocketColorMessage,
   WebSocketDeviceNameMessage,
   WebSocketEspNowDevicesMessage,
   WebSocketFirmwareVersionMessage,
-  WebSocketWiFiDetailsMessage,
   WebSocketHeapInfoMessage,
   WebSocketMessageType,
-  WebSocketOtaProgressMessage
+  WebSocketOtaProgressMessage,
+  WebSocketWiFiDetailsMessage,
+  WebSocketWiFiStatusMessage
 } from './websocket-message.model';
 import {LightState} from './light.model';
 import {OUTPUT_STATE_BYTE_SIZE, OutputState} from './output.model';
@@ -274,5 +276,20 @@ export function decodeWebSocketWiFiDetailsMessage(buffer: ArrayBuffer): WebSocke
   return {
     type,
     details
+  };
+}
+
+export function decodeWebSocketWiFiStatusMessage(buffer: ArrayBuffer): WebSocketWiFiStatusMessage {
+  const data = new Uint8Array(buffer);
+  return {type: data[0], status: data[1]};
+}
+
+export function decodeWebSocketAlexaMessage(buffer: ArrayBuffer): WebSocketAlexaIntegrationSettingsMessage {
+  const data = new Uint8Array(buffer)
+  const type = data[0]
+  const integrationSettings = decodeAlexaIntegrationSettings(data.subarray(1));
+  return {
+    type,
+    settings: integrationSettings
   };
 }

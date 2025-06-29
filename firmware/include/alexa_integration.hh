@@ -23,6 +23,18 @@ struct AlexaIntegrationSettings
     AlexaIntegrationMode integrationMode = AlexaIntegrationMode::OFF;
     std::array<std::array<char, MAX_DEVICE_NAME_LENGTH>, 4> deviceNames = {};
 
+    bool operator==(const AlexaIntegrationSettings& other) const
+    {
+        return this->integrationMode == other.integrationMode
+            && this->deviceNames == other.deviceNames;
+    }
+
+    bool operator!=(const AlexaIntegrationSettings& other) const
+    {
+        return this->integrationMode != other.integrationMode
+            || this->deviceNames != other.deviceNames;
+    }
+
     void toJson(const JsonObject& to) const
     {
         to["mode"] = this->integrationModeString();

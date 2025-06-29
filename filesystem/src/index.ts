@@ -8,24 +8,25 @@ import {
 import {
     BleStatus,
     decodeDeviceNameMessage,
+    decodeFirmwareVersionMessage,
+    decodeWebSocketAlexaMessage,
+    decodeWebSocketEspNowDevicesMessage,
     decodeWebSocketHeapInfoMessage,
     decodeWebSocketOnBleStatusMessage,
     decodeWebSocketOnColorMessage,
     decodeWebSocketOnOtaProgressMessage,
-    decodeWebSocketEspNowDevicesMessage,
-    decodeFirmwareVersionMessage,
     decodeWebSocketWiFiDetailsMessage,
+    decodeWebSocketWiFiStatusMessage,
+    EspNowDevice,
     LightState,
     otaStatusToString,
     WebSocketMessageType,
     WiFiDetails,
-    EspNowDevice
+    wifiStatusToString
 } from "../../app/src/app/model"
-import {getState, resetSystem, restartSystem} from "../../app/src/app/rest-api.ts";
+import {resetSystem, restartSystem} from "../../app/src/app/rest-api.ts";
 import {numberToIp} from "../../app/src/app/model/decode.utils.ts";
-
-loadDeviceState()
-    .then(() => initWebSocket(`ws://${location.host}/ws`, onConnected, onDisconnected));
+import {alexaModeToString} from "../../app/src/app/model/alexa-integration-settings.model.ts";
 
 const sliders = Array.from(document.querySelectorAll<HTMLInputElement>('label.slider input[type="range"]'));
 const switches = Array.from(document.querySelectorAll<HTMLInputElement>('label.switch input[type="checkbox"]'));
@@ -131,6 +132,44 @@ webSocketHandlers.set(WebSocketMessageType.ON_WIFI_DETAILS, (message: ArrayBuffe
     updateWiFiDetails(details);
 })
 
+webSocketHandlers.set(WebSocketMessageType.ON_WIFI_STATUS, (message: ArrayBuffer) => {
+    const {status} = decodeWebSocketWiFiStatusMessage(message);
+    updateText("wifi-status", wifiStatusToString(status));
+});
+
+webSocketHandlers.set(WebSocketMessageType.ON_WIFI_STATUS, (message: ArrayBuffer) => {
+    const {status} = decodeWebSocketWiFiStatusMessage(message);
+    updateText("wifi-status", wifiStatusToString(status));
+});
+
+webSocketHandlers.set(WebSocketMessageType.ON_ALEXA_INTEGRATION_SETTINGS, (message: ArrayBuffer) => {
+    const {
+        settings: {
+            integrationMode,
+            rDeviceName,
+            gDeviceName,
+            bDeviceName,
+            wDeviceName
+        }
+    } = decodeWebSocketAlexaMessage(message);
+    updateText("alexa-mode", alexaModeToString(integrationMode));
+    updateText("alexa-names", [rDeviceName, gDeviceName, bDeviceName, wDeviceName].filter(Boolean).join(", "));
+});
+
+function updateWiFiDetails(details: WiFiDetails) {
+    updateText("wifi-ssid", details.ssid);
+    updateText("wifi-mac", details.mac);
+    updateText("wifi-ip", numberToIp(details.ip));
+    updateText("wifi-gateway", numberToIp(details.gateway));
+    updateText("wifi-subnet", numberToIp(details.subnet));
+    updateText("wifi-dns", numberToIp(details.dns));
+}
+
+function updateText(id: string, value: string): void {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
 function getOutputState(): [LightState, LightState, LightState, LightState] {
     const states: LightState[] = [];
     for (let i = 0; i < sliders.length; i++) {
@@ -144,11 +183,6 @@ function getOutputState(): [LightState, LightState, LightState, LightState] {
         });
     }
     return states as [LightState, LightState, LightState, LightState];
-}
-
-function updateText(id: string, value: string): void {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
 }
 
 function updateBluetoothButton(status: BleStatus): void {
@@ -173,33 +207,6 @@ function updateSliderVisual(slider: HTMLInputElement) {
     const labelSpan = slider.parentElement?.querySelector("span");
     if (labelSpan) labelSpan.textContent = `${percentage}%`;
     return value;
-}
-
-async function loadDeviceState(): Promise<void> {
-    try {
-        const state = await getState();
-
-        updateText("device-name", state.deviceName);
-        updateText("firmware-version", state.firmwareVersion);
-        updateText("heap", `${state.heap}`);
-
-        updateText("wifi-status", state.wifi.status);
-        updateText("wifi-ssid", state.wifi.details.ssid);
-        updateText("wifi-mac", state.wifi.details.mac);
-        updateText("wifi-ip", state.wifi.details.ip);
-        updateText("wifi-gateway", state.wifi.details.gateway);
-        updateText("wifi-subnet", state.wifi.details.subnet);
-        updateText("wifi-dns", state.wifi.details.dns);
-
-        updateText("alexa-mode", state.alexa.mode);
-        updateText("alexa-names", state.alexa.names.join(", "));
-
-        updateText("ota-status", state.ota.status);
-
-        updateEspNowDevices(state.espNow.devices);
-    } catch (error) {
-        console.error("Failed to load device state", error);
-    }
 }
 
 function onConnected() {
@@ -263,11 +270,4 @@ function createEspNowListItem(espNowTable: HTMLDivElement, device: EspNowDevice)
     espNowTable.appendChild(tr);
 }
 
-function updateWiFiDetails(details: WiFiDetails) {
-    updateText("wifi-ssid", details.ssid);
-    updateText("wifi-mac", details.mac);
-    updateText("wifi-ip", numberToIp(details.ip));
-    updateText("wifi-gateway", numberToIp(details.gateway));
-    updateText("wifi-subnet", numberToIp(details.subnet));
-    updateText("wifi-dns", numberToIp(details.dns));
-}
+initWebSocket(`ws://${location.host}/ws`, onConnected, onDisconnected);
