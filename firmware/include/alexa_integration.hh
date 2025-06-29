@@ -6,65 +6,67 @@
 
 #include "output.hh"
 
-enum class AlexaIntegrationMode : uint8_t
-{
-    OFF = 0,
-    RGBW_DEVICE = 1,
-    RGB_DEVICE = 2,
-    MULTI_DEVICE = 3
-};
-
-#pragma pack(push, 1)
-struct AlexaIntegrationSettings
-{
-    static constexpr auto MAX_DEVICE_NAME_LENGTH
-        = AsyncEspAlexaDevice::MAX_DEVICE_NAME_LENGTH;
-
-    AlexaIntegrationMode integrationMode = AlexaIntegrationMode::OFF;
-    std::array<std::array<char, MAX_DEVICE_NAME_LENGTH>, 4> deviceNames = {};
-
-    bool operator==(const AlexaIntegrationSettings& other) const
-    {
-        return this->integrationMode == other.integrationMode
-            && this->deviceNames == other.deviceNames;
-    }
-
-    bool operator!=(const AlexaIntegrationSettings& other) const
-    {
-        return this->integrationMode != other.integrationMode
-            || this->deviceNames != other.deviceNames;
-    }
-
-    void toJson(const JsonObject& to) const
-    {
-        to["mode"] = this->integrationModeString();
-        const auto names = to["names"].to<JsonArray>();
-        for (const auto& name : deviceNames)
-            if (name[0] != '\0') names.add(name.data()); // NOLINT
-    }
-
-    [[nodiscard]] const char* integrationModeString() const
-    {
-        switch (integrationMode)
-        {
-        case AlexaIntegrationMode::OFF:
-            return "off";
-        case AlexaIntegrationMode::RGBW_DEVICE:
-            return "rgbw_device";
-        case AlexaIntegrationMode::RGB_DEVICE:
-            return "rgb_device";
-        case AlexaIntegrationMode::MULTI_DEVICE:
-            return "multi_device";
-        }
-        return "off";
-    }
-};
-#pragma pack(pop)
-
 class AlexaIntegration
 {
     static constexpr auto LOG_TAG = "AlexaIntegration";
 
+public:
+#pragma pack(push, 1)
+    struct Settings
+    {
+        static constexpr auto MAX_DEVICE_NAME_LENGTH
+            = AsyncEspAlexaDevice::MAX_DEVICE_NAME_LENGTH;
+
+        enum class Mode : uint8_t
+        {
+            OFF = 0,
+            RGBW_DEVICE = 1,
+            RGB_DEVICE = 2,
+            MULTI_DEVICE = 3
+        };
+
+        Mode integrationMode = Mode::OFF;
+        std::array<std::array<char, MAX_DEVICE_NAME_LENGTH>, 4> deviceNames = {};
+
+        bool operator==(const Settings& other) const
+        {
+            return this->integrationMode == other.integrationMode
+                && this->deviceNames == other.deviceNames;
+        }
+
+        bool operator!=(const Settings& other) const
+        {
+            return this->integrationMode != other.integrationMode
+                || this->deviceNames != other.deviceNames;
+        }
+
+        void toJson(const JsonObject& to) const
+        {
+            to["mode"] = this->integrationModeString();
+            const auto names = to["names"].to<JsonArray>();
+            for (const auto& name : deviceNames)
+                if (name[0] != '\0') names.add(name.data()); // NOLINT
+        }
+
+        [[nodiscard]] const char* integrationModeString() const
+        {
+            switch (integrationMode)
+            {
+            case Mode::OFF:
+                return "off";
+            case Mode::RGBW_DEVICE:
+                return "rgbw_device";
+            case Mode::RGB_DEVICE:
+                return "rgb_device";
+            case Mode::MULTI_DEVICE:
+                return "multi_device";
+            }
+            return "off";
+        }
+    };
+#pragma pack(pop)
+
+private:
     struct RgbwMode
     {
         AsyncEspAlexaExtendedColorDevice* device;
@@ -91,7 +93,7 @@ class AlexaIntegration
     Output& output;
     AsyncEspAlexaManager espAlexaManager;
 
-    AlexaIntegrationSettings settings;
+    Settings settings;
 
     ModeDevice devices = {};
 
@@ -118,12 +120,12 @@ public:
         return espAlexaManager.createAlexaAsyncWebHandler();
     }
 
-    [[nodiscard]] const AlexaIntegrationSettings& getSettings() const
+    [[nodiscard]] const Settings& getSettings() const
     {
         return settings;
     }
 
-    void applySettings(const AlexaIntegrationSettings& settings)
+    void applySettings(const Settings& settings)
     {
         this->settings = settings;
         savePreferences();
@@ -133,16 +135,16 @@ public:
     {
         switch (settings.integrationMode)
         {
-        case AlexaIntegrationMode::OFF:
+        case Settings::Mode::OFF:
             break;
-        case AlexaIntegrationMode::RGBW_DEVICE:
+        case Settings::Mode::RGBW_DEVICE:
             updateRgbwDevice();
             break;
-        case AlexaIntegrationMode::RGB_DEVICE:
+        case Settings::Mode::RGB_DEVICE:
             updateRgbDevice();
             updateStandaloneDevice();
             break;
-        case AlexaIntegrationMode::MULTI_DEVICE:
+        case Settings::Mode::MULTI_DEVICE:
             updateMultiDevices();
             break;
         }
@@ -154,14 +156,14 @@ private:
         Preferences prefs;
         prefs.begin("alexa-config", true);
 
-        if (const auto mode = prefs.getUChar("mode", static_cast<uint8_t>(AlexaIntegrationMode::OFF));
-            mode <= static_cast<uint8_t>(AlexaIntegrationMode::MULTI_DEVICE))
+        if (const auto mode = prefs.getUChar("mode", static_cast<uint8_t>(Settings::Mode::OFF));
+            mode <= static_cast<uint8_t>(Settings::Mode::MULTI_DEVICE))
         {
-            settings.integrationMode = static_cast<AlexaIntegrationMode>(mode);
+            settings.integrationMode = static_cast<Settings::Mode>(mode);
         }
         else
         {
-            settings.integrationMode = AlexaIntegrationMode::OFF;
+            settings.integrationMode = Settings::Mode::OFF;
         }
 
         const String r = prefs.getString("r", "");
@@ -170,15 +172,15 @@ private:
         const String w = prefs.getString("w", "");
         prefs.end();
 
-        strncpy(settings.deviceNames[0].data(), r.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
-        strncpy(settings.deviceNames[1].data(), g.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
-        strncpy(settings.deviceNames[2].data(), b.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
-        strncpy(settings.deviceNames[3].data(), w.c_str(), AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1);
+        strncpy(settings.deviceNames[0].data(), r.c_str(), Settings::MAX_DEVICE_NAME_LENGTH - 1);
+        strncpy(settings.deviceNames[1].data(), g.c_str(), Settings::MAX_DEVICE_NAME_LENGTH - 1);
+        strncpy(settings.deviceNames[2].data(), b.c_str(), Settings::MAX_DEVICE_NAME_LENGTH - 1);
+        strncpy(settings.deviceNames[3].data(), w.c_str(), Settings::MAX_DEVICE_NAME_LENGTH - 1);
 
-        settings.deviceNames[0][AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
-        settings.deviceNames[1][AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
-        settings.deviceNames[2][AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
-        settings.deviceNames[3][AlexaIntegrationSettings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
+        settings.deviceNames[0][Settings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
+        settings.deviceNames[1][Settings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
+        settings.deviceNames[2][Settings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
+        settings.deviceNames[3][Settings::MAX_DEVICE_NAME_LENGTH - 1] = '\0';
     }
 
     void savePreferences()
@@ -197,16 +199,16 @@ private:
     {
         switch (settings.integrationMode)
         {
-        case AlexaIntegrationMode::OFF:
+        case Settings::Mode::OFF:
             break;
-        case AlexaIntegrationMode::RGBW_DEVICE:
+        case Settings::Mode::RGBW_DEVICE:
             setupRgbwDevice();
             break;
-        case AlexaIntegrationMode::RGB_DEVICE:
+        case Settings::Mode::RGB_DEVICE:
             setupRgbDevice();
             setupStandaloneDevice();
             break;
-        case AlexaIntegrationMode::MULTI_DEVICE:
+        case Settings::Mode::MULTI_DEVICE:
             setupMultiDevice();
             break;
         }

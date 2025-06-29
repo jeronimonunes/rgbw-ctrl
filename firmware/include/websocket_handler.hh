@@ -27,7 +27,7 @@ class WebSocketHandler
     ThrottledValue<std::array<char, 10>> firmwareVersionThrottle{200};
     ThrottledValue<WiFiDetails> wifiDetailsThrottle{200};
     ThrottledValue<WiFiStatus> wifiStatusThrottle{200};
-    ThrottledValue<AlexaIntegrationSettings> alexaSettingsThrottle{200};
+    ThrottledValue<AlexaIntegration::Settings> alexaSettingsThrottle{200};
 
     unsigned long lastSentHeapInfo = 0;
 
@@ -152,9 +152,11 @@ private:
 
     void sendFirmwareVersionMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-
+        std::array<char, 10> version = {};
+        std::strncpy(version.data(), FIRMWARE_VERSION, version.size() - 1);
+        version[version.size() - 1] = '\0';
         sendThrottledMessage<std::array<char, 10>, WebSocketFirmwareVersionMessage>(
-            FIRMWARE_VERSION, firmwareVersionThrottle, now, client);
+            version, firmwareVersionThrottle, now, client);
     }
 
     void sendWiFiDetailsMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
@@ -171,7 +173,7 @@ private:
 
     void sendAlexaIntegrationSettingsMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<AlexaIntegrationSettings, WebSocketAlexaIntegrationSettingsMessage>(
+        sendThrottledMessage<AlexaIntegration::Settings, WebSocketAlexaIntegrationSettingsMessage>(
             alexaIntegration.getSettings(), alexaSettingsThrottle, now, client);
     }
 
@@ -241,20 +243,20 @@ private:
         }
 
         const uint8_t messageTypeRaw = data[0];
-        if (messageTypeRaw > static_cast<uint8_t>(WebSocketMessageType::ON_ALEXA_INTEGRATION_SETTINGS))
+        if (messageTypeRaw > static_cast<uint8_t>(WebSocketMessage::Type::ON_ALEXA_INTEGRATION_SETTINGS))
         {
             ESP_LOGD(LOG_TAG, "Received unknown WebSocket message type: %d", messageTypeRaw);
             return;
         }
 
-        const auto messageType = static_cast<WebSocketMessageType>(messageTypeRaw);
+        const auto messageType = static_cast<WebSocketMessage::Type>(messageTypeRaw);
         ESP_LOGD(LOG_TAG, "Received WebSocket message of type %d", static_cast<int>(messageType));
 
         this->handleWebSocketMessage(messageType, client, data, len);
     }
 
     void handleWebSocketMessage(
-        const WebSocketMessageType messageType,
+        const WebSocketMessage::Type messageType,
         AsyncWebSocketClient* client,
         const uint8_t* data,
         const size_t len
@@ -262,43 +264,43 @@ private:
     {
         switch (messageType)
         {
-        case WebSocketMessageType::ON_COLOR:
+        case WebSocketMessage::Type::ON_COLOR:
             handleColorMessage(data, len);
             break;
 
-        case WebSocketMessageType::ON_HTTP_CREDENTIALS:
+        case WebSocketMessage::Type::ON_HTTP_CREDENTIALS:
             handleHttpCredentialsMessage(data, len);
             break;
 
-        case WebSocketMessageType::ON_DEVICE_NAME:
+        case WebSocketMessage::Type::ON_DEVICE_NAME:
             handleDeviceNameMessage(data, len);
             break;
 
-        case WebSocketMessageType::ON_HEAP:
+        case WebSocketMessage::Type::ON_HEAP:
             ESP_LOGD(LOG_TAG, "Received HEAP message (ignored).");
             break;
 
-        case WebSocketMessageType::ON_BLE_STATUS:
+        case WebSocketMessage::Type::ON_BLE_STATUS:
             handleBleStatusMessage(client, data, len);
             break;
 
-        case WebSocketMessageType::ON_WIFI_CONNECTION_DETAILS:
+        case WebSocketMessage::Type::ON_WIFI_CONNECTION_DETAILS:
             handleWiFiConnectionDetailsMessage(data, len);
             break;
 
-        case WebSocketMessageType::ON_WIFI_SCAN_STATUS:
+        case WebSocketMessage::Type::ON_WIFI_SCAN_STATUS:
             wifiManager.triggerScan();
             break;
 
-        case WebSocketMessageType::ON_WIFI_DETAILS: // NOLINT
+        case WebSocketMessage::Type::ON_WIFI_DETAILS: // NOLINT
             ESP_LOGD(LOG_TAG, "Received WIFI_DETAILS message (ignored).");
             break;
 
-        case WebSocketMessageType::ON_OTA_PROGRESS:
+        case WebSocketMessage::Type::ON_OTA_PROGRESS:
             ESP_LOGD(LOG_TAG, "Received OTA_PROGRESS message (ignored).");
             break;
 
-        case WebSocketMessageType::ON_ALEXA_INTEGRATION_SETTINGS:
+        case WebSocketMessage::Type::ON_ALEXA_INTEGRATION_SETTINGS:
             handleAlexaIntegrationSettingsMessage(data, len);
             break;
 
