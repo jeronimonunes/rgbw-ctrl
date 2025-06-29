@@ -1,5 +1,4 @@
 #pragma once
 
-#include <array>
+#define FIRMWARE_VERSION "3.0.0"
 
-constexpr std::array FIRMWARE_VERSION = {'2', '.', '0', '.', '0', '\0'};

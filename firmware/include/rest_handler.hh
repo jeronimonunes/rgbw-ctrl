@@ -50,7 +50,7 @@ public:
         const auto response = new AsyncJsonResponse();
         const auto doc = response->getRoot().to<JsonObject>();
         doc["deviceName"] = wifiManager.getDeviceName();
-        doc["firmwareVersion"] = FIRMWARE_VERSION.data();
+        doc["firmwareVersion"] = FIRMWARE_VERSION;
         doc["heap"] = esp_get_free_heap_size();
 
         wifiManager.toJson(doc["wifi"].to<JsonObject>());

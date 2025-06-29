@@ -1,7 +1,7 @@
 #pragma once
 
 #include <array>
-#include "message.hh"
+#include "websocket_message.hh"
 #include "ble_manager.hh"
 #include "throttled_value.hh"
 
@@ -24,7 +24,7 @@ class WebSocketHandler
     ThrottledValue<std::array<char, DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{200};
     ThrottledValue<OtaState> otaStateThrottle{200};
     ThrottledValue<EspNowDeviceData> espNowDevicesThrottle{200};
-    ThrottledValue<std::array<char, 6>> firmwareVersionThrottle{200};
+    ThrottledValue<std::array<char, 10>> firmwareVersionThrottle{200};
     ThrottledValue<WiFiDetails> wifiDetailsThrottle{200};
     ThrottledValue<WiFiStatus> wifiStatusThrottle{200};
     ThrottledValue<AlexaIntegrationSettings> alexaSettingsThrottle{200};
@@ -105,18 +105,18 @@ private:
         sendFirmwareVersionMessage(now, client);
         sendWiFiDetailsMessage(now, client);
         sendWiFiStatusMessage(now, client);
-        sendAlexaSettingsMessage(now, client);
+        sendAlexaIntegrationSettingsMessage(now, client);
     }
 
     void sendOutputColorMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<Output::State, ColorMessage>(
+        sendThrottledMessage<Output::State, WebSocketColorMessage>(
             output.getState(), outputThrottle, now, client);
     }
 
     void sendBleStatusMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<BleStatus, BleStatusMessage>(
+        sendThrottledMessage<BleStatus, WebSocketBleStatusMessage>(
             bleManager.getStatus(), bleStatusThrottle, now, client);
     }
 
@@ -124,13 +124,13 @@ private:
     {
         std::array<char, DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
         strncpy(deviceName.data(), wifiManager.getDeviceName(), DEVICE_NAME_MAX_LENGTH);
-        sendThrottledMessage<std::array<char, DEVICE_NAME_TOTAL_LENGTH>, DeviceNameMessage>(
+        sendThrottledMessage<std::array<char, DEVICE_NAME_TOTAL_LENGTH>, WebSocketDeviceNameMessage>(
             deviceName, deviceNameThrottle, now, client);
     }
 
     void sendOtaProgressMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<OtaState, OtaProgressMessage>(
+        sendThrottledMessage<OtaState, WebSocketOtaProgressMessage>(
             otaHandler.getState(), otaStateThrottle, now, client);
     }
 
@@ -140,37 +140,38 @@ private:
             return;
         lastSentHeapInfo = now;
         const auto freeHeap = ESP.getFreeHeap();
-        const HeapMessage message(freeHeap);
-        ws.binaryAll(reinterpret_cast<const uint8_t*>(&message), sizeof(HeapMessage));
+        const WebSocketHeapMessage message(freeHeap);
+        ws.binaryAll(reinterpret_cast<const uint8_t*>(&message), sizeof(WebSocketHeapMessage));
     }
 
     void sendEspNowDevicesMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<EspNowDeviceData, EspNowDevicesMessage>(
+        sendThrottledMessage<EspNowDeviceData, WebSocketEspNowDevicesMessage>(
             EspNowHandler::getDeviceData(), espNowDevicesThrottle, now, client);
     }
 
     void sendFirmwareVersionMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<std::array<char, 6>, FirmwareVersionMessage>(
+
+        sendThrottledMessage<std::array<char, 10>, WebSocketFirmwareVersionMessage>(
             FIRMWARE_VERSION, firmwareVersionThrottle, now, client);
     }
 
     void sendWiFiDetailsMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<WiFiDetails, WiFiDetailsMessage>(
+        sendThrottledMessage<WiFiDetails, WebSocketWiFiDetailsMessage>(
             wifiManager.getWifiDetails(), wifiDetailsThrottle, now, client);
     }
 
     void sendWiFiStatusMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<WiFiStatus, WiFiStatusMessage>(
+        sendThrottledMessage<WiFiStatus, WebSocketWiFiStatusMessage>(
             wifiManager.getStatus(), wifiStatusThrottle, now, client);
     }
 
-    void sendAlexaSettingsMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
+    void sendAlexaIntegrationSettingsMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        sendThrottledMessage<AlexaIntegrationSettings, AlexaSettingsMessage>(
+        sendThrottledMessage<AlexaIntegrationSettings, WebSocketAlexaIntegrationSettingsMessage>(
             alexaIntegration.getSettings(), alexaSettingsThrottle, now, client);
     }
 
@@ -240,20 +241,20 @@ private:
         }
 
         const uint8_t messageTypeRaw = data[0];
-        if (messageTypeRaw > static_cast<uint8_t>(MessageType::ON_ALEXA_INTEGRATION_SETTINGS))
+        if (messageTypeRaw > static_cast<uint8_t>(WebSocketMessageType::ON_ALEXA_INTEGRATION_SETTINGS))
         {
             ESP_LOGD(LOG_TAG, "Received unknown WebSocket message type: %d", messageTypeRaw);
             return;
         }
 
-        const auto messageType = static_cast<MessageType>(messageTypeRaw);
+        const auto messageType = static_cast<WebSocketMessageType>(messageTypeRaw);
         ESP_LOGD(LOG_TAG, "Received WebSocket message of type %d", static_cast<int>(messageType));
 
         this->handleWebSocketMessage(messageType, client, data, len);
     }
 
     void handleWebSocketMessage(
-        const MessageType messageType,
+        const WebSocketMessageType messageType,
         AsyncWebSocketClient* client,
         const uint8_t* data,
         const size_t len
@@ -261,43 +262,43 @@ private:
     {
         switch (messageType)
         {
-        case MessageType::ON_COLOR:
+        case WebSocketMessageType::ON_COLOR:
             handleColorMessage(data, len);
             break;
 
-        case MessageType::ON_HTTP_CREDENTIALS:
+        case WebSocketMessageType::ON_HTTP_CREDENTIALS:
             handleHttpCredentialsMessage(data, len);
             break;
 
-        case MessageType::ON_DEVICE_NAME:
+        case WebSocketMessageType::ON_DEVICE_NAME:
             handleDeviceNameMessage(data, len);
             break;
 
-        case MessageType::ON_HEAP:
+        case WebSocketMessageType::ON_HEAP:
             ESP_LOGD(LOG_TAG, "Received HEAP message (ignored).");
             break;
 
-        case MessageType::ON_BLE_STATUS:
+        case WebSocketMessageType::ON_BLE_STATUS:
             handleBleStatusMessage(client, data, len);
             break;
 
-        case MessageType::ON_WIFI_CONNECTION_DETAILS:
+        case WebSocketMessageType::ON_WIFI_CONNECTION_DETAILS:
             handleWiFiConnectionDetailsMessage(data, len);
             break;
 
-        case MessageType::ON_WIFI_SCAN_STATUS:
+        case WebSocketMessageType::ON_WIFI_SCAN_STATUS:
             wifiManager.triggerScan();
             break;
 
-        case MessageType::ON_WIFI_DETAILS: // NOLINT
+        case WebSocketMessageType::ON_WIFI_DETAILS: // NOLINT
             ESP_LOGD(LOG_TAG, "Received WIFI_DETAILS message (ignored).");
             break;
 
-        case MessageType::ON_OTA_PROGRESS:
+        case WebSocketMessageType::ON_OTA_PROGRESS:
             ESP_LOGD(LOG_TAG, "Received OTA_PROGRESS message (ignored).");
             break;
 
-        case MessageType::ON_ALEXA_INTEGRATION_SETTINGS:
+        case WebSocketMessageType::ON_ALEXA_INTEGRATION_SETTINGS:
             handleAlexaIntegrationSettingsMessage(data, len);
             break;
 
@@ -309,8 +310,8 @@ private:
 
     void handleColorMessage(const uint8_t* data, const size_t len)
     {
-        if (len < sizeof(ColorMessage)) return;
-        const auto* message = reinterpret_cast<const ColorMessage*>(data);
+        if (len < sizeof(WebSocketColorMessage)) return;
+        const auto* message = reinterpret_cast<const WebSocketColorMessage*>(data);
         outputThrottle.setLastSent(millis(), message->state);
         output.setState(message->state);
         alexaIntegration.updateDevices();
@@ -318,23 +319,23 @@ private:
 
     void handleHttpCredentialsMessage(const uint8_t* data, const size_t len) const
     {
-        if (len < sizeof(HttpCredentialsMessage)) return;
-        const auto* message = reinterpret_cast<const HttpCredentialsMessage*>(data);
+        if (len < sizeof(WebSocketHttpCredentialsMessage)) return;
+        const auto* message = reinterpret_cast<const WebSocketHttpCredentialsMessage*>(data);
         webServerHandler.updateCredentials(message->credentials);
     }
 
     void handleDeviceNameMessage(const uint8_t* data, const size_t len) const
     {
-        if (len < sizeof(DeviceNameMessage)) return;
-        const auto* message = reinterpret_cast<const DeviceNameMessage*>(data);
+        if (len < sizeof(WebSocketDeviceNameMessage)) return;
+        const auto* message = reinterpret_cast<const WebSocketDeviceNameMessage*>(data);
         wifiManager.setDeviceName(message->deviceName.data());
     }
 
     void handleBleStatusMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const
     {
-        if (len < sizeof(BleStatusMessage)) return;
+        if (len < sizeof(WebSocketBleStatusMessage)) return;
         switch (
-            const auto* message = reinterpret_cast<const BleStatusMessage*>(data);
+            const auto* message = reinterpret_cast<const WebSocketBleStatusMessage*>(data);
             message->status
         )
         {
@@ -359,16 +360,16 @@ private:
 
     void handleWiFiConnectionDetailsMessage(const uint8_t* data, const size_t len) const
     {
-        if (len < sizeof(WiFiConnectionDetailsMessage)) return;
-        const auto* message = reinterpret_cast<const WiFiConnectionDetailsMessage*>(data);
+        if (len < sizeof(WebSocketWiFiConnectionDetailsMessage)) return;
+        const auto* message = reinterpret_cast<const WebSocketWiFiConnectionDetailsMessage*>(data);
         wifiManager.connect(message->details);
     }
 
     void handleAlexaIntegrationSettingsMessage(const uint8_t* data,
                                                const size_t len) const
     {
-        if (len < sizeof(AlexaIntegrationSettingsMessage)) return;
-        const auto* message = reinterpret_cast<const AlexaIntegrationSettingsMessage*>(data);
+        if (len < sizeof(WebSocketAlexaIntegrationSettingsMessage)) return;
+        const auto* message = reinterpret_cast<const WebSocketAlexaIntegrationSettingsMessage*>(data);
         alexaIntegration.applySettings(message->settings);
     }
 };
