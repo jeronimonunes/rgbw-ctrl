@@ -165,7 +165,7 @@
         </mat-selection-list>
       </mat-card-content>
       <mat-card-actions align="end">
-        <button mat-raised-button color="primary" (click)="connectToCustomNetwork()">
+        <button mat-stroked-button color="primary" (click)="connectToCustomNetwork()">
           <mat-icon>add</mat-icon>
           Custom Network
         </button>
@@ -231,7 +231,7 @@
               Maximum {{ MAX_HTTP_PASSWORD_LENGTH }} characters
             </mat-error>
           </mat-form-field>
-          <button mat-raised-button color="primary" style="place-self: end; margin-top: 0.5rem"
+          <button mat-stroked-button color="primary" style="place-self: end; margin-top: 0.5rem"
                   [disabled]="httpCredentialsForm.invalid || !connected"
                   (click)="applyHttpCredentials()">
             Apply
@@ -440,7 +440,7 @@
             <span>Unknown integration mode.</span>
           </div>
         </ng-container>
-        <button mat-raised-button color="primary" style="margin-left: auto; margin-top: 0.5rem"
+        <button mat-stroked-button color="primary" style="margin-left: auto; margin-top: 0.5rem"
                 [disabled]="alexaIntegrationForm.invalid || !connected"
                 (click)="applyAlexaIntegrationSettings()">
           Apply
@@ -521,7 +521,7 @@
                   (click)="addEspNowDeviceFormEntry()">
             <mat-icon>add</mat-icon>
           </button>
-          <button mat-raised-button color="primary" type="button"
+          <button mat-stroked-button color="primary" type="button"
                   [disabled]="espNowDevicesForm.invalid || !connected || espNowDevicesForm.untouched"
                   (click)="saveEspNowDevices()">
             Save
