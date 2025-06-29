@@ -1,5 +1,9 @@
 import {from, fromEvent, mergeMap, tap, throttleTime} from "rxjs";
 import {
+    perceptualMap,
+    inversePerceptualMap
+} from "../../app/src/app/color-utils.ts";
+import {
     initWebSocket,
     sendBleStatus,
     sendColorMessage,
@@ -59,7 +63,7 @@ switches.forEach((switchEl, index) => {
         const slider = sliders[index];
         const value = parseInt(slider.value, 10);
         const on = switchEl.checked;
-        if (on && value === 0) {
+        if (on && value <= 14) {
             slider.value = "255";
             slider.dispatchEvent(new Event('input'));
         } else {
@@ -92,7 +96,7 @@ webSocketHandlers.set(WebSocketMessageType.ON_COLOR, (message: ArrayBuffer) => {
     values.forEach(({on, value}, index) => {
         const slider = sliders[index];
         const switchEl = switches[index];
-        slider.value = value.toString();
+        slider.value = inversePerceptualMap(value).toString();
         switchEl.checked = on;
         updateSliderVisual(slider);
     })
@@ -175,12 +179,10 @@ function getOutputState(): [LightState, LightState, LightState, LightState] {
     for (let i = 0; i < sliders.length; i++) {
         const slider = sliders[i];
         const switchEl = switches[i];
-        const value = parseInt(slider.value, 10);
+        const originalValue = parseInt(slider.value, 10);
+        const value = perceptualMap(originalValue);
         const on = switchEl.checked;
-        states.push({
-            on: on,
-            value: value,
-        });
+        states.push({on, value});
     }
     return states as [LightState, LightState, LightState, LightState];
 }
@@ -201,8 +203,8 @@ function updateSliderVisual(slider: HTMLInputElement) {
     const label = slider.parentElement!;
     const color = getComputedStyle(label!).getPropertyValue('--color').trim();
     const [_, r, g, b] = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/)!;
-    const value = parseInt(slider.value, 10);
-    const percentage = Math.round((value / 255) * 100);
+    const value = parseInt(slider.value, 10) - 14;
+    const percentage = Math.round((value / (255 - 14)) * 100);
     slider.style.background = `linear-gradient(to right, ${color} 0%, ${color} ${percentage}%, rgba(${r}, ${g}, ${b}, 0.3) ${percentage}%, rgba(${r}, ${g}, ${b}, 0.3) 100%)`;
     const labelSpan = slider.parentElement?.querySelector("span");
     if (labelSpan) labelSpan.textContent = `${percentage}%`;

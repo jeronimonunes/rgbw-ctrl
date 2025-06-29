@@ -57,6 +57,7 @@ import {MAX_HTTP_PASSWORD_LENGTH, MAX_HTTP_USERNAME_LENGTH} from '../http-creden
 import {KilobytesPipe} from '../kb.pipe';
 import {MatSliderModule} from '@angular/material/slider';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
+import {inversePerceptualMap, perceptualMap} from '../color-utils';
 
 const BLE_NAME = "rgbw-ctrl";
 
@@ -234,11 +235,6 @@ export class RgbwCtrlComponent implements OnDestroy {
     private matDialog: MatDialog,
     private snackBar: MatSnackBar
   ) {
-    const perceptualMap = (v: number): number => {
-      const normalized = Math.min(Math.max(v / 100, 0), 1);
-      return Math.round(Math.pow(Math.sin(normalized * (Math.PI / 2)), 2) * 255);
-    };
-
     this.colorSubscription = this.colorForm.valueChanges.pipe(
       throttleTime(300, asyncScheduler, {
         leading: true,
@@ -596,13 +592,6 @@ export class RgbwCtrlComponent implements OnDestroy {
 
   private outputColorChanged(view: DataView) {
     const state = decodeOutputState(new Uint8Array(view.buffer));
-    const inversePerceptualMap = (pwm: number): number => {
-      if (pwm <= 0) return 0;
-      if (pwm >= 255) return 100;
-      const normalized = (2 / Math.PI) * Math.asin(Math.sqrt(pwm / 255));
-      return Math.round(normalized * 100);
-    };
-
     this.colorForm.setValue({
       r: {
         value: inversePerceptualMap(state.values[0].value),

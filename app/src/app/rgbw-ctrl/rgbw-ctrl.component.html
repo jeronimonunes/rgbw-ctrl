@@ -68,25 +68,25 @@
       <mat-card-content>
         <form class="color-form" [formGroup]="colorForm">
           <ng-container formGroupName="r">
-            <mat-slider class="r">
+            <mat-slider class="r" [max]="255" [min]="14">
               <input matSliderThumb formControlName="value">
             </mat-slider>
             <mat-slide-toggle class="r" formControlName="on"/>
           </ng-container>
           <ng-container formGroupName="g">
-            <mat-slider class="g">
+            <mat-slider class="g" [max]="255" [min]="14">
               <input matSliderThumb formControlName="value">
             </mat-slider>
             <mat-slide-toggle class="g" formControlName="on"/>
           </ng-container>
           <ng-container formGroupName="b">
-            <mat-slider class="b">
+            <mat-slider class="b" [max]="255" [min]="14">
               <input matSliderThumb formControlName="value">
             </mat-slider>
             <mat-slide-toggle class="b" formControlName="on"/>
           </ng-container>
           <ng-container formGroupName="w">
-            <mat-slider class="w">
+            <mat-slider class="w" [max]="255" [min]="14">
               <input matSliderThumb formControlName="value">
             </mat-slider>
             <mat-slide-toggle class="w" formControlName="on"/>

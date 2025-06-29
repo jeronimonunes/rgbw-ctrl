@@ -22,12 +22,15 @@ let socket: WebSocket | null = null;
 
 export function initWebSocket(url: string, onConnected?: () => void, onDisconnected?: () => void) {
   if (!socket) {
-    connectWebSocket(url, onConnected, onDisconnected);
     timeoutChecker && clearInterval(timeoutChecker);
+    connectWebSocket(url, onConnected, onDisconnected);
     timeoutChecker = setInterval(() => {
       if (lastReceivedMessageTime + AUTO_CLOSE_TIMEOUT_MS < Date.now()) {
         console.warn("WebSocket connection timed out, closing socket");
-        socket?.close();
+        try {
+          socket?.close();
+        } catch {
+        }
         onDisconnected?.();
         connectWebSocket(url, onConnected, onDisconnected);
       }
