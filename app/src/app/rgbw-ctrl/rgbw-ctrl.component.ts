@@ -58,6 +58,7 @@ import {KilobytesPipe} from '../kb.pipe';
 import {MatSliderModule} from '@angular/material/slider';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {inversePerceptualMap, perceptualMap} from '../color-utils';
+import {RouterLink} from '@angular/router';
 
 const BLE_NAME = "rgbw-ctrl";
 
@@ -100,7 +101,8 @@ const WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
     MatChipsModule,
     KilobytesPipe,
     NgOptimizedImage,
-    MatSlideToggleModule
+    MatSlideToggleModule,
+    RouterLink
   ],
   templateUrl: './rgbw-ctrl.component.html',
   styleUrls: ['./rgbw-ctrl.component.scss']

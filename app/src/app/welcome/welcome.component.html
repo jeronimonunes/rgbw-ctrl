@@ -1,0 +1,23 @@
+<h1 style="display: flex; place-items: center">
+  <a routerLink="/">
+    <img ngSrc="icon.svg" style="margin: 0.5rem" alt="TypeInfo Logo" matTooltip="TypeInfo Logo" height="72" width="72">
+  </a>
+  rgbw-ctrl welcomes you
+</h1>
+
+
+<mat-card appearance="outlined">
+  <mat-card-content>
+    <p>
+      rgbw-ctrl is an ESP32 RGBW LED controller with web-based configuration and Alexa support.
+      The firmware exposes Bluetooth Low Energy for initial setup, Wi‑Fi connectivity,
+      a REST API, real‑time WebSocket control and OTA updates.
+    </p>
+    <p>
+      When you are ready, continue to the configuration page to connect and customize your device.
+    </p>
+  </mat-card-content>
+  <mat-card-actions align="end">
+    <a mat-raised-button color="primary" routerLink="/configure">Configure device</a>
+  </mat-card-actions>
+</mat-card>
