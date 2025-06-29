@@ -175,7 +175,7 @@
 </mat-card>
 
 <!-- HTTP -->
-<mat-card class="alexa-card" *ngIf="initialized">
+<mat-card *ngIf="initialized">
   <mat-card-header>
     <mat-card-title>
       <div>
@@ -247,7 +247,7 @@
 </mat-card>
 
 <!-- Alexa Integration -->
-<mat-card class="alexa-card" *ngIf="initialized">
+<mat-card *ngIf="initialized">
   <mat-card-header>
     <mat-card-title>
       <div>
@@ -264,20 +264,19 @@
   <mat-card-content>
     <mat-card appearance="outlined"
               style="margin-top: 0.5rem; padding: 1rem; display: grid; grid-template-columns: auto 1fr">
-      <span style="place-self: center; font-weight: bold">Mode:</span>
-      <mat-chip-listbox aria-label="Alexa integration mode" style="margin: 1rem">
-        <mat-chip-option
-          *ngFor="let mode of alexaIntegrationModes"
-          [selected]="alexaIntegrationForm.value.integrationMode === mode.value"
-          (click)="resetAlexaIntegrationForm(mode.value)"
-          (keydown.enter)="resetAlexaIntegrationForm(mode.value)"
-          (keydown.space)="resetAlexaIntegrationForm(mode.value)"
-          [value]="mode.value"
-          [matTooltip]="mode.title">
-          {{ mode.label }}
-        </mat-chip-option>
-      </mat-chip-listbox>
       <form [formGroup]="alexaIntegrationForm" autocomplete="off" style="display: grid; grid-column: span 2">
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem">
+          <span style="place-self: center; font-weight: bold">Mode:</span>
+          <mat-chip-listbox formControlName="integrationMode" (change)="resetAlexaIntegrationForm($event.value)">
+
+            <mat-chip-option [value]="AlexaIntegrationMode.OFF" matTooltip="Off">❌</mat-chip-option>
+            <mat-chip-option [value]="AlexaIntegrationMode.RGBW_DEVICE" matTooltip="RGBW">🔴🟢🔵⚪</mat-chip-option>
+            <mat-chip-option [value]="AlexaIntegrationMode.RGB_DEVICE" matTooltip="RGB + 1">🔴🟢🔵💡</mat-chip-option>
+            <mat-chip-option [value]="AlexaIntegrationMode.MULTI_DEVICE" matTooltip="Multi Device">💡💡💡💡
+            </mat-chip-option>
+
+          </mat-chip-listbox>
+        </div>
         <ng-container [ngSwitch]="alexaIntegrationForm.value.integrationMode">
           <div *ngSwitchCase="AlexaIntegrationMode.OFF"></div>
           <!-- RGBW_DEVICE: Only rDeviceName is used -->
@@ -439,6 +438,9 @@
           <div *ngSwitchDefault>
             <span>Unknown integration mode.</span>
           </div>
+          <div style="font-size: 0.8em">
+            You might need to rediscover devices in Alexa after changing this settings.
+          </div>
         </ng-container>
         <button mat-stroked-button color="primary" style="margin-left: auto; margin-top: 0.5rem"
                 [disabled]="alexaIntegrationForm.invalid || !connected"
@@ -451,7 +453,7 @@
 </mat-card>
 
 <!-- ESP_NOW -->
-<mat-card class="alexa-card" *ngIf="initialized">
+<mat-card *ngIf="initialized">
   <mat-card-header>
     <mat-card-title>
       <div>

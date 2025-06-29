@@ -42,7 +42,7 @@ strncpy(settings.deviceNames[0].data(), "Living Room RGBW", settings.MAX_DEVICE_
 alexa.applySettings(settings);
 ```
 
-The settings are going to be applied only after a device restart. Since the devices are created dynamically at the "begin" method.
+You might need to delete the existing devices in your Alexa app and rediscover them to apply the new settings.
 
 ## Web Handler
 

@@ -7,7 +7,8 @@ import {MatCardModule} from '@angular/material/card';
 import {FormArray, FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators} from '@angular/forms';
 import {
   ALEXA_MAX_DEVICE_NAME_LENGTH,
-  AlexaIntegrationMode, BufferReader,
+  AlexaIntegrationMode,
+  BufferReader,
   decodeAlexaIntegrationSettings,
   decodeCString,
   decodeEspNowDevice,
@@ -21,7 +22,8 @@ import {
   encodeEspNowMessage,
   encodeHttpCredentials,
   encodeOutputState,
-  encodeWiFiConnectionDetails, ESP_NOW_DEVICE_NAME_MAX_LENGTH,
+  encodeWiFiConnectionDetails,
+  ESP_NOW_DEVICE_NAME_MAX_LENGTH,
   ESP_NOW_MAX_DEVICES_PER_MESSAGE,
   isEnterprise,
   textEncoder,
@@ -54,7 +56,6 @@ import {CustomWiFiConnectDialogComponent} from './custom-wi-fi-connect-dialog/cu
 import {MAX_HTTP_PASSWORD_LENGTH, MAX_HTTP_USERNAME_LENGTH} from '../http-credentials.model';
 import {KilobytesPipe} from '../kb.pipe';
 import {MatSliderModule} from '@angular/material/slider';
-import {ConfirmAlexaRestart} from '../yes-no-dialog/confirm-alexa-restart.component';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 
 const BLE_NAME = "rgbw-ctrl";
@@ -113,13 +114,8 @@ export class RgbwCtrlComponent implements OnDestroy {
   readonly ESP_NOW_DEVICE_NAME_MAX_LENGTH = ESP_NOW_DEVICE_NAME_MAX_LENGTH;
   readonly ESP_NOW_MAX_DEVICES_PER_MESSAGE = ESP_NOW_MAX_DEVICES_PER_MESSAGE;
 
+
   private colorSubscription: Subscription;
-  alexaIntegrationModes = [
-    {value: AlexaIntegrationMode.OFF, label: '❌', title: 'Off'},
-    {value: AlexaIntegrationMode.RGBW_DEVICE, label: '🔴🟢🔵⚪', title: 'RGBW'},
-    {value: AlexaIntegrationMode.RGB_DEVICE, label: '🔴🟢🔵💡', title: 'RGB'},
-    {value: AlexaIntegrationMode.MULTI_DEVICE, label: '💡💡💡💡', title: 'Multi Device'}
-  ];
 
   private server: BluetoothRemoteGATTServer | null = null;
 
@@ -153,7 +149,10 @@ export class RgbwCtrlComponent implements OnDestroy {
   wifiDetails: WiFiDetails | null = null;
 
   alexaIntegrationForm = new FormGroup({
-    integrationMode: new FormControl<AlexaIntegrationMode>(0, {nonNullable: true, validators: [Validators.required]}),
+    integrationMode: new FormControl<AlexaIntegrationMode>(AlexaIntegrationMode.OFF, {
+      nonNullable: true,
+      validators: [Validators.required]
+    }),
     rDeviceName: new FormControl<string>('', {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(ALEXA_MAX_DEVICE_NAME_LENGTH)]
@@ -427,11 +426,10 @@ export class RgbwCtrlComponent implements OnDestroy {
     if (this.alexaIntegrationForm.invalid || !this.connected) {
       return;
     }
-    const shouldRestart = await firstValueFrom(this.matDialog.open(ConfirmAlexaRestart, {disableClose: true}).afterClosed());
-    // Encode the form value and write via BLE
-    const settings = this.alexaIntegrationForm.getRawValue();
-    const payload = encodeAlexaIntegrationSettings(settings);
     let loading = this.matDialog.open(LoadingComponent, {disableClose: true});
+    // Encode the form value and write via BLE
+    const settings = this.alexaIntegrationForm.value;
+    const payload = encodeAlexaIntegrationSettings(settings);
     try {
       await this.alexaSettingsCharacteristic!.writeValue(payload);
       this.snackBar.open('Alexa settings updated', 'Close', {duration: 2500});
@@ -439,9 +437,6 @@ export class RgbwCtrlComponent implements OnDestroy {
       console.log('Failed to update Alexa settings:', e);
       this.snackBar.open('Failed to update Alexa settings', 'Close', {duration: 3000});
     } finally {
-      if (shouldRestart) {
-        await this.restartDevice();
-      }
       loading.close();
     }
   }
@@ -727,32 +722,33 @@ export class RgbwCtrlComponent implements OnDestroy {
     }
   }
 
-  resetAlexaIntegrationForm(mode: AlexaIntegrationMode) {
-    this.alexaIntegrationForm.reset({integrationMode: mode});
-    switch (mode) {
+  resetAlexaIntegrationForm(integrationMode: AlexaIntegrationMode) {
+    const controls = this.alexaIntegrationForm.controls;
+    this.alexaIntegrationForm.reset({integrationMode});
+    switch (integrationMode) {
       case AlexaIntegrationMode.OFF:
-        this.alexaIntegrationForm.controls.rDeviceName.disable();
-        this.alexaIntegrationForm.controls.gDeviceName.disable();
-        this.alexaIntegrationForm.controls.bDeviceName.disable();
-        this.alexaIntegrationForm.controls.wDeviceName.disable();
+        controls.rDeviceName.disable();
+        controls.gDeviceName.disable();
+        controls.bDeviceName.disable();
+        controls.wDeviceName.disable();
         break;
       case AlexaIntegrationMode.RGBW_DEVICE:
-        this.alexaIntegrationForm.controls.rDeviceName.enable();
-        this.alexaIntegrationForm.controls.gDeviceName.disable();
-        this.alexaIntegrationForm.controls.bDeviceName.disable();
-        this.alexaIntegrationForm.controls.wDeviceName.disable();
+        controls.rDeviceName.enable();
+        controls.gDeviceName.disable();
+        controls.bDeviceName.disable();
+        controls.wDeviceName.disable();
         break;
       case AlexaIntegrationMode.RGB_DEVICE:
-        this.alexaIntegrationForm.controls.rDeviceName.enable();
-        this.alexaIntegrationForm.controls.gDeviceName.disable();
-        this.alexaIntegrationForm.controls.bDeviceName.disable();
-        this.alexaIntegrationForm.controls.wDeviceName.enable();
+        controls.rDeviceName.enable();
+        controls.gDeviceName.disable();
+        controls.bDeviceName.disable();
+        controls.wDeviceName.enable();
         break;
       case AlexaIntegrationMode.MULTI_DEVICE:
-        this.alexaIntegrationForm.controls.rDeviceName.enable();
-        this.alexaIntegrationForm.controls.gDeviceName.enable();
-        this.alexaIntegrationForm.controls.bDeviceName.enable();
-        this.alexaIntegrationForm.controls.wDeviceName.enable();
+        controls.rDeviceName.enable();
+        controls.gDeviceName.enable();
+        controls.bDeviceName.enable();
+        controls.wDeviceName.enable();
         break;
     }
   }

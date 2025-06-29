@@ -1,6 +1,7 @@
 import {
   ALEXA_MAX_DEVICE_NAME_LENGTH,
   ALEXA_SETTINGS_TOTAL_LENGTH,
+  AlexaIntegrationMode,
   AlexaIntegrationSettings
 } from './alexa-integration-settings.model';
 import {HttpCredentials, MAX_HTTP_PASSWORD_LENGTH, MAX_HTTP_USERNAME_LENGTH} from '../http-credentials.model';
@@ -87,14 +88,14 @@ function encodeEAPWiFiConnectionCredentials(
   writer.writeUint8(credentials.phase2Type);
 }
 
-export function encodeAlexaIntegrationSettings(settings: AlexaIntegrationSettings): Uint8Array {
+export function encodeAlexaIntegrationSettings(settings: Partial<AlexaIntegrationSettings>): Uint8Array {
   const buffer = new Uint8Array(ALEXA_SETTINGS_TOTAL_LENGTH);
   const writer = new BufferWriter(buffer);
-  writer.writeUint8(settings.integrationMode);
-  writer.writeCString(settings.rDeviceName, ALEXA_MAX_DEVICE_NAME_LENGTH - 1);
-  writer.writeCString(settings.gDeviceName, ALEXA_MAX_DEVICE_NAME_LENGTH - 1);
-  writer.writeCString(settings.bDeviceName, ALEXA_MAX_DEVICE_NAME_LENGTH - 1);
-  writer.writeCString(settings.wDeviceName, ALEXA_MAX_DEVICE_NAME_LENGTH - 1);
+  writer.writeUint8(settings.integrationMode || AlexaIntegrationMode.OFF);
+  writer.writeCString(settings.rDeviceName ?? '', ALEXA_MAX_DEVICE_NAME_LENGTH - 1);
+  writer.writeCString(settings.gDeviceName ?? '', ALEXA_MAX_DEVICE_NAME_LENGTH - 1);
+  writer.writeCString(settings.bDeviceName ?? '', ALEXA_MAX_DEVICE_NAME_LENGTH - 1);
+  writer.writeCString(settings.wDeviceName ?? '', ALEXA_MAX_DEVICE_NAME_LENGTH - 1);
   return buffer;
 }
 

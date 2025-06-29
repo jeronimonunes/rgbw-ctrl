@@ -65,23 +65,22 @@ public:
             return "off";
         }
     };
-#pragma pack(pop)
 
 private:
     struct RgbwMode
     {
-        AsyncEspAlexaExtendedColorDevice* device;
+        AsyncEspAlexaExtendedColorDevice* device = nullptr;
     };
 
     struct RgbMode
     {
-        AsyncEspAlexaColorDevice* rgbDevice;
-        AsyncEspAlexaDimmableDevice* standaloneDevice;
+        AsyncEspAlexaColorDevice* rgbDevice = nullptr;
+        AsyncEspAlexaDimmableDevice* standaloneDevice = nullptr;
     };
 
     struct MultiMode
     {
-        std::array<AsyncEspAlexaDimmableDevice*, 4> devices;
+        std::array<AsyncEspAlexaDimmableDevice*, 4> devices = {nullptr, nullptr, nullptr, nullptr};
     };
 
     union ModeDevice
@@ -90,6 +89,7 @@ private:
         RgbMode rgb;
         MultiMode multi;
     };
+#pragma pack(pop)
 
     Output& output;
     AsyncEspAlexaManager espAlexaManager;
@@ -102,7 +102,11 @@ private:
 public:
     explicit AlexaIntegration(Output& output): output(output)
     {
-        espAlexaManager.reserve(4);
+    }
+
+    ~AlexaIntegration()
+    {
+        clearDevices();
     }
 
     void begin()
@@ -142,9 +146,17 @@ public:
     {
         this->settings = settings;
         savePreferences();
+        clearDevices();
+        setupDevices();
     }
 
 private:
+    void clearDevices()
+    {
+        espAlexaManager.deleteAllDevices();
+        devices = {};
+    }
+
     void updateDevices() const
     {
         switch (settings.integrationMode)
@@ -215,13 +227,16 @@ private:
         case Settings::Mode::OFF:
             break;
         case Settings::Mode::RGBW_DEVICE:
+            espAlexaManager.reserve(1);
             setupRgbwDevice();
             break;
         case Settings::Mode::RGB_DEVICE:
+            espAlexaManager.reserve(2);
             setupRgbDevice();
             setupStandaloneDevice();
             break;
         case Settings::Mode::MULTI_DEVICE:
+            espAlexaManager.reserve(4);
             setupMultiDevice();
             break;
         }
