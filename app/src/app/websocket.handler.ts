@@ -25,9 +25,6 @@ export function initWebSocket(url: string, onConnected?: () => void, onDisconnec
     connectWebSocket(url, onConnected, onDisconnected);
     timeoutChecker && clearInterval(timeoutChecker);
     timeoutChecker = setInterval(() => {
-      if (socket!.readyState === WebSocket.CONNECTING) {
-        return;
-      }
       if (lastReceivedMessageTime + AUTO_CLOSE_TIMEOUT_MS < Date.now()) {
         console.warn("WebSocket connection timed out, closing socket");
         socket?.close();
