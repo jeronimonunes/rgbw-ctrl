@@ -51,7 +51,7 @@
           },
           "configurations": {
             "production": {
-              "baseHref": "https://type-info.github.io/rgbw-ctrl/",
+              "baseHref": "https://jeronimonunes.github.io/rgbw-ctrl/",
               "budgets": [
                 {
                   "type": "initial",
