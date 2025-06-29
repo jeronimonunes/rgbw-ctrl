@@ -57,6 +57,7 @@ function connectWebSocket(url: string, onConnected?: () => void, onDisconnected?
 
   socket.onmessage = (event: MessageEvent<ArrayBuffer>) => {
     lastReceivedMessageTime = Date.now();
+    onConnected?.();
     handleMessage(event.data);
   }
 
