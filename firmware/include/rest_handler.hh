@@ -72,7 +72,7 @@ public:
             bleManager.stop();
             esp_restart();
         });
-        request->send(200, "text/plain", "Restarting...");
+        return sendMessageJsonResponse(request, "Restarting...");
     }
 
     void handleResetRequest(AsyncWebServerRequest* request) const
@@ -84,16 +84,13 @@ public:
             bleManager.stop();
             esp_restart();
         });
-        request->send(200, "text/plain", "Resetting to factory defaults...");
+        return sendMessageJsonResponse(request, "Resetting to factory defaults...");
     }
 
     void handleBluetoothRequest(AsyncWebServerRequest* request) const
     {
         if (!request->hasParam("state"))
-        {
-            request->send(400, "text/plain", "Missing parameter: state");
-            return;
-        }
+            return sendMessageJsonResponse(request, "Missing 'state' parameter");
 
         auto state = request->getParam("state")->value() == "on";
         request->onDisconnect([this, state]
@@ -105,9 +102,8 @@ public:
         });
 
         if (state)
-            request->send(200, "text/plain", "Bluetooth enabled");
-        else
-            request->send(200, "text/plain", "Bluetooth disabled, device will restart");
+            return sendMessageJsonResponse(request, "Bluetooth enabled");
+        return sendMessageJsonResponse(request, "Bluetooth disabled, device will restart");
     }
 
     void handleColorRequest(AsyncWebServerRequest* request) const
@@ -117,7 +113,16 @@ public:
         const auto b = extractParam(request, "b", Color::Blue);
         const auto w = extractParam(request, "w", Color::White);
         output.setColor(r, g, b, w);
-        request->send(200, "text/plain", "Color set");
+        sendMessageJsonResponse(request, "Color updated");
+    }
+
+    static void sendMessageJsonResponse(AsyncWebServerRequest* request, const char* message)
+    {
+        auto* response = new AsyncJsonResponse();
+        response->getRoot().to<JsonObject>()["message"] = message;
+        response->addHeader("Cache-Control", "no-store");
+        response->setLength();
+        request->send(response);
     }
 
     uint8_t extractParam(const AsyncWebServerRequest* req, const char* key, const Color color) const

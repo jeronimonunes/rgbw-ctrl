@@ -39,6 +39,7 @@ public:
         webServer.serveStatic("/", LittleFS, "/")
                  .setDefaultFile("index.html")
                  .setTryGzipFirst(true)
+                 .setCacheControl("no-cache")
                  .addMiddleware(&authMiddleware);
 
         updateServerCredentials(getCredentials());

@@ -67,7 +67,6 @@ function connectWebSocket(url: string, onConnected?: () => void, onDisconnected?
   socket.onclose = () => {
     console.warn("WebSocket closed");
     onDisconnected?.();
-    socket = null;
   };
 }
 
