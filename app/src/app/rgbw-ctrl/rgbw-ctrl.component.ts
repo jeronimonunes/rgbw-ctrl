@@ -8,25 +8,9 @@ import {FormArray, FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Val
 import {
   ALEXA_MAX_DEVICE_NAME_LENGTH,
   AlexaIntegrationMode,
-  BufferReader,
-  decodeAlexaIntegrationSettings,
-  decodeCString,
-  decodeEspNowDevice,
-  decodeHttpCredentials,
-  decodeOutputState,
-  decodeWiFiDetails,
-  decodeWiFiScanResult,
-  decodeWiFiScanStatus,
-  decodeWiFiStatus,
-  encodeAlexaIntegrationSettings,
-  encodeEspNowMessage,
-  encodeHttpCredentials,
-  encodeOutputState,
-  encodeWiFiConnectionDetails,
   ESP_NOW_DEVICE_NAME_MAX_LENGTH,
   ESP_NOW_MAX_DEVICES_PER_MESSAGE,
   isEnterprise,
-  textEncoder,
   WiFiConnectionDetails,
   WiFiDetails,
   WiFiEncryptionType,
@@ -58,24 +42,7 @@ import {KilobytesPipe} from '../kb.pipe';
 import {MatSliderModule} from '@angular/material/slider';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {inversePerceptualMap, perceptualMap} from '../color-utils';
-
-const BLE_NAME = "rgbw-ctrl";
-
-const DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ac";
-const DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000";
-const DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
-const FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
-const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
-const DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
-const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
-const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
-const ESP_NOW_DEVICES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
-
-const WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ab";
-const WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
-const WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
-const WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
-const WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
+import {BluetoothService} from './bluetooth.service';
 
 @Component({
   selector: 'app-rgbw-ctrl',
@@ -118,21 +85,6 @@ export class RgbwCtrlComponent implements OnDestroy {
 
   private colorSubscription: Subscription;
 
-  private server: BluetoothRemoteGATTServer | null = null;
-
-  private deviceRestartCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private deviceNameCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private firmwareVersionCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private httpCredentialsCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private deviceHeapCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private outputColorCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private alexaSettingsCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private espNowDevicesCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-
-  private wifiDetailsCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private wifiStatusCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private wifiScanStatusCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private wifiScanResultCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
 
   initialized: boolean = false;
   loadingAlexa: boolean = false;
@@ -227,13 +179,12 @@ export class RgbwCtrlComponent implements OnDestroy {
     return this.wifiScanStatus === WiFiScanStatus.RUNNING;
   }
 
-  get connected(): boolean {
-    return this.server?.connected || false;
-  }
+  connected = false;
 
   constructor(
     private matDialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private ble: BluetoothService
   ) {
     this.colorSubscription = this.colorForm.valueChanges.pipe(
       throttleTime(300, asyncScheduler, {
@@ -242,22 +193,54 @@ export class RgbwCtrlComponent implements OnDestroy {
       })
     ).subscribe(value => {
       const {r, g, b, w} = value!;
-      if (this.outputColorCharacteristic) {
-        const pr = perceptualMap(r!.value!);
-        const pg = perceptualMap(g!.value!);
-        const pb = perceptualMap(b!.value!);
-        const pw = perceptualMap(w!.value!);
-        const buffer = encodeOutputState({
-          values: [
-            {value: pr, on: r!.on!},
-            {value: pg, on: g!.on!},
-            {value: pb, on: b!.on!},
-            {value: pw, on: w!.on!}
-          ]
-        });
-        this.outputColorCharacteristic.writeValue(buffer)
-          .catch(console.error);
+      const pr = perceptualMap(r!.value!);
+      const pg = perceptualMap(g!.value!);
+      const pb = perceptualMap(b!.value!);
+      const pw = perceptualMap(w!.value!);
+      this.ble.setOutputColor({
+        values: [
+          {value: pr, on: r!.on!},
+          {value: pg, on: g!.on!},
+          {value: pb, on: b!.on!},
+          {value: pw, on: w!.on!}
+        ]
+      }).catch(console.error);
+    });
+
+    this.ble.connected$.subscribe(v => this.connected = v);
+    this.ble.initialized$.subscribe(v => this.initialized = v);
+    this.ble.firmwareVersion$.subscribe(v => this.firmwareVersion = v);
+    this.ble.deviceName$.subscribe(v => this.deviceName = v);
+    this.ble.deviceHeap$.subscribe(v => this.deviceHeap = v);
+    this.ble.wifiStatus$.subscribe(v => this.wifiStatus = v);
+    this.ble.wifiDetails$.subscribe(v => this.wifiDetails = v);
+    this.ble.wifiScanStatus$.subscribe(v => this.wifiScanStatus = v);
+    this.ble.wifiScanResult$.subscribe(v => this.wifiScanResult = v);
+    this.ble.outputColor$.subscribe(state => {
+      if (!state) return;
+      this.colorForm.setValue({
+        r: { value: inversePerceptualMap(state.values[0].value), on: state.values[0].on },
+        g: { value: inversePerceptualMap(state.values[1].value), on: state.values[1].on },
+        b: { value: inversePerceptualMap(state.values[2].value), on: state.values[2].on },
+        w: { value: inversePerceptualMap(state.values[3].value), on: state.values[3].on },
+      }, { emitEvent: false });
+    });
+    this.ble.alexaSettings$.subscribe(settings => {
+      if (!settings) return;
+      this.resetAlexaIntegrationForm(settings.integrationMode);
+      this.alexaIntegrationForm.reset(settings, { emitEvent: false });
+    });
+    this.ble.httpCredentials$.subscribe(credentials => {
+      if (credentials) this.httpCredentialsForm.reset(credentials);
+    });
+    this.ble.espNowDevices$.subscribe(devices => {
+      while (this.espNowDevicesForm.length > devices.length) {
+        this.espNowDevicesForm.removeAt(0);
       }
+      while (this.espNowDevicesForm.length < devices.length) {
+        this.addEspNowDeviceFormEntry();
+      }
+      this.espNowDevicesForm.reset(devices, { emitEvent: false });
     });
 
   }
@@ -268,75 +251,14 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   disconnect() {
-    this.initialized = false;
-    this.server?.disconnect();
-    this.server = null;
-
-    // Clear GATT characteristics
-    this.deviceRestartCharacteristic = null;
-    this.deviceNameCharacteristic = null;
-    this.firmwareVersionCharacteristic = null;
-    this.outputColorCharacteristic = null;
-    this.alexaSettingsCharacteristic = null;
-    this.espNowDevicesCharacteristic = null;
-
-    this.wifiDetailsCharacteristic = null;
-    this.wifiStatusCharacteristic = null;
-    this.wifiScanStatusCharacteristic = null;
-    this.wifiScanResultCharacteristic = null;
-
-
-    // Clear local UI state
-    this.deviceName = null;
-    this.firmwareVersion = null;
-    this.wifiDetails = null;
-    this.wifiScanStatus = WiFiScanStatus.NOT_STARTED;
-    this.wifiStatus = WiFiStatus.UNKNOWN;
-    this.wifiScanResult = [];
-
-    this.loadingAlexa = false;
-    this.loadingHttpCredentials = false;
-    this.readingOutputColor = false;
-    this.readingEspNowDevices = false;
-
-    this.alexaIntegrationForm.reset();
+    this.ble.disconnect();
   }
 
   async connectBleDevice() {
-    let loading = this.matDialog.open(LoadingComponent, {disableClose: true})
+    let loading = this.matDialog.open(LoadingComponent, {disableClose: true});
     try {
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [{namePrefix: BLE_NAME}],
-        optionalServices: [WIFI_SERVICE, DEVICE_DETAILS_SERVICE]
-      });
-
-      if (!device.gatt) {
-        this.snackBar.open('Device does not support GATT', 'Close', {duration: 3000});
-        return;
-      }
-
-      this.server = await device.gatt.connect();
-      await this.initBleWiFiServices(this.server);
-      await this.initBleDeviceDetailsServices(this.server);
-      device.addEventListener('gattserverdisconnected', () => {
-        this.disconnect();
-        this.snackBar.open('Device disconnected', 'Reconnect', {duration: 3000})
-          .onAction().subscribe(() => this.connectBleDevice());
-      });
-
-
-      await this.readDeviceName();
-      await this.readFirmwareVersion();
-      await this.readHttpCredentials();
-      await this.readWiFiStatus();
-      await this.readWiFiDetails();
-      await this.readWiFiScanStatus();
-      await this.readWiFiScanResult();
-      await this.readAlexaIntegration();
-      await this.readOutputColor();
-      await this.readEspNowDevices();
+      await this.ble.connect();
       this.snackBar.open('Device connected', 'Close', {duration: 3000});
-      this.initialized = true;
       if (this.wifiScanResult.length === 0) {
         await this.startWifiScan();
       }
@@ -349,14 +271,13 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   async startWifiScan() {
-    if (!this.wifiScanStatusCharacteristic) return;
-    await this.wifiScanStatusCharacteristic.writeValue(new Uint8Array([0]));
+    await this.ble.startWifiScan();
   }
 
   async restartDevice() {
     let loading = this.matDialog.open(LoadingComponent, {disableClose: true});
     try {
-      await this.deviceRestartCharacteristic!.writeValue(textEncoder.encode("RESTART_NOW"));
+      await this.ble.restartDevice();
     } catch (e) {
       console.error('Failed to restart device:', e);
       this.snackBar.open('Failed to restart device', 'Close', {duration: 3000});
@@ -367,54 +288,53 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   async connectToNetwork(network: WiFiNetwork) {
-    let details: Uint8Array;
+    let details: WiFiConnectionDetails;
     if (network.encryptionType === WiFiEncryptionType.WIFI_AUTH_OPEN) {
       const value: WiFiConnectionDetails = {
         encryptionType: network.encryptionType,
         ssid: network.ssid,
         credentials: {password: ''}
       };
-      details = encodeWiFiConnectionDetails(value);
+      details = value;
     } else if (isEnterprise(network.encryptionType)) {
       let value = await firstValueFrom(this.matDialog.open(EnterpriseWiFiConnectDialogComponent, {data: network}).afterClosed());
       if (!value) return;
-      details = encodeWiFiConnectionDetails(value);
+      details = value;
     } else {
       let value = await firstValueFrom(this.matDialog.open(SimpleWiFiConnectDialogComponent, {data: network}).afterClosed());
       if (!value) return;
-      details = encodeWiFiConnectionDetails(value);
+      details = value;
     }
-    await this.sendWifiConfig(details);
+    await this.ble.sendWifiConfig(details);
   }
 
   async connectToCustomNetwork() {
     const data: WiFiConnectionDetails = await firstValueFrom(this.matDialog.open(CustomWiFiConnectDialogComponent).afterClosed());
     if (!data) return;
-    let details: Uint8Array;
+    let details: WiFiConnectionDetails;
     if (isEnterprise(data.encryptionType)) {
       let value = await firstValueFrom(this.matDialog.open(EnterpriseWiFiConnectDialogComponent, {data}).afterClosed());
       if (!value) return;
-      details = encodeWiFiConnectionDetails(value);
+      details = value;
     } else {
       let value = await firstValueFrom(this.matDialog.open(SimpleWiFiConnectDialogComponent, {data}).afterClosed());
       if (!value) return;
-      details = encodeWiFiConnectionDetails(value);
+      details = value;
     }
-    await this.sendWifiConfig(details);
+    await this.ble.sendWifiConfig(details);
   }
 
   async editDeviceName() {
     const deviceName = await firstValueFrom(this.matDialog.open(EditDeviceNameComponentDialog, {data: this.deviceName}).afterClosed())
     if (deviceName) {
-      const encodedName = textEncoder.encode(deviceName);
-      await this.deviceNameCharacteristic!.writeValue(encodedName);
+      await this.ble.setDeviceName(deviceName);
       this.snackBar.open('Device name updated', 'Close', {duration: 3000});
     }
   }
 
   async loadAlexaIntegrationSettings() {
     this.loadingAlexa = true;
-    await this.readAlexaIntegration();
+    await this.ble.readAlexaIntegration();
     this.loadingAlexa = false;
   }
 
@@ -425,9 +345,8 @@ export class RgbwCtrlComponent implements OnDestroy {
     let loading = this.matDialog.open(LoadingComponent, {disableClose: true});
     // Encode the form value and write via BLE
     const settings = this.alexaIntegrationForm.value;
-    const payload = encodeAlexaIntegrationSettings(settings);
     try {
-      await this.alexaSettingsCharacteristic!.writeValue(payload);
+      await this.ble.applyAlexaIntegrationSettings(settings as any);
       this.snackBar.open('Alexa settings updated', 'Close', {duration: 2500});
     } catch (e) {
       console.log('Failed to update Alexa settings:', e);
@@ -439,7 +358,7 @@ export class RgbwCtrlComponent implements OnDestroy {
 
   async loadHttpCredentials() {
     this.loadingHttpCredentials = true;
-    await this.readHttpCredentials();
+    await this.ble.readHttpCredentials();
     this.loadingHttpCredentials = false;
   }
 
@@ -448,10 +367,9 @@ export class RgbwCtrlComponent implements OnDestroy {
       return;
     }
     const credentials = this.httpCredentialsForm.getRawValue();
-    const payload = encodeHttpCredentials(credentials);
     let loading = this.matDialog.open(LoadingComponent, {disableClose: true});
     try {
-      await this.httpCredentialsCharacteristic!.writeValue(payload);
+      await this.ble.applyHttpCredentials(credentials);
       this.snackBar.open('HTTP credentials updated', 'Close', {duration: 3000});
     } catch (e) {
       console.error('Failed to update HTTP credentials:', e);
@@ -506,8 +424,7 @@ export class RgbwCtrlComponent implements OnDestroy {
     const loading = this.matDialog.open(LoadingComponent, {disableClose: true});
     try {
       const value = this.espNowDevicesForm.getRawValue();
-      const buffer = encodeEspNowMessage(value);
-      await this.espNowDevicesCharacteristic?.writeValue(buffer);
+      await this.ble.saveEspNowDevices(value);
     } catch (e) {
       console.error('Failed to update ESP-NOW devices:', e);
       this.snackBar.open('Failed to update ESP-NOW devices', 'Close', {duration: 3000});
@@ -516,189 +433,6 @@ export class RgbwCtrlComponent implements OnDestroy {
     }
   }
 
-  private async initBleWiFiServices(server: BluetoothRemoteGATTServer) {
-    const wifiService = await server.getPrimaryService(WIFI_SERVICE);
-
-    this.wifiDetailsCharacteristic = await wifiService.getCharacteristic(WIFI_DETAILS_CHARACTERISTIC);
-    this.wifiDetailsCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.wifiDetailsChanged(ev.target.value));
-    await this.wifiDetailsCharacteristic.startNotifications();
-
-    this.wifiStatusCharacteristic = await wifiService.getCharacteristic(WIFI_STATUS_CHARACTERISTIC);
-    this.wifiStatusCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.wifiStatusChanged(ev.target.value));
-    await this.wifiStatusCharacteristic.startNotifications();
-
-    this.wifiScanStatusCharacteristic = await wifiService.getCharacteristic(WIFI_SCAN_STATUS_CHARACTERISTIC);
-    this.wifiScanStatusCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.wifiScanStatusChanged(ev.target.value));
-    await this.wifiScanStatusCharacteristic.startNotifications();
-
-    this.wifiScanResultCharacteristic = await wifiService.getCharacteristic(WIFI_SCAN_RESULT_CHARACTERISTIC);
-    this.wifiScanResultCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.wifiScanResultChanged(ev.target.value));
-    await this.wifiScanResultCharacteristic.startNotifications();
-  }
-
-  private async initBleDeviceDetailsServices(server: BluetoothRemoteGATTServer) {
-    const deviceDetailsService = await server.getPrimaryService(DEVICE_DETAILS_SERVICE);
-
-    this.deviceRestartCharacteristic = await deviceDetailsService.getCharacteristic(DEVICE_RESTART_CHARACTERISTIC);
-    this.firmwareVersionCharacteristic = await deviceDetailsService.getCharacteristic(FIRMWARE_VERSION_CHARACTERISTIC);
-    this.httpCredentialsCharacteristic = await deviceDetailsService.getCharacteristic(HTTP_CREDENTIALS_CHARACTERISTIC);
-
-    this.deviceNameCharacteristic = await deviceDetailsService.getCharacteristic(DEVICE_NAME_CHARACTERISTIC);
-    this.deviceNameCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceNameChanged(ev.target.value));
-    await this.deviceNameCharacteristic.startNotifications();
-
-    this.deviceHeapCharacteristic = await deviceDetailsService.getCharacteristic(DEVICE_HEAP_CHARACTERISTIC);
-    this.deviceHeapCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceHeapChanged(ev.target.value));
-    await this.deviceHeapCharacteristic.startNotifications();
-
-    this.outputColorCharacteristic = await deviceDetailsService.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
-    this.outputColorCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.outputColorChanged(ev.target.value));
-    await this.outputColorCharacteristic.startNotifications();
-
-    this.alexaSettingsCharacteristic = await deviceDetailsService.getCharacteristic(ALEXA_SETTINGS_CHARACTERISTIC);
-    this.espNowDevicesCharacteristic = await deviceDetailsService.getCharacteristic(ESP_NOW_DEVICES_CHARACTERISTIC);
-  }
-
-  private wifiStatusChanged(view: DataView) {
-    const buffer = new Uint8Array(view.buffer);
-    this.wifiStatus = decodeWiFiStatus(buffer);
-  }
-
-  private wifiDetailsChanged(view: DataView) {
-    const buffer = new Uint8Array(view.buffer);
-    this.wifiDetails = decodeWiFiDetails(new BufferReader(buffer));
-  }
-
-  private wifiScanStatusChanged(view: DataView) {
-    this.wifiScanStatus = decodeWiFiScanStatus(new Uint8Array(view.buffer));
-    if (this.wifiScanStatus === WiFiScanStatus.FAILED) {
-      this.snackBar.open(`WiFi scan failed!`, 'Close', {duration: 3000});
-    }
-  }
-
-  private wifiScanResultChanged(view: DataView) {
-    const buffer = new Uint8Array(view.buffer);
-    this.wifiScanResult = decodeWiFiScanResult(buffer);
-  }
-
-  private deviceNameChanged(view: DataView) {
-    const buffer = new Uint8Array(view.buffer);
-    this.deviceName = decodeCString(buffer);
-  }
-
-  private deviceHeapChanged(view: DataView) {
-    this.deviceHeap = view.getUint32(0, true);
-  }
-
-  private outputColorChanged(view: DataView) {
-    const state = decodeOutputState(new Uint8Array(view.buffer));
-    this.colorForm.setValue({
-      r: {
-        value: inversePerceptualMap(state.values[0].value),
-        on: state.values[0].on
-      },
-      g: {
-        value: inversePerceptualMap(state.values[1].value),
-        on: state.values[1].on
-      },
-      b: {
-        value: inversePerceptualMap(state.values[2].value),
-        on: state.values[2].on
-      },
-      w: {
-        value: inversePerceptualMap(state.values[3].value),
-        on: state.values[3].on
-      }
-    }, {emitEvent: false});
-  }
-
-  private espNowDevicesChangedChanged(view: DataView) {
-    const devices = decodeEspNowDevice(new Uint8Array(view.buffer));
-    while (this.espNowDevicesForm.length > devices.length) {
-      this.espNowDevicesForm.removeAt(0);
-    }
-    while (this.espNowDevicesForm.length < devices.length) {
-      this.addEspNowDeviceFormEntry();
-    }
-    this.espNowDevicesForm.reset(devices, {emitEvent: false});
-  }
-
-  private httpCredentialsChanged(view: DataView) {
-    const credentials = decodeHttpCredentials(new Uint8Array(view.buffer));
-    this.httpCredentialsForm.reset(credentials);
-  }
-
-  private async readHttpCredentials() {
-    const value = await this.httpCredentialsCharacteristic!.readValue();
-    this.httpCredentialsChanged(value);
-  }
-
-  private async readDeviceName() {
-    const view = await this.deviceNameCharacteristic!.readValue();
-    this.deviceNameChanged(view);
-  }
-
-  private async readFirmwareVersion() {
-    const view = await this.firmwareVersionCharacteristic!.readValue();
-    this.firmwareVersion = decodeCString(new Uint8Array(view.buffer));
-  }
-
-  private async readWiFiStatus() {
-    const view = await this.wifiStatusCharacteristic!.readValue();
-    this.wifiStatusChanged(view);
-  }
-
-  private async readWiFiDetails() {
-    const view = await this.wifiDetailsCharacteristic!.readValue();
-    this.wifiDetailsChanged(view);
-  }
-
-  private async readWiFiScanStatus() {
-    const view = await this.wifiScanStatusCharacteristic!.readValue();
-    this.wifiScanStatusChanged(view);
-  }
-
-  private async readWiFiScanResult() {
-    const view = await this.wifiScanResultCharacteristic!.readValue();
-    this.wifiScanResultChanged(view);
-  }
-
-  private async readAlexaIntegration() {
-    const view = await this.alexaSettingsCharacteristic!.readValue();
-    const alexaDetails = decodeAlexaIntegrationSettings(new Uint8Array(view.buffer));
-    this.resetAlexaIntegrationForm(alexaDetails.integrationMode);
-    this.alexaIntegrationForm.reset(alexaDetails, {emitEvent: true});
-  }
-
-  async readOutputColor() {
-    this.readingOutputColor = true;
-    const view = await this.outputColorCharacteristic!.readValue();
-    this.outputColorChanged(view);
-    this.readingOutputColor = false;
-  }
-
-  async readEspNowDevices() {
-    this.readingEspNowDevices = true;
-    try {
-      const view = await this.espNowDevicesCharacteristic!.readValue();
-      this.espNowDevicesChangedChanged(view);
-    } finally {
-      this.readingEspNowDevices = false;
-    }
-  }
-
-  private async sendWifiConfig(details: Uint8Array) {
-    let loading = this.matDialog.open(LoadingComponent, {disableClose: true});
-    try {
-      await this.wifiStatusCharacteristic!.writeValue(details);
-      this.snackBar.open('WiFi configuration sent', 'Close', {duration: 3000});
-    } catch (e) {
-      console.error('Failed to send WiFi configuration:', e);
-      this.snackBar.open('Failed to send WiFi configuration', 'Close', {duration: 3000});
-    } finally {
-      loading.close();
-    }
-  }
 
   toggleDeviceEnabled(controlName: string) {
     const control = this.alexaIntegrationForm.get(controlName);
