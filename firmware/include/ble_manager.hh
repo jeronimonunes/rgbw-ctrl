@@ -422,7 +422,6 @@ private:
             }
             memcpy(&state, pCharacteristic->getValue().data(), size);
             net->output.setState(state);
-            net->alexaIntegration.updateDevices();
             net->colorNotificationThrottle.setLastSent(millis(), state);
         }
 

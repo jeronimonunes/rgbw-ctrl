@@ -9,6 +9,7 @@
 class AlexaIntegration
 {
     static constexpr auto LOG_TAG = "AlexaIntegration";
+    static constexpr unsigned long OUTPUT_STATE_UPDATE_INTERVAL_MS = 500;
 
 public:
 #pragma pack(push, 1)
@@ -94,8 +95,9 @@ private:
     AsyncEspAlexaManager espAlexaManager;
 
     Settings settings;
-
     ModeDevice devices = {};
+    Output::State outputState;
+    unsigned long lastOutputStateUpdate = 0;
 
 public:
     explicit AlexaIntegration(Output& output): output(output)
@@ -108,11 +110,22 @@ public:
         loadPreferences();
         setupDevices();
         espAlexaManager.begin();
+        outputState = output.getState();
     }
 
-    void handle()
+    void handle(const unsigned long now)
     {
         espAlexaManager.loop();
+        if (now - lastOutputStateUpdate >= OUTPUT_STATE_UPDATE_INTERVAL_MS)
+        {
+            lastOutputStateUpdate = now;
+            if (const auto newOutputState = output.getState();
+                outputState != newOutputState)
+            {
+                outputState = newOutputState;
+                updateDevices();
+            }
+        }
     }
 
     [[nodiscard]] AsyncWebHandler* createAsyncWebHandler() const
@@ -131,6 +144,7 @@ public:
         savePreferences();
     }
 
+private:
     void updateDevices() const
     {
         switch (settings.integrationMode)
@@ -150,7 +164,6 @@ public:
         }
     }
 
-private:
     void loadPreferences()
     {
         Preferences prefs;
@@ -366,9 +379,12 @@ private:
     void updateRgbwDevice() const
     {
         if (!devices.rgbw.device) return;
-        const auto [r, g, b, w] = output.getValues();
+        const auto r = outputState.getValue(Color::Red);
+        const auto g = outputState.getValue(Color::Green);
+        const auto b = outputState.getValue(Color::Blue);
+        const auto w = outputState.getValue(Color::White);
         const auto [h, s, v] = AsyncEspAlexaColorUtils::rgbwToHsv(r, g, b, w);
-        devices.rgbw.device->setOn(output.anyOn());
+        devices.rgbw.device->setOn(outputState.anyOn());
         devices.rgbw.device->setColor(h, s);
         devices.rgbw.device->setBrightness(v);
     }
@@ -376,9 +392,13 @@ private:
     void updateRgbDevice() const
     {
         if (!devices.rgb.rgbDevice) return;
-        const auto [r, g, b, _] = output.getValues();
+        const auto r = outputState.getValue(Color::Red);
+        const auto g = outputState.getValue(Color::Green);
+        const auto b = outputState.getValue(Color::Blue);
+
         const auto [h, s, v] = AsyncEspAlexaColorUtils::rgbToHsv(r, g, b);
-        const auto on = output.isOn(Color::Red) || output.isOn(Color::Green) || output.isOn(Color::Blue);
+
+        const auto on = outputState.isOn(Color::Red) || outputState.isOn(Color::Green) || outputState.isOn(Color::Blue);
         devices.rgb.rgbDevice->setOn(on);
         devices.rgb.rgbDevice->setColor(h, s);
         devices.rgb.rgbDevice->setBrightness(v);
@@ -400,11 +420,11 @@ private:
     void updateDevice(AsyncEspAlexaDimmableDevice* device, const Color color) const
     {
         if (!device) return;
-        const auto brightness = std::clamp(output.getValue(color),
+        const auto brightness = std::clamp(outputState.getValue(color),
                                            AsyncEspAlexaColorUtils::ALEXA_MIN_BRI_VAL,
                                            AsyncEspAlexaColorUtils::ALEXA_MAX_BRI_VAL);
 
-        const auto on = output.isOn(color);
+        const auto on = outputState.isOn(color);
         device->setOn(on);
         device->setBrightness(brightness);
     }

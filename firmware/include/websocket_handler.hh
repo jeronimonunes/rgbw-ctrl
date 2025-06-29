@@ -316,7 +316,6 @@ private:
         const auto* message = reinterpret_cast<const WebSocketColorMessage*>(data);
         outputThrottle.setLastSent(millis(), message->state);
         output.setState(message->state);
-        alexaIntegration.updateDevices();
     }
 
     void handleHttpCredentialsMessage(const uint8_t* data, const size_t len) const

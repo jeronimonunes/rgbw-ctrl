@@ -64,7 +64,7 @@ void loop()
     const auto now = millis();
 
     boardButton.handle(now);
-    alexaIntegration.handle();
+    alexaIntegration.handle(now);
     webSocketHandler.handle(now);
     bleManager.handle(now);
     output.handle(now);
@@ -81,7 +81,6 @@ void loop()
 void toggleOutput()
 {
     output.toggleAll();
-    alexaIntegration.updateDevices();
 }
 
 void startBle()
@@ -131,5 +130,4 @@ void onEspNowMessage(const EspNowMessage* message)
         output.decreaseBrightness();
         break;
     }
-    alexaIntegration.updateDevices();
 }

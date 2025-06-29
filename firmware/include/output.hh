@@ -25,6 +25,22 @@ public:
         {
             return values != other.values;
         }
+
+        [[nodiscard]] bool isOn(Color color) const
+        {
+            return values.at(static_cast<size_t>(color)).on;
+        }
+
+        [[nodiscard]] uint8_t getValue(Color color) const
+        {
+            return values.at(static_cast<size_t>(color)).value;
+        }
+
+        [[nodiscard]] bool anyOn() const
+        {
+            return std::any_of(values.begin(), values.end(),
+                               [](const Light::State& s) { return s.on; });
+        }
     };
 #pragma pack(pop)
 
