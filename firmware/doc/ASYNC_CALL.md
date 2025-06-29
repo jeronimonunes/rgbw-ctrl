@@ -36,3 +36,7 @@ async_call([] {
 ```
 
 Ideal for debounce mechanisms, visual timers, or non-blocking delays in UI or sensor workflows.
+
+## 📜 License
+
+This is part of the `rgbw-ctrl` system. Usage is subject to the license defined in the main repository.

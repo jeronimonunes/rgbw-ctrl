@@ -117,14 +117,22 @@ public:
 
     void increaseBrightness()
     {
+        if (!anyOn())
+        {
+            for (auto& light : lights)
+            {
+                light.setState({true, Light::OFF_VALUE});
+            }
+        }
         for (auto& light : lights)
             light.increaseBrightness();
     }
 
     void decreaseBrightness()
     {
-        for (auto& light : lights)
-            light.decreaseBrightness();
+        if (anyOn())
+            for (auto& light : lights)
+                light.decreaseBrightness();
     }
 
     void setColor(const uint8_t r, const uint8_t g, const uint8_t b)

@@ -22,7 +22,7 @@ public:
 
         bool operator !=(const State& other) const
         {
-            return !(*this == other);
+            return on != other.on || value != other.value;
         }
 
         void toJson(const JsonObject& to) const
@@ -33,9 +33,14 @@ public:
     };
 #pragma pack(pop)
 
+    static constexpr auto PREFERENCES_NAME = "light";
+    static constexpr auto LOG_TAG = "Light";
+
     static constexpr uint8_t ON_VALUE = 255;
     static constexpr uint8_t OFF_VALUE = 0;
-    static constexpr auto PREFERENCES_NAME = "light";
+
+    static constexpr uint8_t MIN_BRIGHTNESS = OFF_VALUE + 1;
+    static constexpr uint8_t MAX_BRIGHTNESS = ON_VALUE;
 
     void setup()
     {
@@ -49,7 +54,7 @@ public:
         }
         else
         {
-            ESP_LOGE("Light", "Invalid pin %d for PWM channel", static_cast<int>(pin));
+            ESP_LOGE(LOG_TAG, "Invalid pin %d for PWM channel", static_cast<int>(pin));
         }
     }
 
@@ -87,8 +92,8 @@ private:
         const auto& channel = Hardware::getPwmChannel(pin);
         const auto duty = state.on ? state.value : OFF_VALUE;
 
-        if (uint8_t outputValue = invert ? ON_VALUE - duty : duty;
-            !lastWrittenValue || outputValue != lastWrittenValue)
+        if (uint8_t outputValue = invert ? MAX_BRIGHTNESS - duty : duty;
+            lastWrittenValue != outputValue)
         {
             ledcWrite(channel.value(), outputValue);
             lastWrittenValue = outputValue;
@@ -128,9 +133,7 @@ public:
     {
         state.on = !state.on;
         if (state.on && state.value == OFF_VALUE)
-        {
-            state.value = ON_VALUE;
-        }
+            state.value = MAX_BRIGHTNESS;
         update();
     }
 
@@ -148,16 +151,27 @@ public:
 
     void increaseBrightness()
     {
-        state.value = perceptualBrightnessStep(state.value, true);
-        state.on = true;
+        if (state.value == MAX_BRIGHTNESS) return;
+
+        const auto step = std::clamp(
+            perceptualBrightnessStep(state.value, true),
+            MIN_BRIGHTNESS, MAX_BRIGHTNESS);
+
+        ESP_LOGI(LOG_TAG, "Increasing brightness by %u", step);
+        state.value = step;
         update();
     }
 
     void decreaseBrightness()
     {
-        state.value = perceptualBrightnessStep(state.value, false);
-        if (state.value == OFF_VALUE)
-            state.on = false;
+        if (isOff() || state.value == MIN_BRIGHTNESS) return;
+
+        const auto step = std::clamp(
+            perceptualBrightnessStep(state.value, false),
+            MIN_BRIGHTNESS, MAX_BRIGHTNESS);
+
+        ESP_LOGI(LOG_TAG, "Decreasing brightness by %u", step);
+        state.value = step;
         update();
     }
 
@@ -171,7 +185,7 @@ public:
     {
         state.on = true;
         if (state.value == OFF_VALUE)
-            state.value = ON_VALUE;
+            state.value = MAX_BRIGHTNESS;
     }
 
     void toJson(const JsonObject& to) const
@@ -180,6 +194,7 @@ public:
     }
 
     [[nodiscard]] bool isOn() const { return state.on; }
+    [[nodiscard]] bool isOff() const { return !state.on; }
     [[nodiscard]] bool isVisible() const { return state.on && state.value > 0; }
     [[nodiscard]] uint8_t getValue() const { return state.value; }
     [[nodiscard]] State getState() const { return state; }

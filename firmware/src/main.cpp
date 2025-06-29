@@ -9,12 +9,15 @@
 #include "push_button.hh"
 #include "ota_handler.hh"
 #include "rest_handler.hh"
+#include "rotary_encoder_manager.hh"
 #include "websocket_handler.hh"
 
 void startBle();
 void toggleOutput();
 void beginAlexaAndWebServer();
 void onEspNowMessage(const EspNowMessage* message);
+void adjustBrightness(long);
+void encoderButtonPressed(unsigned long duration);
 
 
 Output output;
@@ -23,6 +26,7 @@ OtaHandler otaHandler;
 PushButton boardButton;
 WiFiManager wifiManager;
 WebServerHandler webServerHandler;
+RotaryEncoderManager rotaryEncoderManager;
 AlexaIntegration alexaIntegration(output);
 BleManager bleManager(output,
                       wifiManager,
@@ -45,12 +49,15 @@ void setup()
 {
     boardLED.begin();
     output.begin();
+    rotaryEncoderManager.begin();
     wifiManager.begin();
     EspNowHandler::begin(onEspNowMessage);
     otaHandler.begin(webServerHandler);
     wifiManager.setGotIpCallback(beginAlexaAndWebServer);
     boardButton.setLongPressCallback(startBle);
     boardButton.setShortPressCallback(toggleOutput);
+    rotaryEncoderManager.onChanged(adjustBrightness);
+    rotaryEncoderManager.onPressed(encoderButtonPressed);
 
     LittleFS.begin(true);
     if (const auto credentials = WiFiManager::loadCredentials())
@@ -87,6 +94,31 @@ void startBle()
 {
     bleManager.start();
 }
+
+
+void adjustBrightness(const long value)
+{
+    if (value > 0)
+        output.increaseBrightness();
+    else if (value < 0)
+        output.decreaseBrightness();
+    rotaryEncoderManager.setEncoderValue(0);
+}
+
+void encoderButtonPressed(const unsigned long duration)
+{
+    if (duration < 2500)
+    {
+        output.toggleAll();
+        ESP_LOGI("Encoder", "Short press detected, toggling output");
+    }
+    else
+    {
+        bleManager.start();
+        ESP_LOGI("Encoder", "Long press detected, starting BLE server");
+    }
+}
+
 
 void beginAlexaAndWebServer()
 {
