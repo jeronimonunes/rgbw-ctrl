@@ -1,7 +1,11 @@
 #pragma once
 
 #include <array>
+#include <LittleFS.h>
 #include "ESPAsyncWebServer.h"
+#include "NimBLEServer.h"
+#include "NimBLEService.h"
+#include "NimBLECharacteristic.h"
 
 #pragma pack(push, 1)
 struct HttpCredentials
@@ -16,6 +20,8 @@ struct HttpCredentials
 
 class WebServerHandler
 {
+    static constexpr auto LOG_TAG = "WebServerHandler";
+
     static constexpr auto PREFERENCES_NAME = "http";
     static constexpr auto PREFERENCES_USERNAME_KEY = "u";
     static constexpr auto PREFERENCES_PASSWORD_KEY = "p";
@@ -88,6 +94,20 @@ public:
         return credentials;
     }
 
+    void createServiceAndCharacteristics(
+        NimBLEServer* server,
+        const char* httpDetailsServiceUUID,
+        const char* httpCredentialsCharacteristicUUID
+    )
+    {
+        const auto httpDetailsService = server->createService(httpDetailsServiceUUID);
+        httpDetailsService->createCharacteristic(
+            httpCredentialsCharacteristicUUID,
+            READ | WRITE
+        )->setCallbacks(new HttpCredentialsCallback(this));
+        httpDetailsService->start();
+    }
+
 private:
     void updateServerCredentials(const HttpCredentials& credentials)
     {
@@ -110,4 +130,32 @@ private:
         }
         return password;
     }
+
+    class HttpCredentialsCallback final : public NimBLECharacteristicCallbacks
+    {
+        WebServerHandler* webServerHandler;
+
+    public:
+        explicit HttpCredentialsCallback(WebServerHandler* webServerHandler) : webServerHandler(webServerHandler)
+        {
+        }
+
+        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            HttpCredentials credentials;
+            if (pCharacteristic->getValue().size() != sizeof(HttpCredentials))
+            {
+                ESP_LOGE(LOG_TAG, "Received invalid OTA credentials length: %d", pCharacteristic->getValue().size());
+                return;
+            }
+            memcpy(&credentials, pCharacteristic->getValue().data(), sizeof(HttpCredentials));
+            webServerHandler->updateCredentials(credentials);
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            HttpCredentials credentials = WebServerHandler::getCredentials();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&credentials), sizeof(credentials));
+        }
+    };
 };

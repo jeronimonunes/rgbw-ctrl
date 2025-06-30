@@ -7,9 +7,8 @@
 
 #include "alexa_integration.hh"
 #include "async_call.hh"
+#include "device_manager.hh"
 #include "esp_now_handler.hh"
-#include "throttled_value.hh"
-#include "version.hh"
 #include "wifi_manager.hh"
 #include "webserver_handler.hh"
 
@@ -24,17 +23,25 @@ class BleManager
 {
     struct BLE_UUID
     {
-        static constexpr auto DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ac";
+        static constexpr auto DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ab";
         static constexpr auto DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000";
         static constexpr auto DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
         static constexpr auto FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
-        static constexpr auto HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
         static constexpr auto DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
+
+        static constexpr auto HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ac";
+        static constexpr auto HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
+
+        static constexpr auto OUTPUT_SERVICE = "12345678-1234-1234-1234-1234567890ad";
         static constexpr auto OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
+
+        static constexpr auto ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890ae";
         static constexpr auto ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
+
+        static constexpr auto ESP_NOW_SERVICE = "12345678-1234-1234-1234-1234567890af";
         static constexpr auto ESP_NOW_DEVICES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
 
-        static constexpr auto WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ab";
+        static constexpr auto WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ba";
         static constexpr auto WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
         static constexpr auto WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
         static constexpr auto WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
@@ -45,31 +52,20 @@ class BleManager
     static constexpr auto BLE_TIMEOUT_MS = 30000;
 
     unsigned long bluetoothAdvertisementTimeout = 0;
-    ThrottledValue<Output::State> colorNotificationThrottle{500};
-    ThrottledValue<uint32_t> heapNotificationThrottle{500};
 
-    Output& output;
-    WiFiManager& wifiManager;
-    AlexaIntegration& alexaIntegration;
-    WebServerHandler& webServerHandler;
+    DeviceManager* deviceManager;
+    WiFiManager* wifiManager;
+    WebServerHandler* webServerHandler;
+    Output* output;
+    AlexaIntegration* alexaIntegration;
 
     NimBLEServer* server = nullptr;
 
-    NimBLECharacteristic* deviceNameCharacteristic = nullptr;
-    NimBLECharacteristic* deviceHeapCharacteristic = nullptr;
-
-    NimBLECharacteristic* wifiDetailsCharacteristic = nullptr;
-    NimBLECharacteristic* wifiStatusCharacteristic = nullptr;
-    NimBLECharacteristic* wifiScanStatusCharacteristic = nullptr;
-    NimBLECharacteristic* wifiScanResultCharacteristic = nullptr;
-
-    NimBLECharacteristic* outputColorCharacteristic = nullptr;
-
 public:
-    explicit BleManager(Output& output, WiFiManager& wifiManager, AlexaIntegration& alexaIntegration,
-                        WebServerHandler& webServerHandler)
-        : output(output), wifiManager(wifiManager), alexaIntegration(alexaIntegration),
-          webServerHandler(webServerHandler)
+    explicit BleManager(DeviceManager* deviceManager, WiFiManager* wifiManager, WebServerHandler* webServerHandler,
+                        Output* output = nullptr, AlexaIntegration* alexaIntegration = nullptr)
+        : deviceManager(deviceManager), wifiManager(wifiManager), webServerHandler(webServerHandler),
+          output(output), alexaIntegration(alexaIntegration)
     {
     }
 
@@ -78,18 +74,13 @@ public:
         bluetoothAdvertisementTimeout = millis() + BLE_TIMEOUT_MS;
         if (server != nullptr) return;
 
-        initiateServicesAndCharacteristics();
-        attachWiFiManagerCallbacks();
+        createServicesAndCharacteristics();
         startAdvertising();
     }
 
     void handle(const unsigned long now)
     {
         handleAdvertisementTimeout(now);
-        if (server == nullptr || server->getConnectedCount() == 0)
-            return;
-        sendColorNotification(now);
-        sendHeapNotification(now);
     }
 
     void stop() const
@@ -137,10 +128,19 @@ private:
     void startAdvertising()
     {
         const auto advertising = this->server->getAdvertising();
-        advertising->setName(wifiManager.getDeviceName());
+        advertising->setName(deviceManager->getDeviceName());
+
+        constexpr uint16_t manufacturerID = 0x0000;
+        uint8_t dataToAdvertise[4];
+        dataToAdvertise[0] = manufacturerID >> 8 & 0xFF;
+        dataToAdvertise[1] = manufacturerID & 0xFF;
+        dataToAdvertise[2] = 0xAA;
+        dataToAdvertise[3] = 0xAA;
+
+        advertising->setManufacturerData(dataToAdvertise, sizeof(dataToAdvertise));
         advertising->start();
         bluetoothAdvertisementTimeout = millis() + BLE_TIMEOUT_MS;
-        ESP_LOGI(LOG_TAG, "BLE advertising started with device name: %s", wifiManager.getDeviceName());
+        ESP_LOGI(LOG_TAG, "BLE advertising started with device name: %s", deviceManager->getDeviceName());
     }
 
     void handleAdvertisementTimeout(const unsigned long now)
@@ -156,416 +156,40 @@ private:
         }
     }
 
-    void sendColorNotification(const unsigned long now)
+    void createServicesAndCharacteristics()
     {
-        Output::State state = output.getState();
-        if (!colorNotificationThrottle.shouldSend(now, state))
-            return;
-        outputColorCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
-        if (outputColorCharacteristic->notify())
-        {
-            colorNotificationThrottle.setLastSent(now, state);
-        }
-    }
-
-    void sendHeapNotification(const unsigned long now)
-    {
-        auto state = ESP.getFreeHeap();
-        if (!heapNotificationThrottle.shouldSend(now, state))
-            return;
-        deviceHeapCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
-        if (deviceHeapCharacteristic->notify())
-        {
-            heapNotificationThrottle.setLastSent(now, state);
-        }
-    }
-
-    void initiateServicesAndCharacteristics()
-    {
-        BLEDevice::init(wifiManager.getDeviceName());
+        BLEDevice::init(deviceManager->getDeviceName());
         server = BLEDevice::createServer();
-        server->setCallbacks(new BLEServerCallback(this));
+        server->setCallbacks(new BLEServerCallback());
 
-        setupBleDeviceDetailsService();
-        setupBleWiFiService();
+        deviceManager->createServiceAndCharacteristics(server,
+                                                       BLE_UUID::DEVICE_DETAILS_SERVICE,
+                                                       BLE_UUID::DEVICE_RESTART_CHARACTERISTIC,
+                                                       BLE_UUID::DEVICE_NAME_CHARACTERISTIC,
+                                                       BLE_UUID::FIRMWARE_VERSION_CHARACTERISTIC,
+                                                       BLE_UUID::DEVICE_HEAP_CHARACTERISTIC);
+        output->createServiceAndCharacteristics(server,
+                                                BLE_UUID::OUTPUT_SERVICE,
+                                                BLE_UUID::OUTPUT_COLOR_CHARACTERISTIC);
+        alexaIntegration->createServiceAndCharacteristics(server,
+                                                          BLE_UUID::ALEXA_SERVICE,
+                                                          BLE_UUID::ALEXA_SETTINGS_CHARACTERISTIC);
+        EspNowHandler::createServiceAndCharacteristics(server,
+                                                       BLE_UUID::ESP_NOW_SERVICE,
+                                                       BLE_UUID::ESP_NOW_DEVICES_CHARACTERISTIC);
+        webServerHandler->createServiceAndCharacteristics(server,
+                                                          BLE_UUID::HTTP_DETAILS_SERVICE,
+                                                          BLE_UUID::HTTP_CREDENTIALS_CHARACTERISTIC);
+        wifiManager->createServiceAndCharacteristics(server,
+                                                     BLE_UUID::WIFI_SERVICE,
+                                                     BLE_UUID::WIFI_DETAILS_CHARACTERISTIC,
+                                                     BLE_UUID::WIFI_STATUS_CHARACTERISTIC,
+                                                     BLE_UUID::WIFI_SCAN_STATUS_CHARACTERISTIC,
+                                                     BLE_UUID::WIFI_SCAN_RESULT_CHARACTERISTIC);
     }
-
-    void setupBleDeviceDetailsService()
-    {
-        const auto deviceDetailsService = server->createService(BLE_UUID::DEVICE_DETAILS_SERVICE);
-
-        deviceDetailsService->createCharacteristic(
-            BLE_UUID::DEVICE_RESTART_CHARACTERISTIC,
-            WRITE
-        )->setCallbacks(new RestartCallback(this));
-
-        deviceNameCharacteristic = deviceDetailsService->createCharacteristic(
-            BLE_UUID::DEVICE_NAME_CHARACTERISTIC,
-            WRITE | READ | NOTIFY
-        );
-        deviceNameCharacteristic->setCallbacks(new DeviceNameCallback(this));
-
-        deviceDetailsService->createCharacteristic(
-            BLE_UUID::FIRMWARE_VERSION_CHARACTERISTIC,
-            READ
-        )->setCallbacks(new FirmwareVersionCallback());
-
-        deviceDetailsService->createCharacteristic(
-            BLE_UUID::HTTP_CREDENTIALS_CHARACTERISTIC,
-            READ | WRITE
-        )->setCallbacks(new HttpCredentialsCallback(this));
-
-        deviceHeapCharacteristic = deviceDetailsService->createCharacteristic(
-            BLE_UUID::DEVICE_HEAP_CHARACTERISTIC,
-            NOTIFY
-        );
-
-        outputColorCharacteristic = deviceDetailsService->createCharacteristic(
-            BLE_UUID::OUTPUT_COLOR_CHARACTERISTIC,
-            READ | WRITE | NOTIFY
-        );
-        outputColorCharacteristic->setCallbacks(new OutputColorCallback(this));
-
-        deviceDetailsService->createCharacteristic(
-            BLE_UUID::ALEXA_SETTINGS_CHARACTERISTIC,
-            READ | WRITE
-        )->setCallbacks(new AlexaCallback(this));
-
-        deviceDetailsService->createCharacteristic(
-            BLE_UUID::ESP_NOW_DEVICES_CHARACTERISTIC,
-            READ | WRITE
-        )->setCallbacks(new EspNowDevicesCallback());
-
-        deviceDetailsService->start();
-    }
-
-    void setupBleWiFiService()
-    {
-        const auto bleWiFiService = server->createService(BLE_UUID::WIFI_SERVICE);
-
-        wifiDetailsCharacteristic = bleWiFiService->createCharacteristic(
-            BLE_UUID::WIFI_DETAILS_CHARACTERISTIC,
-            READ | NOTIFY
-        );
-        wifiDetailsCharacteristic->setCallbacks(new WiFiDetailsCallback(this));
-
-        wifiStatusCharacteristic = bleWiFiService->createCharacteristic(
-            BLE_UUID::WIFI_STATUS_CHARACTERISTIC,
-            WRITE | READ | NOTIFY
-        );
-        wifiStatusCharacteristic->setCallbacks(new WiFiStatusCallback(this));
-
-        wifiScanStatusCharacteristic = bleWiFiService->createCharacteristic(
-            BLE_UUID::WIFI_SCAN_STATUS_CHARACTERISTIC,
-            WRITE | READ | NOTIFY
-        );
-        wifiScanStatusCharacteristic->setCallbacks(new WiFiScanStatusCallback(this));
-
-        wifiScanResultCharacteristic = bleWiFiService->createCharacteristic(
-            BLE_UUID::WIFI_SCAN_RESULT_CHARACTERISTIC,
-            READ | NOTIFY
-        );
-        wifiScanResultCharacteristic->setCallbacks(new WiFiScanResultCallback(this));
-
-        bleWiFiService->start();
-    }
-
-    void attachWiFiManagerCallbacks() const
-    {
-        wifiManager.setDetailsChangedCallback([this](WiFiDetails wiFiScanResult)
-        {
-            wifiDetailsCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wiFiScanResult), sizeof(wiFiScanResult));
-            wifiDetailsCharacteristic->notify(); // NOLINT
-        });
-
-        wifiManager.setScanResultChangedCallback([this](WiFiScanResult wiFiScanResult)
-        {
-            wifiScanResultCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wiFiScanResult), sizeof(wiFiScanResult));
-            wifiScanResultCharacteristic->notify(); // NOLINT
-        });
-
-        wifiManager.setScanStatusChangedCallback([this](WifiScanStatus wifiScanStatus)
-        {
-            wifiScanStatusCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wifiScanStatus), sizeof(wifiScanStatus));
-            wifiScanStatusCharacteristic->notify(); // NOLINT
-        });
-
-        wifiManager.setStatusChangedCallback([this](WiFiStatus wiFiScanResultStatus)
-        {
-            wifiStatusCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wiFiScanResultStatus),
-                                               sizeof(wiFiScanResultStatus));
-            wifiStatusCharacteristic->notify(); // NOLINT
-        });
-
-        wifiManager.setDeviceNameChangedCallback([this](char* deviceName)
-        {
-            const auto len = std::min(strlen(deviceName), static_cast<size_t>(DEVICE_NAME_MAX_LENGTH));
-            deviceNameCharacteristic->setValue(reinterpret_cast<uint8_t*>(deviceName), len);
-            deviceNameCharacteristic->notify(); // NOLINT
-        });
-    }
-
-    // -------------------- BLE CALLBACKS --------------------
-
-    class RestartCallback final : public NimBLECharacteristicCallbacks
-    {
-    public:
-        BleManager* net;
-
-        explicit RestartCallback(BleManager* n) : net(n)
-        {
-        }
-
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            if (pCharacteristic->getValue() == "RESTART_NOW")
-            {
-                ESP_LOGW(LOG_TAG, "Device restart requested via BLE.");
-                async_call([this]
-                {
-                    esp_restart();
-                }, 1024, 50);
-            }
-            else
-            {
-                ESP_LOGW(LOG_TAG, "Device restart ignored: invalid value received.");
-            }
-        }
-    };
-
-    class DeviceNameCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit DeviceNameCallback(BleManager* n) : net(n)
-        {
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            const auto name = net->wifiManager.getDeviceName();
-            const auto len = std::min(strlen(name), static_cast<size_t>(DEVICE_NAME_MAX_LENGTH));
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(const_cast<char*>(name)), len);
-        }
-
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            const auto value = pCharacteristic->getValue();
-            const auto data = value.data();
-            const auto deviceName = reinterpret_cast<const char*>(data);
-
-            if (const auto length = pCharacteristic->getLength(); length == 0 || length > DEVICE_NAME_MAX_LENGTH)
-            {
-                ESP_LOGE(LOG_TAG, "Invalid device name length: %d", static_cast<int>(length));
-                return;
-            }
-
-            net->wifiManager.setDeviceName(deviceName);
-        }
-    };
-
-    class FirmwareVersionCallback final : public NimBLECharacteristicCallbacks
-    {
-    public:
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            pCharacteristic->setValue(FIRMWARE_VERSION);
-        }
-    };
-
-    class HttpCredentialsCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit HttpCredentialsCallback(BleManager* n) : net(n)
-        {
-        }
-
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            HttpCredentials credentials;
-            if (pCharacteristic->getValue().size() != sizeof(HttpCredentials))
-            {
-                ESP_LOGE(LOG_TAG, "Received invalid OTA credentials length: %d", pCharacteristic->getValue().size());
-                return;
-            }
-            memcpy(&credentials, pCharacteristic->getValue().data(), sizeof(HttpCredentials));
-            net->webServerHandler.updateCredentials(credentials);
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            HttpCredentials credentials = WebServerHandler::getCredentials();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&credentials), sizeof(credentials));
-        }
-    };
-
-    class OutputColorCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit OutputColorCallback(BleManager* net): net(net)
-        {
-        }
-
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            Output::State state = {};
-            constexpr uint8_t size = sizeof(Output::State);
-            if (pCharacteristic->getValue().size() != size)
-            {
-                ESP_LOGE(LOG_TAG, "Received invalid Alexa color values length: %d", pCharacteristic->getValue().size());
-                return;
-            }
-            memcpy(&state, pCharacteristic->getValue().data(), size);
-            net->output.setState(state);
-            net->colorNotificationThrottle.setLastSent(millis(), state);
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            auto state = net->output.getState();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
-        }
-    };
-
-    class AlexaCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit AlexaCallback(BleManager* net): net(net)
-        {
-        }
-
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            AlexaIntegration::Settings settings;
-            if (pCharacteristic->getValue().size() != sizeof(AlexaIntegration::Settings))
-            {
-                ESP_LOGE(LOG_TAG, "Received invalid Alexa settings length: %d", pCharacteristic->getValue().size());
-                return;
-            }
-            memcpy(&settings, pCharacteristic->getValue().data(), sizeof(AlexaIntegration::Settings));
-            net->alexaIntegration.applySettings(settings);
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            auto settings = net->alexaIntegration.getSettings();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&settings), sizeof(AlexaIntegration::Settings));
-        }
-    };
-
-    class EspNowDevicesCallback final : public NimBLECharacteristicCallbacks
-    {
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            const auto value = pCharacteristic->getValue();
-            EspNowHandler::setDevicesBuffer(value.data(), value.size());
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            const auto value = EspNowHandler::getDevicesBuffer();
-            pCharacteristic->setValue(value.data(), value.size());
-        }
-    };
-
-    class WiFiDetailsCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit WiFiDetailsCallback(BleManager* n) : net(n)
-        {
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            WiFiDetails details = net->wifiManager.getWifiDetails();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&details), sizeof(details));
-        }
-    };
-
-    class WiFiStatusCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit WiFiStatusCallback(BleManager* n) : net(n)
-        {
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            WiFiStatus status = net->wifiManager.getStatus();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&status), sizeof(status));
-        }
-
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            WiFiConnectionDetails details = {};
-            if (pCharacteristic->getValue().size() != sizeof(WiFiConnectionDetails))
-            {
-                ESP_LOGE(LOG_TAG, "Received invalid WiFi connection details length: %d",
-                         pCharacteristic->getValue().size());
-                return;
-            }
-            memcpy(&details, pCharacteristic->getValue().data(), sizeof(WiFiConnectionDetails));
-            net->wifiManager.connect(details);
-        }
-    };
-
-    class WiFiScanStatusCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit WiFiScanStatusCallback(BleManager* n) : net(n)
-        {
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            WifiScanStatus scanStatus = net->wifiManager.getScanStatus();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanStatus), sizeof(scanStatus));
-        }
-
-        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            net->wifiManager.triggerScan();
-        }
-    };
-
-    class WiFiScanResultCallback final : public NimBLECharacteristicCallbacks
-    {
-        BleManager* net;
-
-    public:
-        explicit WiFiScanResultCallback(BleManager* n) : net(n)
-        {
-        }
-
-        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-        {
-            WiFiScanResult scanResult = net->wifiManager.getScanResult();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanResult), sizeof(scanResult));
-        }
-    };
 
     class BLEServerCallback final : public NimBLEServerCallbacks
     {
-        BleManager* net;
-
-    public:
-        explicit BLEServerCallback(BleManager* net): net(net)
-        {
-        }
-
         void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override
         {
             pServer->getAdvertising()->start();

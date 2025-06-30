@@ -8,6 +8,8 @@
 #include <Arduino.h>
 #include <algorithm>
 
+#include "throttled_value.hh"
+
 class Output
 {
 public:
@@ -45,6 +47,8 @@ public:
 #pragma pack(pop)
 
 private:
+    static constexpr auto LOG_TAG = "Output";
+
     std::array<Light, 4> lights = {
         Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Output::RED))),
         Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Output::GREEN))),
@@ -53,6 +57,9 @@ private:
     };
 
     static_assert(static_cast<size_t>(Color::White) < 4, "Color enum out of bounds");
+
+    NimBLECharacteristic* outputColorCharacteristic = nullptr;
+    ThrottledValue<State> colorNotificationThrottle{500};
 
 public:
     void begin()
@@ -65,6 +72,7 @@ public:
     {
         for (auto& light : lights)
             light.handle(now);
+        sendColorNotification(now);
     }
 
     void setValue(const uint8_t value, Color color)
@@ -218,4 +226,64 @@ public:
                        [](const Light& light) { return light.getState(); });
         return {state};
     }
+
+    void createServiceAndCharacteristics(
+        NimBLEServer* server,
+        const char* serviceUUID,
+        const char* outputColorCharacteristicUUID
+    )
+    {
+        const auto service = server->createService(serviceUUID);
+        outputColorCharacteristic = service->createCharacteristic(
+            outputColorCharacteristicUUID,
+            READ | WRITE | NOTIFY
+        );
+        outputColorCharacteristic->setCallbacks(new OutputColorCallback(this));
+        service->start();
+    }
+
+private:
+    void sendColorNotification(const unsigned long now)
+    {
+        if (outputColorCharacteristic == nullptr) return;
+
+        State state = getState();
+        if (!colorNotificationThrottle.shouldSend(now, state))
+            return;
+        outputColorCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
+        if (outputColorCharacteristic->notify())
+        {
+            colorNotificationThrottle.setLastSent(now, state);
+        }
+    }
+
+    class OutputColorCallback final : public NimBLECharacteristicCallbacks
+    {
+        Output* output;
+
+    public:
+        explicit OutputColorCallback(Output* output): output(output)
+        {
+        }
+
+        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            State state = {};
+            constexpr uint8_t size = sizeof(State);
+            if (pCharacteristic->getValue().size() != size)
+            {
+                ESP_LOGE(LOG_TAG, "Received invalid Alexa color values length: %d", pCharacteristic->getValue().size());
+                return;
+            }
+            memcpy(&state, pCharacteristic->getValue().data(), size);
+            output->setState(state);
+            output->colorNotificationThrottle.setLastSent(millis(), state);
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            auto state = output->getState();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
+        }
+    };
 };

@@ -9,11 +9,11 @@
 #include <mutex>
 
 #include "AsyncJson.h"
+#include "NimBLEServer.h"
+#include "NimBLEService.h"
+#include "NimBLECharacteristic.h"
 #include "wifi_model.hh"
 
-#define DEVICE_NAME_MAX_LENGTH 28
-#define DEVICE_NAME_TOTAL_LENGTH (DEVICE_NAME_MAX_LENGTH + 1)
-#define DEVICE_BASE_NAME "rgbw-ctrl-"
 
 class WiFiManager
 {
@@ -27,14 +27,12 @@ class WiFiManager
     QueueHandle_t wifiScanQueue = nullptr;
     WiFiScanResult scanResult;
 
-    std::function<void(WiFiDetails)> detailsChanged;
-    std::function<void(WiFiScanResult)> scanResultChanged;
-    std::function<void(WifiScanStatus)> scanStatusChanged;
-    std::function<void(WiFiStatus)> statusChanged;
-    std::function<void(char*)> deviceNameChanged;
-    std::function<void()> gotIpChanged;
+    NimBLECharacteristic* wifiDetailsCharacteristic = nullptr;
+    NimBLECharacteristic* wifiStatusCharacteristic = nullptr;
+    NimBLECharacteristic* wifiScanStatusCharacteristic = nullptr;
+    NimBLECharacteristic* wifiScanResultCharacteristic = nullptr;
 
-    std::array<char, DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
+    std::function<void()> gotIpChanged;
 
 public:
     void begin()
@@ -156,72 +154,9 @@ public:
         return scanResult;
     }
 
-    void setDetailsChangedCallback(std::function<void(WiFiDetails)> cb)
-    {
-        detailsChanged = std::move(cb);
-    }
-
-    void setScanResultChangedCallback(std::function<void(WiFiScanResult)> cb)
-    {
-        scanResultChanged = std::move(cb);
-    }
-
-    void setScanStatusChangedCallback(std::function<void(WifiScanStatus)> cb)
-    {
-        scanStatusChanged = std::move(cb);
-    }
-
-    void setStatusChangedCallback(std::function<void(WiFiStatus)> cb)
-    {
-        statusChanged = std::move(cb);
-    }
-
-    void setDeviceNameChangedCallback(std::function<void(char*)> cb)
-    {
-        deviceNameChanged = std::move(cb);
-    }
-
     void setGotIpCallback(std::function<void()> cb)
     {
         gotIpChanged = std::move(cb);
-    }
-
-    const char* getDeviceName()
-    {
-        std::lock_guard lock(getDeviceNameMutex());
-        if (deviceName[0] == '\0')
-        {
-            loadDeviceName(deviceName.data());
-        }
-        return deviceName.data();
-    }
-
-    void setDeviceName(const char* name)
-    {
-        if (!name || name[0] == '\0') return;
-
-        std::lock_guard lock(getDeviceNameMutex());
-
-        char safeName[DEVICE_NAME_TOTAL_LENGTH];
-        std::strncpy(safeName, name, DEVICE_NAME_MAX_LENGTH);
-        safeName[DEVICE_NAME_MAX_LENGTH] = '\0';
-
-        if (std::strncmp(deviceName.data(), safeName, DEVICE_NAME_MAX_LENGTH) == 0)
-            return;
-
-        Preferences prefs;
-        prefs.begin(PREFERENCES_NAME, false);
-        prefs.putString("deviceName", safeName);
-        prefs.end();
-
-        deviceName[0] = '\0'; // Invalidate cached name
-        WiFiClass::setHostname(safeName);
-        WiFi.reconnect();
-
-        if (deviceNameChanged)
-        {
-            deviceNameChanged(safeName);
-        }
     }
 
     void toJson(const JsonObject& to) const
@@ -276,7 +211,7 @@ public:
         prefs.end();
     }
 
-    void connect(const WiFiConnectionDetails& details)
+    void connect(const WiFiConnectionDetails& details) // NOLINT
     {
         if (details.ssid[0] == '\0')
         {
@@ -284,7 +219,6 @@ public:
             return;
         }
         saveCredentials(details);
-        WiFiClass::setHostname(getDeviceName());
 
         if (const int result = WiFi.scanComplete(); result == WIFI_SCAN_RUNNING || result >= 0)
             WiFi.scanDelete();
@@ -349,13 +283,16 @@ private:
                  static_cast<int>(wifiStatus.load()), static_cast<int>(newStatus));
         wifiStatus = newStatus;
         fillWiFiDetails();
-        if (statusChanged)
+        if (wifiStatusCharacteristic)
         {
-            statusChanged(wifiStatus);
+            wifiStatusCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wifiStatus),
+                                               sizeof(wifiStatus));
+            wifiStatusCharacteristic->notify(); // NOLINT
         }
-        if (detailsChanged)
+        if (wifiDetailsCharacteristic)
         {
-            detailsChanged(wifiDetails);
+            wifiDetailsCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wifiDetails), sizeof(wifiDetails));
+            wifiDetailsCharacteristic->notify(); // NOLINT
         }
     }
 
@@ -373,9 +310,10 @@ private:
     {
         if (status == scanStatus) return;
         this->scanStatus = status;
-        if (scanStatusChanged)
+        if (wifiScanStatusCharacteristic)
         {
-            scanStatusChanged(status);
+            wifiScanStatusCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanStatus), sizeof(scanStatus));
+            wifiScanStatusCharacteristic->notify(); // NOLINT
         }
     }
 
@@ -385,20 +323,15 @@ private:
         if (r != scanResult)
         {
             scanResult = r;
-            if (scanResultChanged)
+            if (wifiScanResultCharacteristic)
             {
-                scanResultChanged(r);
+                wifiScanResultCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanResult), sizeof(scanResult));
+                wifiScanResultCharacteristic->notify(); // NOLINT
             }
         }
     }
 
     static std::mutex& getWiFiScanResultMutex()
-    {
-        static std::mutex mutex;
-        return mutex;
-    }
-
-    static std::mutex& getDeviceNameMutex()
     {
         static std::mutex mutex;
         return mutex;
@@ -487,21 +420,124 @@ private:
         }
     } // NOLINT
 
-    static const char* loadDeviceName(char* deviceName)
+public:
+    void createServiceAndCharacteristics(
+        NimBLEServer* server,
+        const char* wifiServiceUUID,
+        const char* wifiDetailsCharacteristicUUID,
+        const char* wifiStatusCharacteristicUUID,
+        const char* wifiScanStatusCharacteristicUUID,
+        const char* wifiScanResultCharacteristicUUID
+    )
     {
-        Preferences prefs;
-        prefs.begin(PREFERENCES_NAME, true);
-        if (prefs.isKey("deviceName"))
-        {
-            prefs.getString("deviceName", deviceName, DEVICE_NAME_TOTAL_LENGTH);
-            prefs.end();
-            return deviceName;
-        }
-        prefs.end();
-        uint8_t mac[6];
-        WiFi.macAddress(mac);
-        snprintf(deviceName, DEVICE_NAME_TOTAL_LENGTH,
-                 DEVICE_BASE_NAME "%02X%02X%02X", mac[3], mac[4], mac[5]);
-        return deviceName;
+        const auto bleWiFiService = server->createService(wifiServiceUUID);
+
+        wifiDetailsCharacteristic = bleWiFiService->createCharacteristic(
+            wifiDetailsCharacteristicUUID,
+            READ | NOTIFY
+        );
+        wifiDetailsCharacteristic->setCallbacks(new WiFiDetailsCallback(this));
+
+        wifiStatusCharacteristic = bleWiFiService->createCharacteristic(
+            wifiStatusCharacteristicUUID,
+            WRITE | READ | NOTIFY
+        );
+        wifiStatusCharacteristic->setCallbacks(new WiFiStatusCallback(this));
+
+        wifiScanStatusCharacteristic = bleWiFiService->createCharacteristic(
+            wifiScanStatusCharacteristicUUID,
+            WRITE | READ | NOTIFY
+        );
+        wifiScanStatusCharacteristic->setCallbacks(new WiFiScanStatusCallback(this));
+
+        wifiScanResultCharacteristic = bleWiFiService->createCharacteristic(
+            wifiScanResultCharacteristicUUID,
+            READ | NOTIFY
+        );
+        wifiScanResultCharacteristic->setCallbacks(new WiFiScanResultCallback(this));
+
+        bleWiFiService->start();
     }
+
+    class WiFiDetailsCallback final : public NimBLECharacteristicCallbacks
+    {
+        WiFiManager* wifiManager;
+
+    public:
+        explicit WiFiDetailsCallback(WiFiManager* wifiManager) : wifiManager(wifiManager)
+        {
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            WiFiDetails details = wifiManager->getWifiDetails();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&details), sizeof(details));
+        }
+    };
+
+    class WiFiStatusCallback final : public NimBLECharacteristicCallbacks
+    {
+        WiFiManager* wifiManager;
+
+    public:
+        explicit WiFiStatusCallback(WiFiManager* wifiManager) : wifiManager(wifiManager)
+        {
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            WiFiStatus status = wifiManager->getStatus();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&status), sizeof(status));
+        }
+
+        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            WiFiConnectionDetails details = {};
+            if (pCharacteristic->getValue().size() != sizeof(WiFiConnectionDetails))
+            {
+                ESP_LOGE(LOG_TAG, "Received invalid WiFi connection details length: %d",
+                         pCharacteristic->getValue().size());
+                return;
+            }
+            memcpy(&details, pCharacteristic->getValue().data(), sizeof(WiFiConnectionDetails));
+            wifiManager->connect(details);
+        }
+    };
+
+    class WiFiScanStatusCallback final : public NimBLECharacteristicCallbacks
+    {
+        WiFiManager* wifiManager;
+
+    public:
+        explicit WiFiScanStatusCallback(WiFiManager* wifiManager) : wifiManager(wifiManager)
+        {
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            WifiScanStatus scanStatus = wifiManager->getScanStatus();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanStatus), sizeof(scanStatus));
+        }
+
+        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            wifiManager->triggerScan();
+        }
+    };
+
+    class WiFiScanResultCallback final : public NimBLECharacteristicCallbacks
+    {
+        WiFiManager* wifiManager;
+
+    public:
+        explicit WiFiScanResultCallback(WiFiManager* wifiManager) : wifiManager(wifiManager)
+        {
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            WiFiScanResult scanResult = wifiManager->getScanResult();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanResult), sizeof(scanResult));
+        }
+    };
 };

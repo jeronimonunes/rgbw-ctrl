@@ -443,4 +443,46 @@ private:
         device->setOn(on);
         device->setBrightness(brightness);
     }
+public:
+    void createServiceAndCharacteristics(
+        NimBLEServer* server,
+        const char* serviceUUID,
+        const char* alexaSettingsCharacteristicsUUID
+    )
+    {
+        const auto service = server->createService(serviceUUID);
+        service->createCharacteristic(
+            alexaSettingsCharacteristicsUUID,
+            READ | WRITE
+        )->setCallbacks(new AlexaCallback(this));
+        service->start();
+    }
+private:
+    class AlexaCallback final : public NimBLECharacteristicCallbacks
+    {
+        AlexaIntegration* alexaIntegration;
+
+    public:
+        explicit AlexaCallback(AlexaIntegration* alexaIntegration): alexaIntegration(alexaIntegration)
+        {
+        }
+
+        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            AlexaIntegration::Settings settings;
+            if (pCharacteristic->getValue().size() != sizeof(AlexaIntegration::Settings))
+            {
+                ESP_LOGE(LOG_TAG, "Received invalid Alexa settings length: %d", pCharacteristic->getValue().size());
+                return;
+            }
+            memcpy(&settings, pCharacteristic->getValue().data(), sizeof(AlexaIntegration::Settings));
+            alexaIntegration->applySettings(settings);
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            auto settings = alexaIntegration->getSettings();
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&settings), sizeof(AlexaIntegration::Settings));
+        }
+    };
 };

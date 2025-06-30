@@ -6,7 +6,8 @@
 #include <algorithm>
 #include <esp_now.h>
 #include <Preferences.h>
-
+#include <NimBLEDevice.h>
+#include <NimBLEServer.h>
 #include "AsyncJson.h"
 
 #pragma pack(push, 1)
@@ -188,6 +189,20 @@ public:
         setDeviceData(newData);
     }
 
+    static void createServiceAndCharacteristics(
+        NimBLEServer* server,
+        const char* serviceUUID,
+        const char* espNowDevicesCharacteristicUUID
+    )
+    {
+        const auto service = server->createService(serviceUUID);
+        service->createCharacteristic(
+            espNowDevicesCharacteristicUUID,
+            READ | WRITE
+        )->setCallbacks(new EspNowDevicesCallback());
+        service->start();
+    }
+
     static void toJson(const JsonObject& espNow)
     {
         const auto arr = espNow["devices"].to<JsonArray>();
@@ -258,4 +273,19 @@ private:
             ESP_LOGE(LOG_TAG, "Failed to open Preferences for reading");
         }
     }
+
+    class EspNowDevicesCallback final : public NimBLECharacteristicCallbacks
+    {
+        void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            const auto value = pCharacteristic->getValue();
+            setDevicesBuffer(value.data(), value.size());
+        }
+
+        void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
+        {
+            const auto value = getDevicesBuffer();
+            pCharacteristic->setValue(value.data(), value.size());
+        }
+    };
 };

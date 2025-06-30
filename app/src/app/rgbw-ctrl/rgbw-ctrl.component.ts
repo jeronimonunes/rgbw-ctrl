@@ -62,17 +62,25 @@ import {RouterLink} from '@angular/router';
 
 const BLE_NAME = "rgbw-ctrl";
 
-const DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ac";
+const DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ab";
 const DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000";
 const DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
 const FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
-const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
 const DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
+
+const HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ac";
+const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
+
+const OUTPUT_SERVICE = "12345678-1234-1234-1234-1234567890ad";
 const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
+
+const ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890ae";
 const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
+
+const ESP_NOW_SERVICE = "12345678-1234-1234-1234-1234567890af";
 const ESP_NOW_DEVICES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
 
-const WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ab";
+const WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ba";
 const WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
 const WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
 const WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
@@ -308,8 +316,15 @@ export class RgbwCtrlComponent implements OnDestroy {
     let loading = this.matDialog.open(LoadingComponent, {disableClose: true})
     try {
       const device = await navigator.bluetooth.requestDevice({
-        filters: [{namePrefix: BLE_NAME}],
-        optionalServices: [WIFI_SERVICE, DEVICE_DETAILS_SERVICE]
+        filters: [
+          {
+            manufacturerData: [{
+              dataPrefix: new Uint8Array([0xAA, 0xAA]),
+              companyIdentifier: 0
+            }]
+          }
+        ],
+        optionalServices: [DEVICE_DETAILS_SERVICE, HTTP_DETAILS_SERVICE, OUTPUT_SERVICE, ALEXA_SERVICE, ESP_NOW_SERVICE, WIFI_SERVICE]
       });
 
       if (!device.gatt) {
@@ -318,8 +333,14 @@ export class RgbwCtrlComponent implements OnDestroy {
       }
 
       this.server = await device.gatt.connect();
-      await this.initBleWiFiServices(this.server);
-      await this.initBleDeviceDetailsServices(this.server);
+
+      await this.initBleWiFiServices();
+      await this.initHttpDetailsService();
+      await this.initBleOutputServices();
+      await this.initEspNowServices();
+      await this.initBleAlexaServices();
+      await this.initBleDeviceDetailsServices();
+
       device.addEventListener('gattserverdisconnected', () => {
         this.disconnect();
         this.snackBar.open('Device disconnected', 'Reconnect', {duration: 3000})
@@ -518,8 +539,8 @@ export class RgbwCtrlComponent implements OnDestroy {
     }
   }
 
-  private async initBleWiFiServices(server: BluetoothRemoteGATTServer) {
-    const wifiService = await server.getPrimaryService(WIFI_SERVICE);
+  private async initBleWiFiServices() {
+    const wifiService = await this.server!.getPrimaryService(WIFI_SERVICE);
 
     this.wifiDetailsCharacteristic = await wifiService.getCharacteristic(WIFI_DETAILS_CHARACTERISTIC);
     this.wifiDetailsCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.wifiDetailsChanged(ev.target.value));
@@ -538,12 +559,11 @@ export class RgbwCtrlComponent implements OnDestroy {
     await this.wifiScanResultCharacteristic.startNotifications();
   }
 
-  private async initBleDeviceDetailsServices(server: BluetoothRemoteGATTServer) {
-    const deviceDetailsService = await server.getPrimaryService(DEVICE_DETAILS_SERVICE);
+  private async initBleDeviceDetailsServices() {
+    const deviceDetailsService = await this.server!.getPrimaryService(DEVICE_DETAILS_SERVICE);
 
     this.deviceRestartCharacteristic = await deviceDetailsService.getCharacteristic(DEVICE_RESTART_CHARACTERISTIC);
     this.firmwareVersionCharacteristic = await deviceDetailsService.getCharacteristic(FIRMWARE_VERSION_CHARACTERISTIC);
-    this.httpCredentialsCharacteristic = await deviceDetailsService.getCharacteristic(HTTP_CREDENTIALS_CHARACTERISTIC);
 
     this.deviceNameCharacteristic = await deviceDetailsService.getCharacteristic(DEVICE_NAME_CHARACTERISTIC);
     this.deviceNameCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceNameChanged(ev.target.value));
@@ -552,13 +572,28 @@ export class RgbwCtrlComponent implements OnDestroy {
     this.deviceHeapCharacteristic = await deviceDetailsService.getCharacteristic(DEVICE_HEAP_CHARACTERISTIC);
     this.deviceHeapCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceHeapChanged(ev.target.value));
     await this.deviceHeapCharacteristic.startNotifications();
+  }
 
-    this.outputColorCharacteristic = await deviceDetailsService.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
+  private async initHttpDetailsService() {
+    const httpDetailsService = await this.server!.getPrimaryService(HTTP_DETAILS_SERVICE);
+    this.httpCredentialsCharacteristic = await httpDetailsService.getCharacteristic(HTTP_CREDENTIALS_CHARACTERISTIC);
+  }
+
+  private async initBleOutputServices() {
+    const service = await this.server!.getPrimaryService(OUTPUT_SERVICE);
+    this.outputColorCharacteristic = await service.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
     this.outputColorCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.outputColorChanged(ev.target.value));
     await this.outputColorCharacteristic.startNotifications();
+  }
 
-    this.alexaSettingsCharacteristic = await deviceDetailsService.getCharacteristic(ALEXA_SETTINGS_CHARACTERISTIC);
-    this.espNowDevicesCharacteristic = await deviceDetailsService.getCharacteristic(ESP_NOW_DEVICES_CHARACTERISTIC);
+  private async initBleAlexaServices() {
+    const service = await this.server!.getPrimaryService(ALEXA_SERVICE);
+    this.alexaSettingsCharacteristic = await service.getCharacteristic(ALEXA_SETTINGS_CHARACTERISTIC);
+  }
+
+  private async initEspNowServices() {
+    const service = await this.server!.getPrimaryService(ESP_NOW_SERVICE);
+    this.espNowDevicesCharacteristic = await service.getCharacteristic(ESP_NOW_DEVICES_CHARACTERISTIC);
   }
 
   private wifiStatusChanged(view: DataView) {

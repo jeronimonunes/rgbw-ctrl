@@ -22,6 +22,7 @@ class RestHandler
     WiFiManager& wifiManager;
     AlexaIntegration& alexaIntegration;
     BleManager& bleManager;
+    DeviceManager& deviceManager;
 
 public:
     RestHandler(
@@ -29,14 +30,16 @@ public:
         OtaHandler& otaHandler,
         WiFiManager& wifiManager,
         AlexaIntegration& alexaIntegration,
-        BleManager& bleManager
+        BleManager& bleManager,
+        DeviceManager& deviceManager
     )
         :
         output(output),
         otaHandler(otaHandler),
         wifiManager(wifiManager),
         alexaIntegration(alexaIntegration),
-        bleManager(bleManager)
+        bleManager(bleManager),
+        deviceManager(deviceManager)
     {
     }
 
@@ -49,7 +52,7 @@ public:
     {
         const auto response = new AsyncJsonResponse();
         const auto doc = response->getRoot().to<JsonObject>();
-        doc["deviceName"] = wifiManager.getDeviceName();
+        doc["deviceName"] = deviceManager.getDeviceName();
         doc["firmwareVersion"] = FIRMWARE_VERSION;
         doc["heap"] = esp_get_free_heap_size();
 

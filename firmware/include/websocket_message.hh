@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstring>
+#include "device_manager.hh"
 
 #pragma pack(push, 1)
 struct WebSocketMessage
@@ -52,20 +53,20 @@ struct WebSocketBleStatusMessage : WebSocketMessage
 
 struct WebSocketDeviceNameMessage : WebSocketMessage
 {
-    std::array<char, DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
+    std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
 
-    explicit WebSocketDeviceNameMessage(const std::array<char, DEVICE_NAME_TOTAL_LENGTH>& deviceName)
+    explicit WebSocketDeviceNameMessage(const std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>& deviceName)
         : WebSocketMessage(Type::ON_DEVICE_NAME)
     {
-        std::strncpy(this->deviceName.data(), deviceName.data(), DEVICE_NAME_MAX_LENGTH);
-        this->deviceName[DEVICE_NAME_MAX_LENGTH] = '\0';
+        std::strncpy(this->deviceName.data(), deviceName.data(), DeviceManager::DEVICE_NAME_MAX_LENGTH);
+        this->deviceName[DeviceManager::DEVICE_NAME_MAX_LENGTH] = '\0';
     }
 
     explicit WebSocketDeviceNameMessage(const char* deviceName)
         : WebSocketMessage(Type::ON_DEVICE_NAME)
     {
-        std::strncpy(this->deviceName.data(), deviceName, DEVICE_NAME_MAX_LENGTH);
-        this->deviceName[DEVICE_NAME_MAX_LENGTH] = '\0';
+        std::strncpy(this->deviceName.data(), deviceName, DeviceManager::DEVICE_NAME_MAX_LENGTH);
+        this->deviceName[DeviceManager::DEVICE_NAME_MAX_LENGTH] = '\0';
     }
 };
 

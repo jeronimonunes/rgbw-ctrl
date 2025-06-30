@@ -4,6 +4,7 @@
 #include "wifi_manager.hh"
 #include "board_led.hh"
 #include "alexa_integration.hh"
+#include "device_manager.hh"
 #include "esp_now_handler.hh"
 #include "output.hh"
 #include "push_button.hh"
@@ -28,22 +29,27 @@ WiFiManager wifiManager;
 WebServerHandler webServerHandler;
 RotaryEncoderManager rotaryEncoderManager;
 AlexaIntegration alexaIntegration(output);
-BleManager bleManager(output,
-                      wifiManager,
-                      alexaIntegration,
-                      webServerHandler);
+DeviceManager deviceManager;
+BleManager bleManager(&deviceManager,
+                      &wifiManager,
+                      &webServerHandler,
+                      &output,
+                      &alexaIntegration);
+
 WebSocketHandler webSocketHandler(output,
                                   otaHandler,
                                   wifiManager,
                                   webServerHandler,
                                   alexaIntegration,
-                                  bleManager);
+                                  bleManager,
+                                  deviceManager);
 
 RestHandler restHandler(output,
                         otaHandler,
                         wifiManager,
                         alexaIntegration,
-                        bleManager);
+                        bleManager,
+                        deviceManager);
 
 void setup()
 {
@@ -51,6 +57,7 @@ void setup()
     output.begin();
     rotaryEncoderManager.begin();
     wifiManager.begin();
+    deviceManager.begin();
     EspNowHandler::begin(onEspNowMessage);
     otaHandler.begin(webServerHandler);
     wifiManager.setGotIpCallback(beginAlexaAndWebServer);
@@ -73,6 +80,7 @@ void loop()
     boardButton.handle(now);
     alexaIntegration.handle(now);
     webSocketHandler.handle(now);
+    deviceManager.handle(now);
     bleManager.handle(now);
     output.handle(now);
 

@@ -8,7 +8,7 @@
 class WebSocketHandler
 {
     static constexpr auto LOG_TAG = "WebSocketHandler";
-    static constexpr auto HEAP_MESSAGE_INTERVAL_MS = 1000;
+    static constexpr auto HEAP_MESSAGE_INTERVAL_MS = 750;
 
     Output& output;
     OtaHandler& otaHandler;
@@ -16,12 +16,13 @@ class WebSocketHandler
     WebServerHandler& webServerHandler;
     AlexaIntegration& alexaIntegration;
     BleManager& bleManager;
+    DeviceManager& deviceManager;
 
     AsyncWebSocket ws = AsyncWebSocket("/ws");
 
     ThrottledValue<Output::State> outputThrottle{200};
     ThrottledValue<BleStatus> bleStatusThrottle{200};
-    ThrottledValue<std::array<char, DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{200};
+    ThrottledValue<std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{200};
     ThrottledValue<OtaState> otaStateThrottle{200};
     ThrottledValue<EspNowDeviceData> espNowDevicesThrottle{200};
     ThrottledValue<std::array<char, 10>> firmwareVersionThrottle{200};
@@ -38,7 +39,8 @@ public:
         WiFiManager& wifiManager,
         WebServerHandler& webServerHandler,
         AlexaIntegration& alexaIntegration,
-        BleManager& bleManager
+        BleManager& bleManager,
+        DeviceManager& deviceManager
     )
         :
         output(output),
@@ -46,7 +48,8 @@ public:
         wifiManager(wifiManager),
         webServerHandler(webServerHandler),
         alexaIntegration(alexaIntegration),
-        bleManager(bleManager)
+        bleManager(bleManager),
+        deviceManager(deviceManager)
     {
         ws.onEvent([this](AsyncWebSocket*, AsyncWebSocketClient* client,
                           const AwsEventType type, void* arg, const uint8_t* data,
@@ -122,9 +125,8 @@ private:
 
     void sendDeviceNameMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        std::array<char, DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
-        strncpy(deviceName.data(), wifiManager.getDeviceName(), DEVICE_NAME_MAX_LENGTH);
-        sendThrottledMessage<std::array<char, DEVICE_NAME_TOTAL_LENGTH>, WebSocketDeviceNameMessage>(
+        const auto deviceName = deviceManager.getDeviceNameArray();
+        sendThrottledMessage<std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>, WebSocketDeviceNameMessage>(
             deviceName, deviceNameThrottle, now, client);
     }
 
@@ -329,7 +331,7 @@ private:
     {
         if (len < sizeof(WebSocketDeviceNameMessage)) return;
         const auto* message = reinterpret_cast<const WebSocketDeviceNameMessage*>(data);
-        wifiManager.setDeviceName(message->deviceName.data());
+        deviceManager.setDeviceName(message->deviceName.data());
     }
 
     void handleBleStatusMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const
