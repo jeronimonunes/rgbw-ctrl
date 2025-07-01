@@ -110,10 +110,15 @@ private:
     static uint8_t perceptualBrightnessStep(const uint8_t currentValue, const bool increase)
     {
         constexpr float gamma = 2.2f;
-        float linear = pow(static_cast<float>(currentValue) / 255.0f, 1.0f / gamma);
+        float linear = pow(
+            static_cast<float>(currentValue) / static_cast<float>(MAX_BRIGHTNESS),
+            1.0f / gamma);
         linear += increase ? 0.05f : -0.05f;
         linear = std::clamp(linear, 0.0f, 1.0f);
-        return static_cast<uint8_t>(lround(pow(linear, gamma) * 255.0f));
+        const auto value = lround(
+            pow(linear, gamma) * static_cast<float>(MAX_BRIGHTNESS)
+        );
+        return std::clamp(static_cast<uint8_t>(value), MIN_BRIGHTNESS, MAX_BRIGHTNESS);
     }
 
 public:
@@ -153,9 +158,7 @@ public:
     {
         if (state.value == MAX_BRIGHTNESS) return;
 
-        const auto step = std::clamp(
-            perceptualBrightnessStep(state.value, true),
-            MIN_BRIGHTNESS, MAX_BRIGHTNESS);
+        const auto step = perceptualBrightnessStep(state.value, true);
 
         ESP_LOGI(LOG_TAG, "Increasing brightness by %u", step);
         state.value = step;
@@ -166,9 +169,7 @@ public:
     {
         if (isOff() || state.value == MIN_BRIGHTNESS) return;
 
-        const auto step = std::clamp(
-            perceptualBrightnessStep(state.value, false),
-            MIN_BRIGHTNESS, MAX_BRIGHTNESS);
+        const auto step = perceptualBrightnessStep(state.value, false);
 
         ESP_LOGI(LOG_TAG, "Decreasing brightness by %u", step);
         state.value = step;
