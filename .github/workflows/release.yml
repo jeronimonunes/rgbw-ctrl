@@ -81,14 +81,13 @@ jobs:
       - name: Package Release Artifacts
         run: |
           mkdir -p release
-          cp firmware/.pio/build/*/firmware.bin release/
-          cp firmware/.pio/build/*/littlefs.bin release/
-          zip -r ${{ github.event.inputs.releaseVersion }}.zip release
+          cp firmware/.pio/build/controller/firmware.bin release/controller-firmware.bin
+          cp firmware/.pio/build/controller/littlefs.bin release/controller-littlefs.bin
+          cd release && zip -r ../v${{ github.event.inputs.releaseVersion }}.zip .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.event.inputs.releaseVersion }}
           name: Release v${{ github.event.inputs.releaseVersion }}
-          files: ${{ github.event.inputs.releaseVersion }}.zip
-      
+          files: v${{ github.event.inputs.releaseVersion }}.zip
