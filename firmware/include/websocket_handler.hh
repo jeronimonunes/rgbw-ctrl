@@ -12,7 +12,7 @@ namespace WebSocket
         static constexpr auto LOG_TAG = "WebSocketHandler";
         static constexpr auto HEAP_MESSAGE_INTERVAL_MS = 750;
 
-        Output* output;
+        Output::Manager* outputManager;
         OtaHandler* otaHandler;
         WiFiManager* wifiManager;
         HTTP::Manager* webServerHandler;
@@ -37,7 +37,7 @@ namespace WebSocket
 
     public:
         Handler(
-            Output* output,
+            Output::Manager* outputManager,
             OtaHandler* otaHandler,
             WiFiManager* wifiManager,
             HTTP::Manager* webServerHandler,
@@ -47,7 +47,7 @@ namespace WebSocket
             EspNowHandler* espNowHandler
         )
             :
-            output(output),
+            outputManager(outputManager),
             otaHandler(otaHandler),
             wifiManager(wifiManager),
             webServerHandler(webServerHandler),
@@ -118,9 +118,9 @@ namespace WebSocket
 
         void sendOutputColorMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
         {
-            if (output == nullptr) return;
+            if (outputManager == nullptr) return;
             sendThrottledMessage<Output::State, ColorMessage>(
-                output->getState(), outputThrottle, now, client);
+                outputManager->getState(), outputThrottle, now, client);
         }
 
         void sendBleStatusMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
@@ -327,11 +327,11 @@ namespace WebSocket
 
         void handleColorMessage(const uint8_t* data, const size_t len)
         {
-            if (output == nullptr) return;
+            if (outputManager == nullptr) return;
             if (len < sizeof(ColorMessage)) return;
             const auto* message = reinterpret_cast<const ColorMessage*>(data);
             outputThrottle.setLastSent(millis(), message->state);
-            output->setState(message->state);
+            outputManager->setState(message->state);
         }
 
         void handleHttpCredentialsMessage(const uint8_t* data, const size_t len) const

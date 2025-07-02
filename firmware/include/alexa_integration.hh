@@ -4,7 +4,7 @@
 #include "async_esp_alexa_manager.hh"
 #include "async_esp_alexa_color_utils.hh"
 
-#include "output.hh"
+#include "output_manager.hh"
 
 class AlexaIntegration final : public BLE::Interfaceable, public StateJsonFiller
 {
@@ -91,7 +91,7 @@ private:
     };
 #pragma pack(pop)
 
-    Output& output;
+    Output::Manager& outputManager;
     AsyncEspAlexaManager espAlexaManager;
 
     Settings settings;
@@ -100,7 +100,7 @@ private:
     unsigned long lastOutputStateUpdate = 0;
 
 public:
-    explicit AlexaIntegration(Output& output): output(output)
+    explicit AlexaIntegration(Output::Manager& output): outputManager(output)
     {
     }
 
@@ -114,7 +114,7 @@ public:
         loadPreferences();
         setupDevices();
         espAlexaManager.begin();
-        outputState = output.getState();
+        outputState = outputManager.getState();
     }
 
     void handle(const unsigned long now)
@@ -123,7 +123,7 @@ public:
         if (now - lastOutputStateUpdate >= OUTPUT_STATE_UPDATE_INTERVAL_MS)
         {
             lastOutputStateUpdate = now;
-            if (const auto newOutputState = output.getState();
+            if (const auto newOutputState = outputManager.getState();
                 outputState != newOutputState)
             {
                 outputState = newOutputState;
@@ -246,12 +246,12 @@ private:
     {
         ESP_LOGI(LOG_TAG, "Adding RGBW device: %s", settings.deviceNames[0].data());
         const char* deviceName = settings.deviceNames[0].data();
-        const auto r = output.getValue(Color::Red);
-        const auto g = output.getValue(Color::Green);
-        const auto b = output.getValue(Color::Blue);
-        const auto w = output.getValue(Color::White);
+        const auto r = outputManager.getValue(Color::Red);
+        const auto g = outputManager.getValue(Color::Green);
+        const auto b = outputManager.getValue(Color::Blue);
+        const auto w = outputManager.getValue(Color::White);
         const auto [h, s, v] = AsyncEspAlexaColorUtils::rgbwToHsv(r, g, b, w);
-        const auto on = output.anyOn();
+        const auto on = outputManager.anyOn();
         devices.rgbw.device = new AsyncEspAlexaExtendedColorDevice(
             deviceName, on, v, h, s, 500,
             AsyncEspAlexaExtendedColorDevice::ColorMode::hs);
@@ -281,10 +281,10 @@ private:
         }
         ESP_LOGI(LOG_TAG, "Adding RGB device: %s", settings.deviceNames[0].data());
         const auto [r, g, b, w]
-            = output.getValues();
-        const auto on = output.isOn(Color::Red)
-            || output.isOn(Color::Green)
-            || output.isOn(Color::Blue);
+            = outputManager.getValues();
+        const auto on = outputManager.isOn(Color::Red)
+            || outputManager.isOn(Color::Green)
+            || outputManager.isOn(Color::Blue);
         const auto [h, s, v] =
             AsyncEspAlexaColorUtils::rgbToHsv(r, g, b);
 
@@ -328,8 +328,8 @@ private:
             return nullptr;
         }
         ESP_LOGI(LOG_TAG, "Adding single device: %s", name);
-        const auto value = output.getValue(color);
-        const auto on = output.isOn(color);
+        const auto value = outputManager.getValue(color);
+        const auto on = outputManager.isOn(color);
         const auto device = new AsyncEspAlexaDimmableDevice(name, on, value);
 
 
@@ -348,11 +348,11 @@ private:
         const auto [r, g, b,w]
             = AsyncEspAlexaColorUtils::hsvToRgbw(hue, saturation, brightness);
         ESP_LOGI(LOG_TAG, "Converted RGBW: r=%u, g=%u, b=%u, w=%u", r, g, b, w);
-        output.setColor(r, g, b, w);
-        output.setOn(isOn, Color::Red);
-        output.setOn(isOn, Color::Green);
-        output.setOn(isOn, Color::Blue);
-        output.setOn(isOn, Color::White);
+        outputManager.setColor(r, g, b, w);
+        outputManager.setOn(isOn, Color::Red);
+        outputManager.setOn(isOn, Color::Green);
+        outputManager.setOn(isOn, Color::Blue);
+        outputManager.setOn(isOn, Color::White);
     }
 
     void handleRgbwCommand(const bool isOn, const uint8_t brightness,
@@ -363,11 +363,11 @@ private:
         const auto [r, g, b, w]
             = AsyncEspAlexaColorUtils::ctToRgbw(brightness, colorTemperature);
         ESP_LOGI(LOG_TAG, "Converted RGBW: r=%u, g=%u, b=%u, w=%u", r, g, b, w);
-        output.setColor(r, g, b, w);
-        output.setOn(isOn, Color::Red);
-        output.setOn(isOn, Color::Green);
-        output.setOn(isOn, Color::Blue);
-        output.setOn(isOn, Color::White);
+        outputManager.setColor(r, g, b, w);
+        outputManager.setOn(isOn, Color::Red);
+        outputManager.setOn(isOn, Color::Green);
+        outputManager.setOn(isOn, Color::Blue);
+        outputManager.setOn(isOn, Color::White);
     }
 
     void handleRgbCommand(const bool isOn, const uint8_t brightness,
@@ -377,18 +377,18 @@ private:
                  brightness, hue, saturation);
         const auto [r, g, b] = AsyncEspAlexaColorUtils::hsvToRgb(hue, saturation, brightness);
         ESP_LOGI(LOG_TAG, "Converted RGB: r=%u, g=%u, b=%u", r, g, b);
-        output.setColor(r, g, b);
-        output.setOn(isOn, Color::Red);
-        output.setOn(isOn, Color::Green);
-        output.setOn(isOn, Color::Blue);
+        outputManager.setColor(r, g, b);
+        outputManager.setOn(isOn, Color::Red);
+        outputManager.setOn(isOn, Color::Green);
+        outputManager.setOn(isOn, Color::Blue);
     }
 
     void handleSingleChannelCommand(__unused const char* name, const Color color,
                                     const bool isOn, const uint8_t brightness) const
     {
         ESP_LOGI(LOG_TAG, "Received %s command: on=%d, brightness=%u", name, isOn, brightness);
-        output.setOn(isOn, color);
-        output.setValue(brightness < 128 ? brightness : brightness + 1, color);
+        outputManager.setOn(isOn, color);
+        outputManager.setValue(brightness < 128 ? brightness : brightness + 1, color);
     }
 
     void updateRgbwDevice() const

@@ -7,7 +7,7 @@
 #include "alexa_integration.hh"
 #include "device_manager.hh"
 #include "esp_now_handler.hh"
-#include "output.hh"
+#include "output_manager.hh"
 #include "push_button.hh"
 #include "ota_handler.hh"
 #include "state_rest_handler.hh"
@@ -24,7 +24,7 @@ void shutdownCallback();
 
 static constexpr auto LOG_TAG = "Controller";
 
-Output output;
+Output::Manager outputManager;
 BoardLED boardLED;
 OtaHandler otaHandler;
 PushButton boardButton;
@@ -32,19 +32,19 @@ WiFiManager wifiManager;
 EspNowHandler espNowHandler;
 HTTP::Manager httpManager;
 RotaryEncoderManager rotaryEncoderManager;
-AlexaIntegration alexaIntegration(output);
+AlexaIntegration alexaIntegration(outputManager);
 DeviceManager deviceManager;
 
 BLE::Manager bleManager(deviceManager, {
                             &deviceManager,
                             &wifiManager,
                             &httpManager,
-                            &output,
+                            &outputManager,
                             &espNowHandler,
                             &alexaIntegration
                         });
 
-WebSocket::Handler webSocketHandler(&output,
+WebSocket::Handler webSocketHandler(&outputManager,
                                   &otaHandler,
                                   &wifiManager,
                                   &httpManager,
@@ -57,7 +57,7 @@ StateRestHandler stateRestHandler({
     &deviceManager,
     &wifiManager,
     &bleManager,
-    &output,
+    &outputManager,
     &otaHandler,
     &alexaIntegration,
     &espNowHandler
@@ -67,7 +67,7 @@ void setup()
 {
     ESP_LOGI(LOG_TAG, "Starting controller");
     boardLED.begin();
-    output.begin();
+    outputManager.begin();
     rotaryEncoderManager.begin();
     wifiManager.begin();
     deviceManager.begin();
@@ -99,7 +99,7 @@ void loop()
     webSocketHandler.handle(now);
     deviceManager.handle(now);
     bleManager.handle(now);
-    output.handle(now);
+    outputManager.handle(now);
 
     boardLED.handle(
         now,
@@ -112,7 +112,7 @@ void loop()
 
 void toggleOutput()
 {
-    output.toggleAll();
+    outputManager.toggleAll();
 }
 
 void startBle()
@@ -124,9 +124,9 @@ void startBle()
 void adjustBrightness(const long value)
 {
     if (value > 0)
-        output.increaseBrightness();
+        outputManager.increaseBrightness();
     else if (value < 0)
-        output.decreaseBrightness();
+        outputManager.decreaseBrightness();
     rotaryEncoderManager.setEncoderValue(0);
 }
 
@@ -134,7 +134,7 @@ void encoderButtonPressed(const unsigned long duration)
 {
     if (duration < 2500)
     {
-        output.toggleAll();
+        outputManager.toggleAll();
         ESP_LOGI("Encoder", "Short press detected, toggling output");
     }
     else
@@ -155,7 +155,7 @@ void beginAlexaAndWebServer()
             &stateRestHandler,
             &bleManager,
             &deviceManager,
-            &output
+            &outputManager
         }
     );
 }
@@ -165,31 +165,31 @@ void onEspNowMessage(const EspNowMessage* message)
     switch (message->type)
     {
     case EspNowMessage::Type::ToggleRed:
-        output.toggle(Color::Red);
+        outputManager.toggle(Color::Red);
         break;
     case EspNowMessage::Type::ToggleGreen:
-        output.toggle(Color::Green);
+        outputManager.toggle(Color::Green);
         break;
     case EspNowMessage::Type::ToggleBlue:
-        output.toggle(Color::Blue);
+        outputManager.toggle(Color::Blue);
         break;
     case EspNowMessage::Type::ToggleWhite:
-        output.toggle(Color::White);
+        outputManager.toggle(Color::White);
         break;
     case EspNowMessage::Type::ToggleAll:
-        output.toggleAll();
+        outputManager.toggleAll();
         break;
     case EspNowMessage::Type::TurnOffAll:
-        output.turnOffAll();
+        outputManager.turnOffAll();
         break;
     case EspNowMessage::Type::TurnOnAll:
-        output.turnOnAll();
+        outputManager.turnOnAll();
         break;
     case EspNowMessage::Type::IncreaseBrightness:
-        output.increaseBrightness();
+        outputManager.increaseBrightness();
         break;
     case EspNowMessage::Type::DecreaseBrightness:
-        output.decreaseBrightness();
+        outputManager.decreaseBrightness();
         break;
     }
 }
