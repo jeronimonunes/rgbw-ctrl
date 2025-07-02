@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <LittleFS.h>
+#include <esp_now.h>
 
 #include "wifi_manager.hh"
 #include "board_led.hh"
@@ -9,32 +10,39 @@
 #include "output.hh"
 #include "push_button.hh"
 #include "ota_handler.hh"
-#include "rest_handler.hh"
+#include "state_rest_handler.hh"
 #include "rotary_encoder_manager.hh"
 #include "websocket_handler.hh"
 
 void startBle();
 void toggleOutput();
 void beginAlexaAndWebServer();
-void onEspNowMessage(const EspNowMessage* message);
 void adjustBrightness(long);
 void encoderButtonPressed(unsigned long duration);
+void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, int len);
+void shutdownCallback();
 
+static constexpr auto LOG_TAG = "Controller";
 
 Output output;
 BoardLED boardLED;
 OtaHandler otaHandler;
 PushButton boardButton;
 WiFiManager wifiManager;
+EspNowHandler espNowHandler;
 WebServerHandler webServerHandler;
 RotaryEncoderManager rotaryEncoderManager;
 AlexaIntegration alexaIntegration(output);
 DeviceManager deviceManager;
-BleManager bleManager(&deviceManager,
-                      &wifiManager,
-                      &webServerHandler,
-                      &output,
-                      &alexaIntegration);
+
+BleManager bleManager(deviceManager, {
+                          &deviceManager,
+                          &wifiManager,
+                          &webServerHandler,
+                          &output,
+                          &espNowHandler,
+                          &alexaIntegration
+                      });
 
 WebSocketHandler webSocketHandler(output,
                                   otaHandler,
@@ -42,23 +50,29 @@ WebSocketHandler webSocketHandler(output,
                                   webServerHandler,
                                   alexaIntegration,
                                   bleManager,
-                                  deviceManager);
+                                  deviceManager,
+                                  espNowHandler);
 
-RestHandler restHandler(output,
-                        otaHandler,
-                        wifiManager,
-                        alexaIntegration,
-                        bleManager,
-                        deviceManager);
+StateRestHandler stateRestHandler({
+    &bleManager,
+    &output,
+    &deviceManager,
+    &wifiManager,
+    &otaHandler,
+    &alexaIntegration
+});
 
 void setup()
 {
+    ESP_LOGI(LOG_TAG, "Starting controller");
     boardLED.begin();
     output.begin();
     rotaryEncoderManager.begin();
     wifiManager.begin();
     deviceManager.begin();
-    EspNowHandler::begin(onEspNowMessage);
+    esp_now_init();
+    esp_now_register_recv_cb(onDataReceived);
+    espNowHandler.begin();
     otaHandler.begin(webServerHandler);
     wifiManager.setGotIpCallback(beginAlexaAndWebServer);
     boardButton.setLongPressCallback(startBle);
@@ -71,6 +85,8 @@ void setup()
         wifiManager.connect(credentials.value());
     else
         bleManager.start();
+    esp_register_shutdown_handler(shutdownCallback);
+    ESP_LOGI(LOG_TAG, "Startup complete");
 }
 
 void loop()
@@ -134,7 +150,12 @@ void beginAlexaAndWebServer()
     webServerHandler.begin(
         alexaIntegration.createAsyncWebHandler(),
         webSocketHandler.getAsyncWebHandler(),
-        restHandler.createAsyncWebHandler()
+        {
+            &stateRestHandler,
+            &bleManager,
+            &deviceManager,
+            &output
+        }
     );
 }
 
@@ -170,4 +191,27 @@ void onEspNowMessage(const EspNowMessage* message)
         output.decreaseBrightness();
         break;
     }
+}
+
+void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, const int len)
+{
+    ESP_LOGI(LOG_TAG, "Data received from %02X:%02X:%02X:%02X:%02X:%02X, length: %d",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], len);
+
+    if (!espNowHandler.isMacAllowed(mac))
+    {
+        ESP_LOGW(LOG_TAG, "MAC address not allowed, ignoring packet");
+        return;
+    }
+
+    if (len != sizeof(EspNowMessage)) return;
+
+    const auto message = reinterpret_cast<EspNowMessage*>(const_cast<uint8_t*>(incomingData));
+
+    onEspNowMessage(message);
+}
+
+void shutdownCallback()
+{
+    ESP_LOGI(LOG_TAG, "Shutdown completed");
 }

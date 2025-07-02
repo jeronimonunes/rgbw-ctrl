@@ -17,6 +17,7 @@ class WebSocketHandler
     AlexaIntegration& alexaIntegration;
     BleManager& bleManager;
     DeviceManager& deviceManager;
+    EspNowHandler& espNowHandler;
 
     AsyncWebSocket ws = AsyncWebSocket("/ws");
 
@@ -40,7 +41,8 @@ public:
         WebServerHandler& webServerHandler,
         AlexaIntegration& alexaIntegration,
         BleManager& bleManager,
-        DeviceManager& deviceManager
+        DeviceManager& deviceManager,
+        EspNowHandler& espNowHandler
     )
         :
         output(output),
@@ -49,7 +51,8 @@ public:
         webServerHandler(webServerHandler),
         alexaIntegration(alexaIntegration),
         bleManager(bleManager),
-        deviceManager(deviceManager)
+        deviceManager(deviceManager),
+        espNowHandler(espNowHandler)
     {
         ws.onEvent([this](AsyncWebSocket*, AsyncWebSocketClient* client,
                           const AwsEventType type, void* arg, const uint8_t* data,
@@ -149,7 +152,7 @@ private:
     void sendEspNowDevicesMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
         sendThrottledMessage<EspNowDeviceData, WebSocketEspNowDevicesMessage>(
-            EspNowHandler::getDeviceData(), espNowDevicesThrottle, now, client);
+            espNowHandler.getDeviceData(), espNowDevicesThrottle, now, client);
     }
 
     void sendFirmwareVersionMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)

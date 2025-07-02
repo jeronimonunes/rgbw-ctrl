@@ -102,7 +102,7 @@ private:
 
     void setColor(const std::array<uint8_t, 3>& rgb)
     {
-        for (size_t i = 0; i < 3; ++i)
+        for (uint8_t i = 0; i < 3; ++i)
             leds[i].setValue(rgb[i]);
     }
 };

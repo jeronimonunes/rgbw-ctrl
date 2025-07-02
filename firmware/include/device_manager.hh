@@ -1,13 +1,24 @@
 #pragma once
 
+#include <nvs_flash.h>
+
 #include "NimBLEServer.h"
 #include "NimBLEService.h"
 #include "NimBLECharacteristic.h"
 #include "throttled_value.hh"
 #include "version.hh"
+#include "ble_interfaceable.hh"
+#include "http_handler.hh"
+#include "state_json_filler.hh"
 
-class DeviceManager
+class DeviceManager final : public BleInterfaceable, public StateJsonFiller, public HttpHandler
 {
+    static constexpr auto BLE_DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ab";
+    static constexpr auto BLE_DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000";
+    static constexpr auto BLE_DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
+    static constexpr auto BLE_FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
+    static constexpr auto BLE_DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
+
 public:
     static constexpr auto DEVICE_BASE_NAME = "rgbw-ctrl-";
     static constexpr auto DEVICE_NAME_MAX_LENGTH = 28;
@@ -54,7 +65,7 @@ public:
         return deviceName;
     }
 
-    void setDeviceName(const char* name)
+    void setDeviceName(const char* name) // NOLINT
     {
         if (!name || name[0] == '\0') return;
 
@@ -82,35 +93,40 @@ public:
         deviceNameCharacteristic->notify(); // NOLINT
     }
 
-    void createServiceAndCharacteristics(
-        NimBLEServer* server,
-        const char* deviceDetailsServiceUUID,
-        const char* deviceRestartCharacteristicUUID,
-        const char* deviceNameCharacteristicUUID,
-        const char* firmwareVersionCharacteristicUUID,
-        const char* deviceHeapCharacteristicUUID
-    )
+    AsyncWebHandler* createAsyncWebHandler() override
     {
-        const auto service = server->createService(deviceDetailsServiceUUID);
+        return new AsyncRestWebHandler(this);
+    }
+
+    void fillState(const JsonObject& root) const override
+    {
+        root["deviceName"] = getDeviceName();
+        root["firmwareVersion"] = FIRMWARE_VERSION;
+        root["heap"] = esp_get_free_heap_size();
+    }
+
+    void createServiceAndCharacteristics(NimBLEServer* server) override
+    {
+        const auto service = server->createService(BLE_DEVICE_DETAILS_SERVICE);
 
         service->createCharacteristic(
-            deviceRestartCharacteristicUUID,
+            BLE_DEVICE_RESTART_CHARACTERISTIC,
             WRITE
         )->setCallbacks(new RestartCallback());
 
         deviceNameCharacteristic = service->createCharacteristic(
-            deviceNameCharacteristicUUID,
+            BLE_DEVICE_NAME_CHARACTERISTIC,
             WRITE | READ | NOTIFY
         );
         deviceNameCharacteristic->setCallbacks(new DeviceNameCallback(this));
 
         service->createCharacteristic(
-            firmwareVersionCharacteristicUUID,
+            BLE_FIRMWARE_VERSION_CHARACTERISTIC,
             READ
         )->setCallbacks(new FirmwareVersionCallback());
 
         deviceHeapCharacteristic = service->createCharacteristic(
-            deviceHeapCharacteristicUUID,
+            BLE_DEVICE_HEAP_CHARACTERISTIC,
             NOTIFY
         );
 
@@ -167,7 +183,7 @@ private:
                 async_call([this]
                 {
                     esp_restart();
-                }, 1024, 50);
+                }, 2048, 50);
             }
             else
             {
@@ -214,6 +230,58 @@ private:
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
             pCharacteristic->setValue(FIRMWARE_VERSION);
+        }
+    };
+
+    class AsyncRestWebHandler final : public AsyncWebHandler
+    {
+        DeviceManager* deviceManager;
+
+    public:
+        explicit AsyncRestWebHandler(DeviceManager* deviceManager)
+            : deviceManager(deviceManager)
+        {
+        }
+
+        bool canHandle(AsyncWebServerRequest* request) const override
+        {
+            return request->method() == HTTP_GET &&
+            (request->url().startsWith("/system/restart") ||
+                request->url().startsWith("/system/reset"));
+        }
+
+        void handleRequest(AsyncWebServerRequest* request) override
+        {
+            if (request->url().startsWith("/system/reset"))
+            {
+                return handleResetRequest(request);
+            }
+            return handleRestartRequest(request);
+        }
+
+        void handleRestartRequest(AsyncWebServerRequest* request) const
+        {
+            request->onDisconnect([this]
+            {
+                async_call([]
+                {
+                    esp_restart();
+                }, 2048, 0);
+            });
+            return sendMessageJsonResponse(request, "Restarting...");
+        }
+
+        void handleResetRequest(AsyncWebServerRequest* request) const
+        {
+            request->onDisconnect([this]
+            {
+                async_call([]
+                {
+                    nvs_flash_erase();
+                    esp_restart();
+                }, 4096, 0);
+            });
+            return sendMessageJsonResponse(request, "Resetting to factory defaults...");
         }
     };
 };

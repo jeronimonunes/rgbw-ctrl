@@ -4,9 +4,7 @@
 #include <mutex>
 #include <optional>
 #include <algorithm>
-#include <esp_now.h>
 #include <Preferences.h>
-#include <NimBLEDevice.h>
 #include <NimBLEServer.h>
 #include "AsyncJson.h"
 
@@ -71,102 +69,87 @@ static_assert(sizeof(EspNowDevice) == EspNowDevice::NAME_TOTAL_LENGTH + EspNowDe
               "Unexpected EspNowDevice size");
 #pragma pack(pop)
 
-class EspNowHandler
+class EspNowHandler final : public BleInterfaceable, public StateJsonFiller
 {
+    static constexpr auto BLE_ESP_NOW_SERVICE = "12345678-1234-1234-1234-1234567890af";
+    static constexpr auto BLE_ESP_NOW_DEVICES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
+
     static constexpr auto LOG_TAG = "EspNowHandler";
 
     static constexpr auto PREFERENCES_NAME = "esp-now";
     static constexpr auto PREFERENCES_COUNT_KEY = "devCount";
     static constexpr auto PREFERENCES_DATA_KEY = "devData";
 
-    static std::function<void(EspNowMessage* message)> callback;
-    static EspNowDeviceData deviceData;
-
-    static void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, const int len)
-    {
-        ESP_LOGI(LOG_TAG, "Data received from %02X:%02X:%02X:%02X:%02X:%02X, length: %d",
-                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], len);
-
-        if (!isMacAllowed(mac))
-        {
-            ESP_LOGW(LOG_TAG, "MAC address not allowed, ignoring packet");
-            return;
-        }
-
-        if (len != sizeof(EspNowMessage)) return;
-
-        const auto message = reinterpret_cast<EspNowMessage*>(const_cast<uint8_t*>(incomingData));
-
-        if (callback) callback(message);
-    }
+    EspNowDeviceData deviceData = {};
 
 public:
-    static void begin(std::function<void(EspNowMessage* message)> cb)
+    void begin()
     {
-        if (esp_now_init() != ESP_OK)
-        {
-            ESP_LOGE(LOG_TAG, "Failed to initialize ESP-NOW");
-            return;
-        }
-
         restoreDevices();
-        esp_now_register_recv_cb(onDataReceived);
-        callback = std::move(cb);
-        ESP_LOGI(LOG_TAG, "ESP-NOW initialized and callback registered");
     }
 
-    [[nodiscard]] static EspNowDeviceData getDeviceData()
+    [[nodiscard]] EspNowDeviceData getDeviceData() const
     {
         std::lock_guard lock(getMutex());
         return deviceData;
     }
 
-    static void setDeviceData(const EspNowDeviceData& data)
+    void setDeviceData(const EspNowDeviceData& data)
     {
         std::lock_guard lock(getMutex());
         deviceData = data;
         persistDevices();
     }
 
-    static std::optional<EspNowDevice> findDeviceByMac(const uint8_t* mac)
+    bool isMacAllowed(const uint8_t* mac)
     {
         std::lock_guard lock(getMutex());
-        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
+        for (const auto& [name, address] : deviceData.devices)
         {
-            if (std::equal(deviceData.devices[i].address.begin(), deviceData.devices[i].address.end(), mac))
-                return deviceData.devices[i];
+            if (std::equal(address.begin(), address.end(), mac))
+                return true;
+        }
+        return false;
+    }
+
+    std::optional<EspNowDevice> findDeviceByMac(const uint8_t* mac)
+    {
+        std::lock_guard lock(getMutex());
+        for (const auto& device : deviceData.devices)
+        {
+            if (std::equal(device.address.begin(), device.address.end(), mac))
+                return device;
         }
         return std::nullopt;
     }
 
-    static std::optional<EspNowDevice> findDeviceByName(const std::string_view name)
+    std::optional<EspNowDevice> findDeviceByName(const std::string_view name) const
     {
         std::lock_guard lock(getMutex());
-        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
+        for (const auto& device : deviceData.devices)
         {
-            const auto& devName = deviceData.devices[i].name;
+            const auto& devName = device.name;
             if (std::string_view(devName.data(), strnlen(devName.data(), devName.size())) == name)
-                return deviceData.devices[i];
+                return device;
         }
         return std::nullopt;
     }
 
-    [[nodiscard]] static std::vector<uint8_t> getDevicesBuffer()
+    [[nodiscard]] std::vector<uint8_t> getDevicesBuffer()
     {
         std::lock_guard lock(getMutex());
         std::vector<uint8_t> buffer;
         buffer.reserve(1 + deviceData.deviceCount * sizeof(EspNowDevice));
         buffer.push_back(deviceData.deviceCount);
-        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
+        for (const auto& [name, address] : deviceData.devices)
         {
-            const auto& [name, address] = deviceData.devices[i];
             buffer.insert(buffer.end(), name.begin(), name.end());
             buffer.insert(buffer.end(), address.begin(), address.end());
         }
         return buffer;
     }
 
-    static void setDevicesBuffer(const uint8_t* data, const size_t length)
+    void setDevicesBuffer(const uint8_t* data, const size_t length)
     {
         if (!data || length < 1) return;
 
@@ -189,27 +172,23 @@ public:
         setDeviceData(newData);
     }
 
-    static void createServiceAndCharacteristics(
-        NimBLEServer* server,
-        const char* serviceUUID,
-        const char* espNowDevicesCharacteristicUUID
-    )
+    void createServiceAndCharacteristics(NimBLEServer* server) override
     {
-        const auto service = server->createService(serviceUUID);
+        const auto service = server->createService(BLE_ESP_NOW_SERVICE);
         service->createCharacteristic(
-            espNowDevicesCharacteristicUUID,
+            BLE_ESP_NOW_DEVICES_CHARACTERISTIC,
             READ | WRITE
-        )->setCallbacks(new EspNowDevicesCallback());
+        )->setCallbacks(new EspNowDevicesCallback(this));
         service->start();
     }
 
-    static void toJson(const JsonObject& espNow)
+    void fillState(const JsonObject& root) const override
     {
+        const auto& espNow = root["espNow"].to<JsonObject>();
         const auto arr = espNow["devices"].to<JsonArray>();
         std::lock_guard lock(getMutex());
-        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
+        for (const auto& [name, mac] : deviceData.devices)
         {
-            const auto& [name, mac] = deviceData.devices[i];
             char macStr[18];
             snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -227,18 +206,7 @@ private:
         return mutex;
     }
 
-    static bool isMacAllowed(const uint8_t* mac)
-    {
-        std::lock_guard lock(getMutex());
-        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
-        {
-            if (std::equal(deviceData.devices[i].address.begin(), deviceData.devices[i].address.end(), mac))
-                return true;
-        }
-        return false;
-    }
-
-    static void persistDevices()
+    void persistDevices() const
     {
         if (Preferences prefs; prefs.begin(PREFERENCES_NAME, false))
         {
@@ -254,7 +222,7 @@ private:
         }
     }
 
-    static void restoreDevices()
+    void restoreDevices()
     {
         if (Preferences prefs; prefs.begin(PREFERENCES_NAME, true))
         {
@@ -276,15 +244,23 @@ private:
 
     class EspNowDevicesCallback final : public NimBLECharacteristicCallbacks
     {
+        EspNowHandler* espNowHandler;
+
+    public:
+        explicit EspNowDevicesCallback(EspNowHandler* espNowHandler)
+            : espNowHandler(espNowHandler)
+        {
+        }
+
         void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
             const auto value = pCharacteristic->getValue();
-            setDevicesBuffer(value.data(), value.size());
+            espNowHandler->setDevicesBuffer(value.data(), value.size());
         }
 
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            const auto value = getDevicesBuffer();
+            const auto value = espNowHandler->getDevicesBuffer();
             pCharacteristic->setValue(value.data(), value.size());
         }
     };

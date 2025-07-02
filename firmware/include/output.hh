@@ -8,9 +8,11 @@
 #include <Arduino.h>
 #include <algorithm>
 
+#include "ble_interfaceable.hh"
+#include "http_handler.hh"
 #include "throttled_value.hh"
 
-class Output
+class Output final : public BleInterfaceable, public StateJsonFiller, public HttpHandler
 {
 public:
 #pragma pack(push, 1)
@@ -47,6 +49,9 @@ public:
 #pragma pack(pop)
 
 private:
+    static constexpr auto BLE_OUTPUT_SERVICE = "12345678-1234-1234-1234-1234567890ad";
+    static constexpr auto BLE_OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
+
     static constexpr auto LOG_TAG = "Output";
 
     std::array<Light, 4> lights = {
@@ -181,12 +186,6 @@ public:
             lights.at(i).setState(state.values[i]);
     }
 
-    void toJson(const JsonArray& to) const
-    {
-        for (const auto& light : lights)
-            light.toJson(to.add<JsonObject>());
-    }
-
     [[nodiscard]] bool anyOn() const
     {
         return std::any_of(lights.begin(), lights.end(),
@@ -227,15 +226,23 @@ public:
         return {state};
     }
 
-    void createServiceAndCharacteristics(
-        NimBLEServer* server,
-        const char* serviceUUID,
-        const char* outputColorCharacteristicUUID
-    )
+    void fillState(const JsonObject& root) const override
     {
-        const auto service = server->createService(serviceUUID);
+        const auto& arr = root["output"].to<JsonArray>();
+        for (const auto& light : lights)
+            light.toJson(arr.add<JsonObject>());
+    }
+
+    AsyncWebHandler* createAsyncWebHandler() override
+    {
+        return new AsyncRestWebHandler(this);
+    }
+
+    void createServiceAndCharacteristics(NimBLEServer* server) override
+    {
+        const auto service = server->createService(BLE_OUTPUT_SERVICE);
         outputColorCharacteristic = service->createCharacteristic(
-            outputColorCharacteristicUUID,
+            BLE_OUTPUT_COLOR_CHARACTERISTIC,
             READ | WRITE | NOTIFY
         );
         outputColorCharacteristic->setCallbacks(new OutputColorCallback(this));
@@ -256,6 +263,64 @@ private:
             colorNotificationThrottle.setLastSent(now, state);
         }
     }
+
+    class AsyncRestWebHandler final : public AsyncWebHandler
+    {
+        Output* output;
+
+    public:
+        explicit AsyncRestWebHandler(Output* output)
+            : output(output)
+        {
+        }
+
+        bool canHandle(AsyncWebServerRequest* request) const override
+        {
+            return request->method() == HTTP_GET &&
+            (request->url().startsWith("/output/color") ||
+                request->url().startsWith("/output/brightness"));
+        }
+
+        void handleRequest(AsyncWebServerRequest* request) override
+        {
+            if (request->url().startsWith("/output/color"))
+            {
+                return handleColorRequest(request);
+            }
+            return handleBrightnessRequest(request);
+        }
+
+        void handleBrightnessRequest(AsyncWebServerRequest* request) const
+        {
+            if (!request->hasParam("value"))
+                return sendMessageJsonResponse(request, "Missing 'value' parameter");
+            if (const auto value = extractUint8Param(request, "value"))
+            {
+                output->setState({true, value.value()});
+                sendMessageJsonResponse(request, "Brightness set");
+            }
+            else
+            {
+                output->turnOffAll();
+                sendMessageJsonResponse(request, "Light turned off");
+            }
+        }
+
+        void handleColorRequest(AsyncWebServerRequest* request) const
+        {
+            const auto oldR = output->getValue(Color::Red);
+            const auto oldG = output->getValue(Color::Green);
+            const auto oldB = output->getValue(Color::Blue);
+            const auto oldW = output->getValue(Color::White);
+            const auto r = extractUint8Param(request, "r");
+            const auto g = extractUint8Param(request, "g");
+            const auto b = extractUint8Param(request, "b");
+            const auto w = extractUint8Param(request, "w");
+            output->setColor(r.value_or(oldR), g.value_or(oldG), b.value_or(oldB), w.value_or(oldW));
+            output->setOn(r.has_value(), g.has_value(), b.has_value(), w.has_value());
+            sendMessageJsonResponse(request, "Color updated");
+        }
+    };
 
     class OutputColorCallback final : public NimBLECharacteristicCallbacks
     {

@@ -6,7 +6,7 @@
 
 #include "output.hh"
 
-class AlexaIntegration
+class AlexaIntegration final : public BleInterfaceable, public StateJsonFiller
 {
     static constexpr auto LOG_TAG = "AlexaIntegration";
     static constexpr unsigned long OUTPUT_STATE_UPDATE_INTERVAL_MS = 500;
@@ -91,6 +91,9 @@ private:
     };
 #pragma pack(pop)
 
+    static constexpr auto BLE_ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890ae";
+    static constexpr auto BLE_ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
+
     Output& output;
     AsyncEspAlexaManager espAlexaManager;
 
@@ -104,7 +107,7 @@ public:
     {
     }
 
-    ~AlexaIntegration()
+    ~AlexaIntegration() override
     {
         clearDevices();
     }
@@ -383,7 +386,7 @@ private:
         output.setOn(isOn, Color::Blue);
     }
 
-    void handleSingleChannelCommand(const char* name, const Color color,
+    void handleSingleChannelCommand(__unused const char* name, const Color color,
                                     const bool isOn, const uint8_t brightness) const
     {
         ESP_LOGI(LOG_TAG, "Received %s command: on=%d, brightness=%u", name, isOn, brightness);
@@ -443,20 +446,24 @@ private:
         device->setOn(on);
         device->setBrightness(brightness);
     }
+
 public:
-    void createServiceAndCharacteristics(
-        NimBLEServer* server,
-        const char* serviceUUID,
-        const char* alexaSettingsCharacteristicsUUID
-    )
+
+    void fillState(const JsonObject& root) const override
     {
-        const auto service = server->createService(serviceUUID);
+        getSettings().toJson(root["alexa"].to<JsonObject>());
+    }
+
+    void createServiceAndCharacteristics(NimBLEServer* server) override
+    {
+        const auto service = server->createService(BLE_ALEXA_SERVICE);
         service->createCharacteristic(
-            alexaSettingsCharacteristicsUUID,
+            BLE_ALEXA_SETTINGS_CHARACTERISTIC,
             READ | WRITE
         )->setCallbacks(new AlexaCallback(this));
         service->start();
     }
+
 private:
     class AlexaCallback final : public NimBLECharacteristicCallbacks
     {
@@ -469,20 +476,20 @@ private:
 
         void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            AlexaIntegration::Settings settings;
-            if (pCharacteristic->getValue().size() != sizeof(AlexaIntegration::Settings))
+            Settings settings;
+            if (pCharacteristic->getValue().size() != sizeof(Settings))
             {
                 ESP_LOGE(LOG_TAG, "Received invalid Alexa settings length: %d", pCharacteristic->getValue().size());
                 return;
             }
-            memcpy(&settings, pCharacteristic->getValue().data(), sizeof(AlexaIntegration::Settings));
+            memcpy(&settings, pCharacteristic->getValue().data(), sizeof(Settings));
             alexaIntegration->applySettings(settings);
         }
 
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
             auto settings = alexaIntegration->getSettings();
-            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&settings), sizeof(AlexaIntegration::Settings));
+            pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&settings), sizeof(Settings));
         }
     };
 };

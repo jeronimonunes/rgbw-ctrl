@@ -18,8 +18,11 @@ struct HttpCredentials
 };
 #pragma pack(pop)
 
-class WebServerHandler
+class WebServerHandler final : public BleInterfaceable
 {
+    static constexpr auto BLE_HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ac";
+    static constexpr auto BLE_HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
+
     static constexpr auto LOG_TAG = "WebServerHandler";
 
     static constexpr auto PREFERENCES_NAME = "http";
@@ -31,16 +34,18 @@ class WebServerHandler
     AsyncAuthenticationMiddleware authMiddleware;
 
 public:
-    void begin(AsyncWebHandler* alexaHandler, AsyncWebHandler* ws, AsyncWebHandler* restHandler)
+    void begin(AsyncWebHandler* alexaHandler, AsyncWebHandler* ws, const std::vector<HttpHandler*>&& httpHandlers)
     {
         webServer.addHandler(ws)
                  .addMiddleware(&authMiddleware);
 
-        webServer.addHandler(restHandler)
-                 .addMiddleware(&authMiddleware);
+        for (const auto& httpHandler : httpHandlers)
+        {
+            webServer.addHandler(httpHandler->createAsyncWebHandler())
+                     .addMiddleware(&authMiddleware);
+        }
 
         webServer.addHandler(alexaHandler);
-        // Alexa can't have authentication middleware
 
         webServer.serveStatic("/", LittleFS, "/")
                  .setDefaultFile("index.html")
@@ -94,15 +99,11 @@ public:
         return credentials;
     }
 
-    void createServiceAndCharacteristics(
-        NimBLEServer* server,
-        const char* httpDetailsServiceUUID,
-        const char* httpCredentialsCharacteristicUUID
-    )
+    void createServiceAndCharacteristics(NimBLEServer* server) override
     {
-        const auto httpDetailsService = server->createService(httpDetailsServiceUUID);
+        const auto httpDetailsService = server->createService(BLE_HTTP_DETAILS_SERVICE);
         httpDetailsService->createCharacteristic(
-            httpCredentialsCharacteristicUUID,
+            BLE_HTTP_CREDENTIALS_CHARACTERISTIC,
             READ | WRITE
         )->setCallbacks(new HttpCredentialsCallback(this));
         httpDetailsService->start();

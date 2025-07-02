@@ -54,7 +54,7 @@ struct OtaState
 };
 #pragma pack(pop)
 
-class OtaHandler
+class OtaHandler final : public StateJsonFiller
 {
 public:
     static constexpr uint8_t MAX_UPDATE_ERROR_MSG_LEN = 64;
@@ -74,6 +74,11 @@ public:
     [[nodiscard]] OtaStatus getStatus() const
     {
         return otaWebHandler ? otaWebHandler->getStatus() : OtaStatus::Idle;
+    }
+
+    void fillState(const JsonObject& root) const override
+    {
+        getState().toJson(root["ota"].to<JsonObject>());
     }
 
 private:
@@ -301,8 +306,8 @@ private:
             ESP_LOGI(LOG_TAG, "Restarting device after OTA update...");
             async_call([]
             {
-                ESP.restart();
-            }, 1024, 100);
+                esp_restart();
+            }, 2048, 100);
         }
 
         static bool isRequestValidForUpload(const AsyncWebServerRequest* request)

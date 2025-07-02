@@ -9,14 +9,22 @@
 #include <mutex>
 
 #include "AsyncJson.h"
+#include "ble_interfaceable.hh"
+#include "state_json_filler.hh"
 #include "NimBLEServer.h"
 #include "NimBLEService.h"
 #include "NimBLECharacteristic.h"
 #include "wifi_model.hh"
 
 
-class WiFiManager
+class WiFiManager final : public BleInterfaceable, public StateJsonFiller
 {
+    static constexpr auto BLE_WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ba";
+    static constexpr auto BLE_WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
+    static constexpr auto BLE_WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
+    static constexpr auto BLE_WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
+    static constexpr auto BLE_WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
+
     static constexpr auto LOG_TAG = "WiFiManager";
     static constexpr auto PREFERENCES_NAME = "wifi-config";
 
@@ -157,12 +165,6 @@ public:
     void setGotIpCallback(std::function<void()> cb)
     {
         gotIpChanged = std::move(cb);
-    }
-
-    void toJson(const JsonObject& to) const
-    {
-        WiFiDetails::toJson(to["details"].to<JsonObject>());
-        to["status"] = getStatusString();
     }
 
     [[nodiscard]] static std::optional<WiFiConnectionDetails> loadCredentials()
@@ -421,37 +423,37 @@ private:
     } // NOLINT
 
 public:
-    void createServiceAndCharacteristics(
-        NimBLEServer* server,
-        const char* wifiServiceUUID,
-        const char* wifiDetailsCharacteristicUUID,
-        const char* wifiStatusCharacteristicUUID,
-        const char* wifiScanStatusCharacteristicUUID,
-        const char* wifiScanResultCharacteristicUUID
-    )
+    void fillState(const JsonObject& obj) const override
     {
-        const auto bleWiFiService = server->createService(wifiServiceUUID);
+        const auto& wifi = obj["wifi"].to<JsonObject>();
+        WiFiDetails::toJson(wifi["details"].to<JsonObject>());
+        wifi["status"] = getStatusString();
+    }
+
+    void createServiceAndCharacteristics(NimBLEServer* server) override
+    {
+        const auto bleWiFiService = server->createService(BLE_WIFI_SERVICE);
 
         wifiDetailsCharacteristic = bleWiFiService->createCharacteristic(
-            wifiDetailsCharacteristicUUID,
+            BLE_WIFI_DETAILS_CHARACTERISTIC,
             READ | NOTIFY
         );
         wifiDetailsCharacteristic->setCallbacks(new WiFiDetailsCallback(this));
 
         wifiStatusCharacteristic = bleWiFiService->createCharacteristic(
-            wifiStatusCharacteristicUUID,
+            BLE_WIFI_STATUS_CHARACTERISTIC,
             WRITE | READ | NOTIFY
         );
         wifiStatusCharacteristic->setCallbacks(new WiFiStatusCallback(this));
 
         wifiScanStatusCharacteristic = bleWiFiService->createCharacteristic(
-            wifiScanStatusCharacteristicUUID,
+            BLE_WIFI_SCAN_STATUS_CHARACTERISTIC,
             WRITE | READ | NOTIFY
         );
         wifiScanStatusCharacteristic->setCallbacks(new WiFiScanStatusCallback(this));
 
         wifiScanResultCharacteristic = bleWiFiService->createCharacteristic(
-            wifiScanResultCharacteristicUUID,
+            BLE_WIFI_SCAN_RESULT_CHARACTERISTIC,
             READ | NOTIFY
         );
         wifiScanResultCharacteristic->setCallbacks(new WiFiScanResultCallback(this));

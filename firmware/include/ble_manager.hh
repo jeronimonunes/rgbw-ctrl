@@ -10,7 +10,8 @@
 #include "device_manager.hh"
 #include "esp_now_handler.hh"
 #include "wifi_manager.hh"
-#include "webserver_handler.hh"
+#include "ble_interfaceable.hh"
+#include "http_handler.hh"
 
 enum class BleStatus :uint8_t
 {
@@ -19,53 +20,21 @@ enum class BleStatus :uint8_t
     CONNECTED
 };
 
-class BleManager
+class BleManager final : public StateJsonFiller, public HttpHandler
 {
-    struct BLE_UUID
-    {
-        static constexpr auto DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ab";
-        static constexpr auto DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000";
-        static constexpr auto DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
-        static constexpr auto FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
-        static constexpr auto DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
-
-        static constexpr auto HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ac";
-        static constexpr auto HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
-
-        static constexpr auto OUTPUT_SERVICE = "12345678-1234-1234-1234-1234567890ad";
-        static constexpr auto OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
-
-        static constexpr auto ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890ae";
-        static constexpr auto ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
-
-        static constexpr auto ESP_NOW_SERVICE = "12345678-1234-1234-1234-1234567890af";
-        static constexpr auto ESP_NOW_DEVICES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
-
-        static constexpr auto WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ba";
-        static constexpr auto WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
-        static constexpr auto WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
-        static constexpr auto WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
-        static constexpr auto WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
-    };
-
     static constexpr auto LOG_TAG = "BleManager";
     static constexpr auto BLE_TIMEOUT_MS = 30000;
 
     unsigned long bluetoothAdvertisementTimeout = 0;
 
-    DeviceManager* deviceManager;
-    WiFiManager* wifiManager;
-    WebServerHandler* webServerHandler;
-    Output* output;
-    AlexaIntegration* alexaIntegration;
+    const DeviceManager& deviceManager;
+    const std::vector<BleInterfaceable*> services;
 
     NimBLEServer* server = nullptr;
 
 public:
-    explicit BleManager(DeviceManager* deviceManager, WiFiManager* wifiManager, WebServerHandler* webServerHandler,
-                        Output* output = nullptr, AlexaIntegration* alexaIntegration = nullptr)
-        : deviceManager(deviceManager), wifiManager(wifiManager), webServerHandler(webServerHandler),
-          output(output), alexaIntegration(alexaIntegration)
+    explicit BleManager(DeviceManager& deviceManager, const std::vector<BleInterfaceable*>&& services)
+        : deviceManager(deviceManager), services(services)
     {
     }
 
@@ -83,15 +52,20 @@ public:
         handleAdvertisementTimeout(now);
     }
 
+    void disconnectAllClients() const
+    {
+        if (server == nullptr) return;
+        ESP_LOGI(LOG_TAG, "Disconnecting all BLE clients");
+        for (const auto& connInfo : this->server->getPeerDevices())
+        {
+            this->server->disconnect(connInfo); // NOLINT
+        }
+    }
+
     void stop() const
     {
         if (server == nullptr) return;
-        server->getAdvertising()->stop();
-        if (this->server->getConnectedCount() > 0)
-        {
-            server->disconnect(0); // NOLINT
-            delay(100); // Allow client disconnect to propagate
-        }
+        disconnectAllClients();
         esp_restart();
     }
 
@@ -119,16 +93,22 @@ public:
         }
     }
 
-    void toJson(const JsonObject& to) const
+    void fillState(const JsonObject& root) const override
     {
-        to["status"] = getStatusString();
+        const auto& ble = root["ble"].to<JsonObject>();
+        ble["status"] = getStatusString();
+    }
+
+    AsyncWebHandler* createAsyncWebHandler() override
+    {
+        return new AsyncRestWebHandler(this);
     }
 
 private:
     void startAdvertising()
     {
         const auto advertising = this->server->getAdvertising();
-        advertising->setName(deviceManager->getDeviceName());
+        advertising->setName(deviceManager.getDeviceName());
 
         constexpr uint16_t manufacturerID = 0x0000;
         uint8_t dataToAdvertise[4];
@@ -140,7 +120,7 @@ private:
         advertising->setManufacturerData(dataToAdvertise, sizeof(dataToAdvertise));
         advertising->start();
         bluetoothAdvertisementTimeout = millis() + BLE_TIMEOUT_MS;
-        ESP_LOGI(LOG_TAG, "BLE advertising started with device name: %s", deviceManager->getDeviceName());
+        ESP_LOGI(LOG_TAG, "BLE advertising started with device name: %s", deviceManager.getDeviceName());
     }
 
     void handleAdvertisementTimeout(const unsigned long now)
@@ -158,35 +138,51 @@ private:
 
     void createServicesAndCharacteristics()
     {
-        BLEDevice::init(deviceManager->getDeviceName());
+        BLEDevice::init(deviceManager.getDeviceName());
         server = BLEDevice::createServer();
         server->setCallbacks(new BLEServerCallback());
 
-        deviceManager->createServiceAndCharacteristics(server,
-                                                       BLE_UUID::DEVICE_DETAILS_SERVICE,
-                                                       BLE_UUID::DEVICE_RESTART_CHARACTERISTIC,
-                                                       BLE_UUID::DEVICE_NAME_CHARACTERISTIC,
-                                                       BLE_UUID::FIRMWARE_VERSION_CHARACTERISTIC,
-                                                       BLE_UUID::DEVICE_HEAP_CHARACTERISTIC);
-        output->createServiceAndCharacteristics(server,
-                                                BLE_UUID::OUTPUT_SERVICE,
-                                                BLE_UUID::OUTPUT_COLOR_CHARACTERISTIC);
-        alexaIntegration->createServiceAndCharacteristics(server,
-                                                          BLE_UUID::ALEXA_SERVICE,
-                                                          BLE_UUID::ALEXA_SETTINGS_CHARACTERISTIC);
-        EspNowHandler::createServiceAndCharacteristics(server,
-                                                       BLE_UUID::ESP_NOW_SERVICE,
-                                                       BLE_UUID::ESP_NOW_DEVICES_CHARACTERISTIC);
-        webServerHandler->createServiceAndCharacteristics(server,
-                                                          BLE_UUID::HTTP_DETAILS_SERVICE,
-                                                          BLE_UUID::HTTP_CREDENTIALS_CHARACTERISTIC);
-        wifiManager->createServiceAndCharacteristics(server,
-                                                     BLE_UUID::WIFI_SERVICE,
-                                                     BLE_UUID::WIFI_DETAILS_CHARACTERISTIC,
-                                                     BLE_UUID::WIFI_STATUS_CHARACTERISTIC,
-                                                     BLE_UUID::WIFI_SCAN_STATUS_CHARACTERISTIC,
-                                                     BLE_UUID::WIFI_SCAN_RESULT_CHARACTERISTIC);
+        for (const auto& service : services)
+        {
+            service->createServiceAndCharacteristics(server);
+        }
     }
+
+    class AsyncRestWebHandler final : public AsyncWebHandler
+    {
+        BleManager* bleManager;
+
+    public:
+        explicit AsyncRestWebHandler(BleManager* bleManager)
+            : bleManager(bleManager)
+        {
+        }
+
+        bool canHandle(AsyncWebServerRequest* request) const override
+        {
+            return request->method() == HTTP_GET &&
+                request->url().startsWith("/bluetooth");
+        }
+
+        void handleRequest(AsyncWebServerRequest* request) override
+        {
+            if (!request->hasParam("state"))
+                return sendMessageJsonResponse(request, "Missing 'state' parameter");
+
+            auto state = request->getParam("state")->value() == "on";
+            request->onDisconnect([this, state]
+            {
+                if (state)
+                    bleManager->start();
+                else
+                    bleManager->stop();
+            });
+
+            if (state)
+                return sendMessageJsonResponse(request, "Bluetooth enabled");
+            return sendMessageJsonResponse(request, "Bluetooth disabled, device will restart");
+        }
+    };
 
     class BLEServerCallback final : public NimBLEServerCallbacks
     {

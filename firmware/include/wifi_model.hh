@@ -2,7 +2,6 @@
 
 #include <array>
 #include <WiFi.h>
-#include <cstring>
 
 #include "ArduinoJson.h"
 
