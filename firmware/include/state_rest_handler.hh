@@ -5,7 +5,7 @@
 
 #include "wifi_manager.hh"
 
-class StateRestHandler final : public HttpHandler
+class StateRestHandler final : public HTTP::AsyncWebHandlerCreator
 {
     std::vector<StateJsonFiller*> jsonStateFillers;
 
@@ -33,7 +33,7 @@ private:
     private:
         bool canHandle(AsyncWebServerRequest* request) const override
         {
-            return request->method() == HTTP_GET && request->url().startsWith("/state");
+            return request->method() == HTTP_GET && request->url() == HTTP::Endpoints::STATE;
         }
 
         void handleRequest(AsyncWebServerRequest* request) override

@@ -4,7 +4,6 @@
 #include <optional>
 #include <array>
 #include <atomic>
-#include "webserver_handler.hh"
 
 enum class OtaStatus : uint8_t
 {
@@ -59,7 +58,7 @@ class OtaHandler final : public StateJsonFiller
 public:
     static constexpr uint8_t MAX_UPDATE_ERROR_MSG_LEN = 64;
 
-    void begin(WebServerHandler& webServerHandler)
+    void begin(HTTP::Manager& webServerHandler)
     {
         const auto handler = new AsyncOtaWebHandler(webServerHandler.getAuthenticationMiddleware());
         webServerHandler.getWebServer()->addHandler(handler);
@@ -112,7 +111,7 @@ private:
 
         bool canHandle(AsyncWebServerRequest* request) const override
         {
-            if (request->url() != "/update")
+            if (request->url() != HTTP::Endpoints::UPDATE)
                 return false;
 
             if (request->method() != HTTP_POST && request->method() != HTTP_GET)

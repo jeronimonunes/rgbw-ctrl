@@ -9,11 +9,11 @@
 #include <algorithm>
 
 #include "ble_interfaceable.hh"
-#include "http_handler.hh"
+#include "http_manager.hh"
 #include "state_json_filler.hh"
 #include "throttled_value.hh"
 
-class Output final : public BLE::Interfaceable, public StateJsonFiller, public HttpHandler
+class Output final : public BLE::Interfaceable, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
 {
 public:
 #pragma pack(push, 1)
@@ -50,7 +50,6 @@ public:
 #pragma pack(pop)
 
 private:
-
     static constexpr auto LOG_TAG = "Output";
 
     std::array<Light, 4> lights = {
@@ -276,13 +275,13 @@ private:
         bool canHandle(AsyncWebServerRequest* request) const override
         {
             return request->method() == HTTP_GET &&
-            (request->url().startsWith("/output/color") ||
-                request->url().startsWith("/output/brightness"));
+            (request->url() == HTTP::Endpoints::OUTPUT_BRIGHTNESS ||
+                request->url() == HTTP::Endpoints::OUTPUT_COLOR);
         }
 
         void handleRequest(AsyncWebServerRequest* request) override
         {
-            if (request->url().startsWith("/output/color"))
+            if (request->url() == HTTP::Endpoints::OUTPUT_COLOR)
             {
                 return handleColorRequest(request);
             }

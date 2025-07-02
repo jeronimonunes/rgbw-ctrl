@@ -7,12 +7,12 @@
 #include "alexa_integration.hh"
 #include "device_manager.hh"
 #include "esp_now_handler.hh"
-#include "http_handler.hh"
+#include "http_manager.hh"
 
 namespace BLE
 {
 
-    class Manager final : public StateJsonFiller, public HttpHandler
+    class Manager final : public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
     {
         static constexpr auto LOG_TAG = "BleManager";
         static constexpr auto BLE_TIMEOUT_MS = 30000;
@@ -153,7 +153,7 @@ namespace BLE
             bool canHandle(AsyncWebServerRequest* request) const override
             {
                 return request->method() == HTTP_GET &&
-                    request->url().startsWith("/bluetooth");
+                    request->url() == HTTP::Endpoints::BLUETOOTH;
             }
 
             void handleRequest(AsyncWebServerRequest* request) override

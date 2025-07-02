@@ -13,7 +13,7 @@ class WebSocketHandler
     Output* output;
     OtaHandler* otaHandler;
     WiFiManager* wifiManager;
-    WebServerHandler* webServerHandler;
+    HTTP::Manager* webServerHandler;
     AlexaIntegration* alexaIntegration;
     BLE::Manager* bleManager;
     DeviceManager* deviceManager;
@@ -38,7 +38,7 @@ public:
         Output* output,
         OtaHandler* otaHandler,
         WiFiManager* wifiManager,
-        WebServerHandler* webServerHandler,
+        HTTP::Manager* webServerHandler,
         AlexaIntegration* alexaIntegration,
         BLE::Manager* bleManager,
         DeviceManager* deviceManager,

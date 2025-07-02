@@ -30,7 +30,7 @@ OtaHandler otaHandler;
 PushButton boardButton;
 WiFiManager wifiManager;
 EspNowHandler espNowHandler;
-WebServerHandler webServerHandler;
+HTTP::Manager httpManager;
 RotaryEncoderManager rotaryEncoderManager;
 AlexaIntegration alexaIntegration(output);
 DeviceManager deviceManager;
@@ -38,7 +38,7 @@ DeviceManager deviceManager;
 BLE::Manager bleManager(deviceManager, {
                             &deviceManager,
                             &wifiManager,
-                            &webServerHandler,
+                            &httpManager,
                             &output,
                             &espNowHandler,
                             &alexaIntegration
@@ -47,19 +47,20 @@ BLE::Manager bleManager(deviceManager, {
 WebSocketHandler webSocketHandler(&output,
                                   &otaHandler,
                                   &wifiManager,
-                                  &webServerHandler,
+                                  &httpManager,
                                   &alexaIntegration,
                                   &bleManager,
                                   &deviceManager,
                                   &espNowHandler);
 
 StateRestHandler stateRestHandler({
-    &bleManager,
-    &output,
     &deviceManager,
     &wifiManager,
+    &bleManager,
+    &output,
     &otaHandler,
-    &alexaIntegration
+    &alexaIntegration,
+    &espNowHandler
 });
 
 void setup()
@@ -73,7 +74,7 @@ void setup()
     esp_now_init();
     esp_now_register_recv_cb(onDataReceived);
     espNowHandler.begin();
-    otaHandler.begin(webServerHandler);
+    otaHandler.begin(httpManager);
     wifiManager.setGotIpCallback(beginAlexaAndWebServer);
     boardButton.setLongPressCallback(startBle);
     boardButton.setShortPressCallback(toggleOutput);
@@ -147,7 +148,7 @@ void encoderButtonPressed(const unsigned long duration)
 void beginAlexaAndWebServer()
 {
     alexaIntegration.begin();
-    webServerHandler.begin(
+    httpManager.begin(
         alexaIntegration.createAsyncWebHandler(),
         webSocketHandler.getAsyncWebHandler(),
         {

@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <Preferences.h>
 #include <NimBLEServer.h>
-#include "AsyncJson.h"
 
 #pragma pack(push, 1)
 struct EspNowMessage
@@ -71,7 +70,6 @@ static_assert(sizeof(EspNowDevice) == EspNowDevice::NAME_TOTAL_LENGTH + EspNowDe
 
 class EspNowHandler final : public BLE::Interfaceable, public StateJsonFiller
 {
-
     static constexpr auto LOG_TAG = "EspNowHandler";
 
     static constexpr auto PREFERENCES_NAME = "esp-now";
@@ -110,7 +108,7 @@ public:
         return false;
     }
 
-    std::optional<EspNowDevice> findDeviceByMac(const uint8_t* mac)
+    std::optional<EspNowDevice> findDeviceByMac(const uint8_t* mac) const
     {
         std::lock_guard lock(getMutex());
         for (const auto& device : deviceData.devices)
@@ -185,8 +183,9 @@ public:
         const auto& espNow = root["espNow"].to<JsonObject>();
         const auto arr = espNow["devices"].to<JsonArray>();
         std::lock_guard lock(getMutex());
-        for (const auto& [name, mac] : deviceData.devices)
+        for (uint8_t i = 0; i < deviceData.deviceCount && i < EspNowDeviceData::MAX_DEVICES_PER_MESSAGE; ++i)
         {
+            const auto& [name, mac] = deviceData.devices[i];
             char macStr[18];
             snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);

@@ -8,11 +8,11 @@
 #include "throttled_value.hh"
 #include "version.hh"
 #include "ble_interfaceable.hh"
-#include "http_handler.hh"
+#include "http_manager.hh"
 #include "state_json_filler.hh"
 #include "async_call.hh"
 
-class DeviceManager final : public BLE::Interfaceable, public StateJsonFiller, public HttpHandler
+class DeviceManager final : public BLE::Interfaceable, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
 {
 
 public:
@@ -242,13 +242,13 @@ private:
         bool canHandle(AsyncWebServerRequest* request) const override
         {
             return request->method() == HTTP_GET &&
-            (request->url().startsWith("/system/restart") ||
-                request->url().startsWith("/system/reset"));
+            (request->url() == HTTP::Endpoints::SYSTEM_RESTART ||
+                request->url() == HTTP::Endpoints::SYSTEM_RESET);
         }
 
         void handleRequest(AsyncWebServerRequest* request) override
         {
-            if (request->url().startsWith("/system/reset"))
+            if (request->url() == HTTP::Endpoints::SYSTEM_RESET)
             {
                 return handleResetRequest(request);
             }

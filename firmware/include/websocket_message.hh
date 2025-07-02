@@ -71,9 +71,9 @@ struct WebSocketDeviceNameMessage : WebSocketMessage
 
 struct WebSocketHttpCredentialsMessage : WebSocketMessage
 {
-    HttpCredentials credentials;
+    HTTP::Credentials credentials;
 
-    explicit WebSocketHttpCredentialsMessage(const HttpCredentials& credentials)
+    explicit WebSocketHttpCredentialsMessage(const HTTP::Credentials& credentials)
         : WebSocketMessage(Type::ON_HTTP_CREDENTIALS), credentials(credentials)
     {
     }
