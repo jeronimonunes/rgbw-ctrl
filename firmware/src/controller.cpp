@@ -26,7 +26,7 @@ static constexpr auto LOG_TAG = "Controller";
 
 Output::Manager outputManager;
 BoardLED boardLED;
-OtaHandler otaHandler;
+Ota::Handler otaHandler;
 PushButton boardButton;
 WiFiManager wifiManager;
 EspNowHandler espNowHandler;
@@ -106,7 +106,7 @@ void loop()
         bleManager.getStatus(),
         wifiManager.getScanStatus(),
         wifiManager.getStatus(),
-        otaHandler.getStatus() == OtaStatus::Started
+        otaHandler.getStatus() == Ota::Status::Started
     );
 }
 

@@ -2,6 +2,7 @@
 
 #include <array>
 #include "device_manager.hh"
+#include "ota_handler.hh"
 
 namespace WebSocket
 {
@@ -123,9 +124,9 @@ namespace WebSocket
 
     struct OtaProgressMessage : Message
     {
-        OtaState otaState;
+        Ota::State otaState;
 
-        explicit OtaProgressMessage(const OtaState& otaState)
+        explicit OtaProgressMessage(const Ota::State& otaState)
             : Message(Type::ON_OTA_PROGRESS),
               otaState(otaState)
         {
