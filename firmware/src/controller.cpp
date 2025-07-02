@@ -35,14 +35,14 @@ RotaryEncoderManager rotaryEncoderManager;
 AlexaIntegration alexaIntegration(output);
 DeviceManager deviceManager;
 
-BleManager bleManager(deviceManager, {
-                          &deviceManager,
-                          &wifiManager,
-                          &webServerHandler,
-                          &output,
-                          &espNowHandler,
-                          &alexaIntegration
-                      });
+BLE::Manager bleManager(deviceManager, {
+                            &deviceManager,
+                            &wifiManager,
+                            &webServerHandler,
+                            &output,
+                            &espNowHandler,
+                            &alexaIntegration
+                        });
 
 WebSocketHandler webSocketHandler(&output,
                                   &otaHandler,

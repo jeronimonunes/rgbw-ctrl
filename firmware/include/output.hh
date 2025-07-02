@@ -10,9 +10,10 @@
 
 #include "ble_interfaceable.hh"
 #include "http_handler.hh"
+#include "state_json_filler.hh"
 #include "throttled_value.hh"
 
-class Output final : public BleInterfaceable, public StateJsonFiller, public HttpHandler
+class Output final : public BLE::Interfaceable, public StateJsonFiller, public HttpHandler
 {
 public:
 #pragma pack(push, 1)
@@ -49,8 +50,6 @@ public:
 #pragma pack(pop)
 
 private:
-    static constexpr auto BLE_OUTPUT_SERVICE = "12345678-1234-1234-1234-1234567890ad";
-    static constexpr auto BLE_OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
 
     static constexpr auto LOG_TAG = "Output";
 
@@ -240,9 +239,9 @@ public:
 
     void createServiceAndCharacteristics(NimBLEServer* server) override
     {
-        const auto service = server->createService(BLE_OUTPUT_SERVICE);
+        const auto service = server->createService(BLE::UUID::OUTPUT_SERVICE);
         outputColorCharacteristic = service->createCharacteristic(
-            BLE_OUTPUT_COLOR_CHARACTERISTIC,
+            BLE::UUID::OUTPUT_COLOR_CHARACTERISTIC,
             READ | WRITE | NOTIFY
         );
         outputColorCharacteristic->setCallbacks(new OutputColorCallback(this));

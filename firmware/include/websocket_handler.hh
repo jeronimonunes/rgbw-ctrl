@@ -15,14 +15,14 @@ class WebSocketHandler
     WiFiManager* wifiManager;
     WebServerHandler* webServerHandler;
     AlexaIntegration* alexaIntegration;
-    BleManager* bleManager;
+    BLE::Manager* bleManager;
     DeviceManager* deviceManager;
     EspNowHandler* espNowHandler;
 
     AsyncWebSocket ws = AsyncWebSocket("/ws");
 
     ThrottledValue<Output::State> outputThrottle{200};
-    ThrottledValue<BleStatus> bleStatusThrottle{200};
+    ThrottledValue<BLE::Status> bleStatusThrottle{200};
     ThrottledValue<std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{200};
     ThrottledValue<OtaState> otaStateThrottle{200};
     ThrottledValue<EspNowDeviceData> espNowDevicesThrottle{200};
@@ -40,7 +40,7 @@ public:
         WiFiManager* wifiManager,
         WebServerHandler* webServerHandler,
         AlexaIntegration* alexaIntegration,
-        BleManager* bleManager,
+        BLE::Manager* bleManager,
         DeviceManager* deviceManager,
         EspNowHandler* espNowHandler
     )
@@ -124,7 +124,7 @@ private:
     void sendBleStatusMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
         if (bleManager == nullptr) return;
-        sendThrottledMessage<BleStatus, WebSocketBleStatusMessage>(
+        sendThrottledMessage<BLE::Status, WebSocketBleStatusMessage>(
             bleManager->getStatus(), bleStatusThrottle, now, client);
     }
 
@@ -357,13 +357,13 @@ private:
             message->status
         )
         {
-        case BleStatus::ADVERTISING:
+        case BLE::Status::ADVERTISING:
             async_call([this]
             {
                 bleManager->start();
             }, 4096, 0);
             break;
-        case BleStatus::OFF:
+        case BLE::Status::OFF:
             async_call([client,this]
             {
                 client->close();

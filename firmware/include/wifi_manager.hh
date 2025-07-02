@@ -8,8 +8,7 @@
 #include <atomic>
 #include <mutex>
 
-#include "AsyncJson.h"
-#include "ble_interfaceable.hh"
+#include "ble_manager.hh"
 #include "state_json_filler.hh"
 #include "NimBLEServer.h"
 #include "NimBLEService.h"
@@ -17,13 +16,8 @@
 #include "wifi_model.hh"
 
 
-class WiFiManager final : public BleInterfaceable, public StateJsonFiller
+class WiFiManager final : public BLE::Interfaceable, public StateJsonFiller
 {
-    static constexpr auto BLE_WIFI_SERVICE = "12345678-1234-1234-1234-1234567890ba";
-    static constexpr auto BLE_WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
-    static constexpr auto BLE_WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
-    static constexpr auto BLE_WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
-    static constexpr auto BLE_WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
 
     static constexpr auto LOG_TAG = "WiFiManager";
     static constexpr auto PREFERENCES_NAME = "wifi-config";
@@ -432,28 +426,28 @@ public:
 
     void createServiceAndCharacteristics(NimBLEServer* server) override
     {
-        const auto bleWiFiService = server->createService(BLE_WIFI_SERVICE);
+        const auto bleWiFiService = server->createService(BLE::UUID::WIFI_SERVICE);
 
         wifiDetailsCharacteristic = bleWiFiService->createCharacteristic(
-            BLE_WIFI_DETAILS_CHARACTERISTIC,
+            BLE::UUID::WIFI_DETAILS_CHARACTERISTIC,
             READ | NOTIFY
         );
         wifiDetailsCharacteristic->setCallbacks(new WiFiDetailsCallback(this));
 
         wifiStatusCharacteristic = bleWiFiService->createCharacteristic(
-            BLE_WIFI_STATUS_CHARACTERISTIC,
+            BLE::UUID::WIFI_STATUS_CHARACTERISTIC,
             WRITE | READ | NOTIFY
         );
         wifiStatusCharacteristic->setCallbacks(new WiFiStatusCallback(this));
 
         wifiScanStatusCharacteristic = bleWiFiService->createCharacteristic(
-            BLE_WIFI_SCAN_STATUS_CHARACTERISTIC,
+            BLE::UUID::WIFI_SCAN_STATUS_CHARACTERISTIC,
             WRITE | READ | NOTIFY
         );
         wifiScanStatusCharacteristic->setCallbacks(new WiFiScanStatusCallback(this));
 
         wifiScanResultCharacteristic = bleWiFiService->createCharacteristic(
-            BLE_WIFI_SCAN_RESULT_CHARACTERISTIC,
+            BLE::UUID::WIFI_SCAN_RESULT_CHARACTERISTIC,
             READ | NOTIFY
         );
         wifiScanResultCharacteristic->setCallbacks(new WiFiScanResultCallback(this));

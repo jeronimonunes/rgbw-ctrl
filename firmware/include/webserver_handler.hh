@@ -18,10 +18,8 @@ struct HttpCredentials
 };
 #pragma pack(pop)
 
-class WebServerHandler final : public BleInterfaceable
+class WebServerHandler final : public BLE::Interfaceable
 {
-    static constexpr auto BLE_HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ac";
-    static constexpr auto BLE_HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
 
     static constexpr auto LOG_TAG = "WebServerHandler";
 
@@ -101,9 +99,9 @@ public:
 
     void createServiceAndCharacteristics(NimBLEServer* server) override
     {
-        const auto httpDetailsService = server->createService(BLE_HTTP_DETAILS_SERVICE);
+        const auto httpDetailsService = server->createService(BLE::UUID::HTTP_DETAILS_SERVICE);
         httpDetailsService->createCharacteristic(
-            BLE_HTTP_CREDENTIALS_CHARACTERISTIC,
+            BLE::UUID::HTTP_CREDENTIALS_CHARACTERISTIC,
             READ | WRITE
         )->setCallbacks(new HttpCredentialsCallback(this));
         httpDetailsService->start();

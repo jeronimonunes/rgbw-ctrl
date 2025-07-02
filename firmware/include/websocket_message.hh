@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <cstring>
 #include "device_manager.hh"
 
 #pragma pack(push, 1)
@@ -43,9 +42,9 @@ struct WebSocketColorMessage : WebSocketMessage
 
 struct WebSocketBleStatusMessage : WebSocketMessage
 {
-    BleStatus status;
+    BLE::Status status;
 
-    explicit WebSocketBleStatusMessage(const BleStatus& status)
+    explicit WebSocketBleStatusMessage(const BLE::Status& status)
         : WebSocketMessage(Type::ON_BLE_STATUS), status(status)
     {
     }

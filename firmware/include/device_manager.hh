@@ -10,14 +10,10 @@
 #include "ble_interfaceable.hh"
 #include "http_handler.hh"
 #include "state_json_filler.hh"
+#include "async_call.hh"
 
-class DeviceManager final : public BleInterfaceable, public StateJsonFiller, public HttpHandler
+class DeviceManager final : public BLE::Interfaceable, public StateJsonFiller, public HttpHandler
 {
-    static constexpr auto BLE_DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ab";
-    static constexpr auto BLE_DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000";
-    static constexpr auto BLE_DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
-    static constexpr auto BLE_FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
-    static constexpr auto BLE_DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
 
 public:
     static constexpr auto DEVICE_BASE_NAME = "rgbw-ctrl-";
@@ -107,26 +103,26 @@ public:
 
     void createServiceAndCharacteristics(NimBLEServer* server) override
     {
-        const auto service = server->createService(BLE_DEVICE_DETAILS_SERVICE);
+        const auto service = server->createService(BLE::UUID::DEVICE_DETAILS_SERVICE);
 
         service->createCharacteristic(
-            BLE_DEVICE_RESTART_CHARACTERISTIC,
+            BLE::UUID::DEVICE_RESTART_CHARACTERISTIC,
             WRITE
         )->setCallbacks(new RestartCallback());
 
         deviceNameCharacteristic = service->createCharacteristic(
-            BLE_DEVICE_NAME_CHARACTERISTIC,
+            BLE::UUID::DEVICE_NAME_CHARACTERISTIC,
             WRITE | READ | NOTIFY
         );
         deviceNameCharacteristic->setCallbacks(new DeviceNameCallback(this));
 
         service->createCharacteristic(
-            BLE_FIRMWARE_VERSION_CHARACTERISTIC,
+            BLE::UUID::FIRMWARE_VERSION_CHARACTERISTIC,
             READ
         )->setCallbacks(new FirmwareVersionCallback());
 
         deviceHeapCharacteristic = service->createCharacteristic(
-            BLE_DEVICE_HEAP_CHARACTERISTIC,
+            BLE::UUID::DEVICE_HEAP_CHARACTERISTIC,
             NOTIFY
         );
 

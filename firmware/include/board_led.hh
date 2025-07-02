@@ -37,7 +37,7 @@ public:
         }
     }
 
-    void handle(const unsigned long now, const BleStatus bleStatus,
+    void handle(const unsigned long now, const BLE::Status bleStatus,
                 const WifiScanStatus wifiScanStatus, const WiFiStatus wifiStatus,
                 const bool isOtaUpdateRunning)
     {
@@ -49,13 +49,13 @@ public:
             return;
         }
         // Steady yellow: connected to a BLE client
-        if (bleStatus == BleStatus::CONNECTED)
+        if (bleStatus == BLE::Status::CONNECTED)
         {
             this->setColor({MAX_BRIGHTNESS, MAX_BRIGHTNESS, 0});
             return;
         }
         // Blinking blue: advertising, but not connected to a client
-        if (bleStatus == BleStatus::ADVERTISING)
+        if (bleStatus == BLE::Status::ADVERTISING)
         {
             const uint8_t value = getFadeValue(now);
             this->setColor({0, 0, value});

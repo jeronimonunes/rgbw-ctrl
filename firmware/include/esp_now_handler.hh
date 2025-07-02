@@ -69,10 +69,8 @@ static_assert(sizeof(EspNowDevice) == EspNowDevice::NAME_TOTAL_LENGTH + EspNowDe
               "Unexpected EspNowDevice size");
 #pragma pack(pop)
 
-class EspNowHandler final : public BleInterfaceable, public StateJsonFiller
+class EspNowHandler final : public BLE::Interfaceable, public StateJsonFiller
 {
-    static constexpr auto BLE_ESP_NOW_SERVICE = "12345678-1234-1234-1234-1234567890af";
-    static constexpr auto BLE_ESP_NOW_DEVICES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
 
     static constexpr auto LOG_TAG = "EspNowHandler";
 
@@ -174,9 +172,9 @@ public:
 
     void createServiceAndCharacteristics(NimBLEServer* server) override
     {
-        const auto service = server->createService(BLE_ESP_NOW_SERVICE);
+        const auto service = server->createService(BLE::UUID::ESP_NOW_SERVICE);
         service->createCharacteristic(
-            BLE_ESP_NOW_DEVICES_CHARACTERISTIC,
+            BLE::UUID::ESP_NOW_DEVICES_CHARACTERISTIC,
             READ | WRITE
         )->setCallbacks(new EspNowDevicesCallback(this));
         service->start();

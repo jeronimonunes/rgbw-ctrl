@@ -6,7 +6,7 @@
 
 #include "output.hh"
 
-class AlexaIntegration final : public BleInterfaceable, public StateJsonFiller
+class AlexaIntegration final : public BLE::Interfaceable, public StateJsonFiller
 {
     static constexpr auto LOG_TAG = "AlexaIntegration";
     static constexpr unsigned long OUTPUT_STATE_UPDATE_INTERVAL_MS = 500;
@@ -90,9 +90,6 @@ private:
         MultiMode multi;
     };
 #pragma pack(pop)
-
-    static constexpr auto BLE_ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890ae";
-    static constexpr auto BLE_ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
 
     Output& output;
     AsyncEspAlexaManager espAlexaManager;
@@ -456,9 +453,9 @@ public:
 
     void createServiceAndCharacteristics(NimBLEServer* server) override
     {
-        const auto service = server->createService(BLE_ALEXA_SERVICE);
+        const auto service = server->createService(BLE::UUID::ALEXA_SERVICE);
         service->createCharacteristic(
-            BLE_ALEXA_SETTINGS_CHARACTERISTIC,
+            BLE::UUID::ALEXA_SETTINGS_CHARACTERISTIC,
             READ | WRITE
         )->setCallbacks(new AlexaCallback(this));
         service->start();
