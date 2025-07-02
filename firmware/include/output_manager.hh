@@ -8,7 +8,7 @@
 #include <Arduino.h>
 #include <algorithm>
 
-#include "ble_interfaceable.hh"
+#include "ble_service.hh"
 #include "http_manager.hh"
 #include "state_json_filler.hh"
 #include "throttled_value.hh"
@@ -48,7 +48,7 @@ namespace Output
     };
 #pragma pack(pop)
 
-    class Manager final : public BLE::Interfaceable, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
+    class Manager final : public BLE::Service, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
     {
         static constexpr auto LOG_TAG = "Output";
 

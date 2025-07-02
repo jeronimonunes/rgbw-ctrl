@@ -11,10 +11,10 @@ namespace BLE
         CONNECTED
     };
 
-    class Interfaceable
+    class Service
     {
     public:
-        virtual ~Interfaceable() = default;
+        virtual ~Service() = default;
         virtual void createServiceAndCharacteristics(NimBLEServer* server) = 0;
     };
 

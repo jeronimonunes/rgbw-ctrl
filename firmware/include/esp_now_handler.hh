@@ -70,7 +70,7 @@ namespace EspNow
                   "Unexpected EspNowDevice size");
 #pragma pack(pop)
 
-    class Handler final : public BLE::Interfaceable, public StateJsonFiller
+    class Handler final : public BLE::Service, public StateJsonFiller
     {
         static constexpr auto LOG_TAG = "EspNowHandler";
 

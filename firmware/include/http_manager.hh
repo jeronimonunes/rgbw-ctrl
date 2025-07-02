@@ -2,7 +2,7 @@
 
 #include <AsyncJson.h>
 
-#include "ble_interfaceable.hh"
+#include "ble_service.hh"
 
 namespace HTTP
 {
@@ -52,7 +52,7 @@ namespace HTTP
     };
 #pragma pack(pop)
 
-    class Manager final : public BLE::Interfaceable
+    class Manager final : public BLE::Service
     {
         static constexpr auto LOG_TAG = "WebServerHandler";
 

@@ -45,13 +45,13 @@ BLE::Manager bleManager(deviceManager, {
                         });
 
 WebSocket::Handler webSocketHandler(&outputManager,
-                                  &otaHandler,
-                                  &wifiManager,
-                                  &httpManager,
-                                  &alexaIntegration,
-                                  &bleManager,
-                                  &deviceManager,
-                                  &espNowHandler);
+                                    &otaHandler,
+                                    &wifiManager,
+                                    &httpManager,
+                                    &alexaIntegration,
+                                    &bleManager,
+                                    &deviceManager,
+                                    &espNowHandler);
 
 StateRestHandler stateRestHandler({
     &deviceManager,

@@ -6,7 +6,7 @@
 
 #include "output_manager.hh"
 
-class AlexaIntegration final : public BLE::Interfaceable, public StateJsonFiller
+class AlexaIntegration final : public BLE::Service, public StateJsonFiller
 {
     static constexpr auto LOG_TAG = "AlexaIntegration";
     static constexpr unsigned long OUTPUT_STATE_UPDATE_INTERVAL_MS = 500;

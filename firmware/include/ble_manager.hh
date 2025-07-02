@@ -20,12 +20,12 @@ namespace BLE
         unsigned long bluetoothAdvertisementTimeout = 0;
 
         const DeviceManager& deviceManager;
-        const std::vector<Interfaceable*> services;
+        const std::vector<Service*> services;
 
         NimBLEServer* server = nullptr;
 
     public:
-        explicit Manager(DeviceManager& deviceManager, const std::vector<Interfaceable*>&& services)
+        explicit Manager(DeviceManager& deviceManager, const std::vector<Service*>&& services)
             : deviceManager(deviceManager), services(services)
         {
         }

@@ -16,7 +16,7 @@
 #include "wifi_model.hh"
 
 
-class WiFiManager final : public BLE::Interfaceable, public StateJsonFiller
+class WiFiManager final : public BLE::Service, public StateJsonFiller
 {
 
     static constexpr auto LOG_TAG = "WiFiManager";

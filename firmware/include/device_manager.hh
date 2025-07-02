@@ -7,12 +7,12 @@
 #include "NimBLECharacteristic.h"
 #include "throttled_value.hh"
 #include "version.hh"
-#include "ble_interfaceable.hh"
+#include "ble_service.hh"
 #include "http_manager.hh"
 #include "state_json_filler.hh"
 #include "async_call.hh"
 
-class DeviceManager final : public BLE::Interfaceable, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
+class DeviceManager final : public BLE::Service, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
 {
 
 public:
