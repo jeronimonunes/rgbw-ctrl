@@ -19,7 +19,7 @@ namespace WebSocket
         AlexaIntegration* alexaIntegration;
         BLE::Manager* bleManager;
         DeviceManager* deviceManager;
-        EspNowHandler* espNowHandler;
+        EspNow::Handler* espNowHandler;
 
         AsyncWebSocket ws = AsyncWebSocket("/ws");
 
@@ -27,7 +27,7 @@ namespace WebSocket
         ThrottledValue<BLE::Status> bleStatusThrottle{200};
         ThrottledValue<std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{200};
         ThrottledValue<Ota::State> otaStateThrottle{200};
-        ThrottledValue<EspNowDeviceData> espNowDevicesThrottle{200};
+        ThrottledValue<EspNow::DeviceData> espNowDevicesThrottle{200};
         ThrottledValue<std::array<char, 10>> firmwareVersionThrottle{200};
         ThrottledValue<WiFiDetails> wifiDetailsThrottle{200};
         ThrottledValue<WiFiStatus> wifiStatusThrottle{200};
@@ -44,7 +44,7 @@ namespace WebSocket
             AlexaIntegration* alexaIntegration,
             BLE::Manager* bleManager,
             DeviceManager* deviceManager,
-            EspNowHandler* espNowHandler
+            EspNow::Handler* espNowHandler
         )
             :
             outputManager(outputManager),
@@ -158,7 +158,7 @@ namespace WebSocket
         void sendEspNowDevicesMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
         {
             if (espNowHandler == nullptr) return;
-            sendThrottledMessage<EspNowDeviceData, EspNowDevicesMessage>(
+            sendThrottledMessage<EspNow::DeviceData, EspNowDevicesMessage>(
                 espNowHandler->getDeviceData(), espNowDevicesThrottle, now, client);
         }
 

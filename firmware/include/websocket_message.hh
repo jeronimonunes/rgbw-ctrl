@@ -2,6 +2,7 @@
 
 #include <array>
 #include "device_manager.hh"
+#include "esp_now_handler.hh"
 #include "ota_handler.hh"
 
 namespace WebSocket
@@ -145,9 +146,9 @@ namespace WebSocket
 
     struct EspNowDevicesMessage : Message
     {
-        EspNowDeviceData data;
+        EspNow::DeviceData data;
 
-        explicit EspNowDevicesMessage(const EspNowDeviceData& data)
+        explicit EspNowDevicesMessage(const EspNow::DeviceData& data)
             : Message(Type::ON_ESP_NOW_DEVICES), data(data)
         {
         }

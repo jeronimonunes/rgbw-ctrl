@@ -29,7 +29,7 @@ BoardLED boardLED;
 Ota::Handler otaHandler;
 PushButton boardButton;
 WiFiManager wifiManager;
-EspNowHandler espNowHandler;
+EspNow::Handler espNowHandler;
 HTTP::Manager httpManager;
 RotaryEncoderManager rotaryEncoderManager;
 AlexaIntegration alexaIntegration(outputManager);
@@ -160,35 +160,35 @@ void beginAlexaAndWebServer()
     );
 }
 
-void onEspNowMessage(const EspNowMessage* message)
+void onEspNowMessage(const EspNow::Message* message)
 {
     switch (message->type)
     {
-    case EspNowMessage::Type::ToggleRed:
+    case EspNow::Message::Type::ToggleRed:
         outputManager.toggle(Color::Red);
         break;
-    case EspNowMessage::Type::ToggleGreen:
+    case EspNow::Message::Type::ToggleGreen:
         outputManager.toggle(Color::Green);
         break;
-    case EspNowMessage::Type::ToggleBlue:
+    case EspNow::Message::Type::ToggleBlue:
         outputManager.toggle(Color::Blue);
         break;
-    case EspNowMessage::Type::ToggleWhite:
+    case EspNow::Message::Type::ToggleWhite:
         outputManager.toggle(Color::White);
         break;
-    case EspNowMessage::Type::ToggleAll:
+    case EspNow::Message::Type::ToggleAll:
         outputManager.toggleAll();
         break;
-    case EspNowMessage::Type::TurnOffAll:
+    case EspNow::Message::Type::TurnOffAll:
         outputManager.turnOffAll();
         break;
-    case EspNowMessage::Type::TurnOnAll:
+    case EspNow::Message::Type::TurnOnAll:
         outputManager.turnOnAll();
         break;
-    case EspNowMessage::Type::IncreaseBrightness:
+    case EspNow::Message::Type::IncreaseBrightness:
         outputManager.increaseBrightness();
         break;
-    case EspNowMessage::Type::DecreaseBrightness:
+    case EspNow::Message::Type::DecreaseBrightness:
         outputManager.decreaseBrightness();
         break;
     }
@@ -205,9 +205,9 @@ void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, const int l
         return;
     }
 
-    if (len != sizeof(EspNowMessage)) return;
+    if (len != sizeof(EspNow::Message)) return;
 
-    const auto message = reinterpret_cast<EspNowMessage*>(const_cast<uint8_t*>(incomingData));
+    const auto message = reinterpret_cast<EspNow::Message*>(const_cast<uint8_t*>(incomingData));
 
     onEspNowMessage(message);
 }
