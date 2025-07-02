@@ -44,14 +44,14 @@ BleManager bleManager(deviceManager, {
                           &alexaIntegration
                       });
 
-WebSocketHandler webSocketHandler(output,
-                                  otaHandler,
-                                  wifiManager,
-                                  webServerHandler,
-                                  alexaIntegration,
-                                  bleManager,
-                                  deviceManager,
-                                  espNowHandler);
+WebSocketHandler webSocketHandler(&output,
+                                  &otaHandler,
+                                  &wifiManager,
+                                  &webServerHandler,
+                                  &alexaIntegration,
+                                  &bleManager,
+                                  &deviceManager,
+                                  &espNowHandler);
 
 StateRestHandler stateRestHandler({
     &bleManager,

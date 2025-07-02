@@ -10,14 +10,14 @@ class WebSocketHandler
     static constexpr auto LOG_TAG = "WebSocketHandler";
     static constexpr auto HEAP_MESSAGE_INTERVAL_MS = 750;
 
-    Output& output;
-    OtaHandler& otaHandler;
-    WiFiManager& wifiManager;
-    WebServerHandler& webServerHandler;
-    AlexaIntegration& alexaIntegration;
-    BleManager& bleManager;
-    DeviceManager& deviceManager;
-    EspNowHandler& espNowHandler;
+    Output* output;
+    OtaHandler* otaHandler;
+    WiFiManager* wifiManager;
+    WebServerHandler* webServerHandler;
+    AlexaIntegration* alexaIntegration;
+    BleManager* bleManager;
+    DeviceManager* deviceManager;
+    EspNowHandler* espNowHandler;
 
     AsyncWebSocket ws = AsyncWebSocket("/ws");
 
@@ -35,14 +35,14 @@ class WebSocketHandler
 
 public:
     WebSocketHandler(
-        Output& output,
-        OtaHandler& otaHandler,
-        WiFiManager& wifiManager,
-        WebServerHandler& webServerHandler,
-        AlexaIntegration& alexaIntegration,
-        BleManager& bleManager,
-        DeviceManager& deviceManager,
-        EspNowHandler& espNowHandler
+        Output* output,
+        OtaHandler* otaHandler,
+        WiFiManager* wifiManager,
+        WebServerHandler* webServerHandler,
+        AlexaIntegration* alexaIntegration,
+        BleManager* bleManager,
+        DeviceManager* deviceManager,
+        EspNowHandler* espNowHandler
     )
         :
         output(output),
@@ -116,27 +116,31 @@ private:
 
     void sendOutputColorMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
+        if (output == nullptr) return;
         sendThrottledMessage<Output::State, WebSocketColorMessage>(
-            output.getState(), outputThrottle, now, client);
+            output->getState(), outputThrottle, now, client);
     }
 
     void sendBleStatusMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
+        if (bleManager == nullptr) return;
         sendThrottledMessage<BleStatus, WebSocketBleStatusMessage>(
-            bleManager.getStatus(), bleStatusThrottle, now, client);
+            bleManager->getStatus(), bleStatusThrottle, now, client);
     }
 
     void sendDeviceNameMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
-        const auto deviceName = deviceManager.getDeviceNameArray();
+        if (deviceManager == nullptr) return;
+        const auto deviceName = deviceManager->getDeviceNameArray();
         sendThrottledMessage<std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>, WebSocketDeviceNameMessage>(
             deviceName, deviceNameThrottle, now, client);
     }
 
     void sendOtaProgressMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
+        if (otaHandler == nullptr) return;
         sendThrottledMessage<OtaState, WebSocketOtaProgressMessage>(
-            otaHandler.getState(), otaStateThrottle, now, client);
+            otaHandler->getState(), otaStateThrottle, now, client);
     }
 
     void sendHeapInfoMessage(const unsigned long now)
@@ -144,15 +148,16 @@ private:
         if (now - lastSentHeapInfo < HEAP_MESSAGE_INTERVAL_MS)
             return;
         lastSentHeapInfo = now;
-        const auto freeHeap = ESP.getFreeHeap();
+        const auto freeHeap = esp_get_free_heap_size();
         const WebSocketHeapMessage message(freeHeap);
         ws.binaryAll(reinterpret_cast<const uint8_t*>(&message), sizeof(WebSocketHeapMessage));
     }
 
     void sendEspNowDevicesMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
+        if (espNowHandler == nullptr) return;
         sendThrottledMessage<EspNowDeviceData, WebSocketEspNowDevicesMessage>(
-            espNowHandler.getDeviceData(), espNowDevicesThrottle, now, client);
+            espNowHandler->getDeviceData(), espNowDevicesThrottle, now, client);
     }
 
     void sendFirmwareVersionMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
@@ -166,20 +171,23 @@ private:
 
     void sendWiFiDetailsMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
+        if (wifiManager == nullptr) return;
         sendThrottledMessage<WiFiDetails, WebSocketWiFiDetailsMessage>(
-            wifiManager.getWifiDetails(), wifiDetailsThrottle, now, client);
+            wifiManager->getWifiDetails(), wifiDetailsThrottle, now, client);
     }
 
     void sendWiFiStatusMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
+        if (wifiManager == nullptr) return;
         sendThrottledMessage<WiFiStatus, WebSocketWiFiStatusMessage>(
-            wifiManager.getStatus(), wifiStatusThrottle, now, client);
+            wifiManager->getStatus(), wifiStatusThrottle, now, client);
     }
 
     void sendAlexaIntegrationSettingsMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
     {
+        if (alexaIntegration == nullptr) return;
         sendThrottledMessage<AlexaIntegration::Settings, WebSocketAlexaIntegrationSettingsMessage>(
-            alexaIntegration.getSettings(), alexaSettingsThrottle, now, client);
+            alexaIntegration->getSettings(), alexaSettingsThrottle, now, client);
     }
 
     // -------------------- WebSocket Message Handling --------------------
@@ -294,7 +302,7 @@ private:
             break;
 
         case WebSocketMessage::Type::ON_WIFI_SCAN_STATUS:
-            wifiManager.triggerScan();
+            handleOnWiFiScanStatus();
             break;
 
         case WebSocketMessage::Type::ON_WIFI_DETAILS: // NOLINT
@@ -317,28 +325,32 @@ private:
 
     void handleColorMessage(const uint8_t* data, const size_t len)
     {
+        if (output == nullptr) return;
         if (len < sizeof(WebSocketColorMessage)) return;
         const auto* message = reinterpret_cast<const WebSocketColorMessage*>(data);
         outputThrottle.setLastSent(millis(), message->state);
-        output.setState(message->state);
+        output->setState(message->state);
     }
 
     void handleHttpCredentialsMessage(const uint8_t* data, const size_t len) const
     {
+        if (webServerHandler == nullptr) return;
         if (len < sizeof(WebSocketHttpCredentialsMessage)) return;
         const auto* message = reinterpret_cast<const WebSocketHttpCredentialsMessage*>(data);
-        webServerHandler.updateCredentials(message->credentials);
+        webServerHandler->updateCredentials(message->credentials);
     }
 
     void handleDeviceNameMessage(const uint8_t* data, const size_t len) const
     {
+        if (deviceManager == nullptr) return;
         if (len < sizeof(WebSocketDeviceNameMessage)) return;
         const auto* message = reinterpret_cast<const WebSocketDeviceNameMessage*>(data);
-        deviceManager.setDeviceName(message->deviceName.data());
+        deviceManager->setDeviceName(message->deviceName.data());
     }
 
     void handleBleStatusMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const
     {
+        if (bleManager == nullptr) return;
         if (len < sizeof(WebSocketBleStatusMessage)) return;
         switch (
             const auto* message = reinterpret_cast<const WebSocketBleStatusMessage*>(data);
@@ -348,7 +360,7 @@ private:
         case BleStatus::ADVERTISING:
             async_call([this]
             {
-                bleManager.start();
+                bleManager->start();
             }, 4096, 0);
             break;
         case BleStatus::OFF:
@@ -356,7 +368,7 @@ private:
             {
                 client->close();
                 delay(100);
-                bleManager.stop();
+                bleManager->stop();
             }, 2048, 0);
             break;
         default:
@@ -366,16 +378,24 @@ private:
 
     void handleWiFiConnectionDetailsMessage(const uint8_t* data, const size_t len) const
     {
+        if (wifiManager == nullptr) return;
         if (len < sizeof(WebSocketWiFiConnectionDetailsMessage)) return;
         const auto* message = reinterpret_cast<const WebSocketWiFiConnectionDetailsMessage*>(data);
-        wifiManager.connect(message->details);
+        wifiManager->connect(message->details);
+    }
+
+    void handleOnWiFiScanStatus() const
+    {
+        if (wifiManager == nullptr) return;
+        wifiManager->triggerScan();
     }
 
     void handleAlexaIntegrationSettingsMessage(const uint8_t* data,
                                                const size_t len) const
     {
+        if (alexaIntegration == nullptr) return;
         if (len < sizeof(WebSocketAlexaIntegrationSettingsMessage)) return;
         const auto* message = reinterpret_cast<const WebSocketAlexaIntegrationSettingsMessage*>(data);
-        alexaIntegration.applySettings(message->settings);
+        alexaIntegration->applySettings(message->settings);
     }
 };
