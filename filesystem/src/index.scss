@@ -233,9 +233,11 @@ section {
     th {
       background-color: var(--table-header-bg);
     }
+
     tr:nth-child(even) {
       background-color: var(--table-row-alt);
     }
+
     tr:hover {
       background-color: var(--table-row-hover);
     }

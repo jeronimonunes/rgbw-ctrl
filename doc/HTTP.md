@@ -1,25 +1,25 @@
-# RestHandler – API REST para controle do dispositivo
+# HttpHandler – API para controle do dispositivo
 
-Esta classe expõe um conjunto de endpoints REST baseados em `ESPAsyncWebServer` para controle e monitoramento do dispositivo. Os endpoints estão sob o prefixo `/rest`.
+Esta feature expõe um conjunto de endpoints REST baseados em `ESPAsyncWebServer` para controle e monitoramento do dispositivo.
 
 ---
 
 ## ✩ Sumário de Endpoints
 
-| Método | Caminho                | Descrição                          |
-| ------ | ---------------------- | ---------------------------------- |
-| GET    | `/rest/state`          | Retorna o estado atual do sistema  |
-| GET    | `/rest/color`          | Atualiza a cor do dispositivo      |
-| GET    | `/rest/brightness`     | Define brilho uniforme             |
-| GET    | `/rest/bluetooth`      | Ativa ou desativa o Bluetooth      |
-| GET    | `/rest/system/restart` | Reinicia o dispositivo             |
-| GET    | `/rest/system/reset`   | Reseta o dispositivo para o padrão |
+| Método | Caminho              | Descrição                          |
+| ------ | -------------------- | ---------------------------------- |
+| GET    | `/state`             | Retorna o estado atual do sistema  |
+| GET    | `/bluetooth`         | Ativa ou desativa o Bluetooth      |
+| GET    | `/output/color`      | Atualiza a cor do dispositivo      |
+| GET    | `/output/brightness` | Define brilho uniforme             |
+| GET    | `/system/restart`    | Reinicia o dispositivo             |
+| GET    | `/system/reset`      | Reseta o dispositivo para o padrão |
 
 ---
 
 ## 📘 Endpoints Detalhados
 
-### 🔹 `GET /rest/state`
+### 🔹 `GET /state`
 
 Retorna o estado atual do dispositivo em formato JSON.
 
@@ -87,7 +87,7 @@ Retorna o estado atual do dispositivo em formato JSON.
 
 ---
 
-### 🎨 `GET /rest/color`
+### 🎨 `GET /output/color`
 
 Define as cores RGBW individualmente.
 
@@ -101,7 +101,7 @@ Define as cores RGBW individualmente.
 #### Exemplo de requisição:
 
 ```
-GET /rest/color?r=255&g=128&b=0&w=0
+GET /output/color?r=255&g=128&b=0&w=0
 ```
 
 #### Resposta:
@@ -114,7 +114,7 @@ GET /rest/color?r=255&g=128&b=0&w=0
 
 ---
 
-### 💡 `GET /rest/brightness`
+### 💡 `GET /output/brightness`
 
 Aplica o mesmo valor de brilho a todos os canais.
 
@@ -138,18 +138,18 @@ GET /rest/brightness?value=150
 
 ---
 
-### 📶 `GET /rest/bluetooth`
+### 📶 `GET /bluetooth`
 
 Ativa ou desativa o Bluetooth.
 
 #### Parâmetros:
 
-* `state`: `"on"`, `"1"`, `"true"` para ligar; qualquer outro valor desliga.
+* `state`: `"on"` para ligar; qualquer outro valor desliga.
 
 #### Exemplo:
 
 ```
-GET /rest/bluetooth?state=on
+GET /bluetooth?state=on
 ```
 
 #### Respostas:
@@ -166,7 +166,7 @@ GET /rest/bluetooth?state=on
 
 ---
 
-### ↺ `GET /rest/system/restart`
+### ↺ `GET /system/restart`
 
 Reinicia o dispositivo.
 
@@ -178,7 +178,7 @@ Reinicia o dispositivo.
 
 ---
 
-### ⚠️ `GET /rest/system/reset`
+### ⚠️ `GET /system/reset`
 
 Apaga as configurações persistentes e reinicia o dispositivo.
 

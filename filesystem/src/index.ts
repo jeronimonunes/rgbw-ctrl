@@ -28,7 +28,7 @@ import {
     WiFiDetails,
     wifiStatusToString
 } from "../../app/src/app/model"
-import {resetSystem, restartSystem} from "../../app/src/app/rest-api.ts";
+import {resetSystem, restartSystem} from "../../app/src/app/http-requests.ts";
 import {numberToIp} from "../../app/src/app/model/decode.utils.ts";
 import {alexaModeToString} from "../../app/src/app/model/alexa-integration-settings.model.ts";
 
