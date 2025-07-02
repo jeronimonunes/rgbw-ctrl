@@ -44,7 +44,7 @@ BLE::Manager bleManager(deviceManager, {
                             &alexaIntegration
                         });
 
-WebSocketHandler webSocketHandler(&output,
+WebSocket::Handler webSocketHandler(&output,
                                   &otaHandler,
                                   &wifiManager,
                                   &httpManager,

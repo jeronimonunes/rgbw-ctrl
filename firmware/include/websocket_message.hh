@@ -3,162 +3,165 @@
 #include <array>
 #include "device_manager.hh"
 
-#pragma pack(push, 1)
-struct WebSocketMessage
+namespace WebSocket
 {
-    enum class Type : uint8_t
+#pragma pack(push, 1)
+    struct Message
     {
-        ON_HEAP,
-        ON_DEVICE_NAME,
-        ON_FIRMWARE_VERSION,
-        ON_COLOR,
-        ON_HTTP_CREDENTIALS,
-        ON_BLE_STATUS,
-        ON_WIFI_STATUS,
-        ON_WIFI_SCAN_STATUS,
-        ON_WIFI_DETAILS,
-        ON_WIFI_CONNECTION_DETAILS,
-        ON_OTA_PROGRESS,
-        ON_ALEXA_INTEGRATION_SETTINGS,
-        ON_ESP_NOW_DEVICES,
+        enum class Type : uint8_t
+        {
+            ON_HEAP,
+            ON_DEVICE_NAME,
+            ON_FIRMWARE_VERSION,
+            ON_COLOR,
+            ON_HTTP_CREDENTIALS,
+            ON_BLE_STATUS,
+            ON_WIFI_STATUS,
+            ON_WIFI_SCAN_STATUS,
+            ON_WIFI_DETAILS,
+            ON_WIFI_CONNECTION_DETAILS,
+            ON_OTA_PROGRESS,
+            ON_ALEXA_INTEGRATION_SETTINGS,
+            ON_ESP_NOW_DEVICES,
+        };
+
+        Type type;
+
+        explicit Message(const Type type) : type(type)
+        {
+        }
     };
 
-    Type type;
-
-    explicit WebSocketMessage(const Type type) : type(type)
+    struct ColorMessage : Message
     {
-    }
-};
+        Output::State state;
 
-struct WebSocketColorMessage : WebSocketMessage
-{
-    Output::State state;
+        explicit ColorMessage(const Output::State& state)
+            : Message(Type::ON_COLOR), state(state)
+        {
+        }
+    };
 
-    explicit WebSocketColorMessage(const Output::State& state)
-        : WebSocketMessage(Type::ON_COLOR), state(state)
+    struct BleStatusMessage : Message
     {
-    }
-};
+        BLE::Status status;
 
-struct WebSocketBleStatusMessage : WebSocketMessage
-{
-    BLE::Status status;
+        explicit BleStatusMessage(const BLE::Status& status)
+            : Message(Type::ON_BLE_STATUS), status(status)
+        {
+        }
+    };
 
-    explicit WebSocketBleStatusMessage(const BLE::Status& status)
-        : WebSocketMessage(Type::ON_BLE_STATUS), status(status)
+    struct DeviceNameMessage : Message
     {
-    }
-};
+        std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
 
-struct WebSocketDeviceNameMessage : WebSocketMessage
-{
-    std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
+        explicit DeviceNameMessage(const std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>& deviceName)
+            : Message(Type::ON_DEVICE_NAME)
+        {
+            std::strncpy(this->deviceName.data(), deviceName.data(), DeviceManager::DEVICE_NAME_MAX_LENGTH);
+            this->deviceName[DeviceManager::DEVICE_NAME_MAX_LENGTH] = '\0';
+        }
 
-    explicit WebSocketDeviceNameMessage(const std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>& deviceName)
-        : WebSocketMessage(Type::ON_DEVICE_NAME)
+        explicit DeviceNameMessage(const char* deviceName)
+            : Message(Type::ON_DEVICE_NAME)
+        {
+            std::strncpy(this->deviceName.data(), deviceName, DeviceManager::DEVICE_NAME_MAX_LENGTH);
+            this->deviceName[DeviceManager::DEVICE_NAME_MAX_LENGTH] = '\0';
+        }
+    };
+
+    struct HttpCredentialsMessage : Message
     {
-        std::strncpy(this->deviceName.data(), deviceName.data(), DeviceManager::DEVICE_NAME_MAX_LENGTH);
-        this->deviceName[DeviceManager::DEVICE_NAME_MAX_LENGTH] = '\0';
-    }
+        HTTP::Credentials credentials;
 
-    explicit WebSocketDeviceNameMessage(const char* deviceName)
-        : WebSocketMessage(Type::ON_DEVICE_NAME)
+        explicit HttpCredentialsMessage(const HTTP::Credentials& credentials)
+            : Message(Type::ON_HTTP_CREDENTIALS), credentials(credentials)
+        {
+        }
+    };
+
+    struct WiFiConnectionDetailsMessage : Message
     {
-        std::strncpy(this->deviceName.data(), deviceName, DeviceManager::DEVICE_NAME_MAX_LENGTH);
-        this->deviceName[DeviceManager::DEVICE_NAME_MAX_LENGTH] = '\0';
-    }
-};
+        WiFiConnectionDetails details;
 
-struct WebSocketHttpCredentialsMessage : WebSocketMessage
-{
-    HTTP::Credentials credentials;
+        explicit WiFiConnectionDetailsMessage(const WiFiConnectionDetails& details)
+            : Message(Type::ON_WIFI_CONNECTION_DETAILS), details(details)
+        {
+        }
+    };
 
-    explicit WebSocketHttpCredentialsMessage(const HTTP::Credentials& credentials)
-        : WebSocketMessage(Type::ON_HTTP_CREDENTIALS), credentials(credentials)
+    struct WiFiDetailsMessage : Message
     {
-    }
-};
+        WiFiDetails details;
 
-struct WebSocketWiFiConnectionDetailsMessage : WebSocketMessage
-{
-    WiFiConnectionDetails details;
+        explicit WiFiDetailsMessage(const WiFiDetails& details)
+            : Message(Type::ON_WIFI_DETAILS), details(details)
+        {
+        }
+    };
 
-    explicit WebSocketWiFiConnectionDetailsMessage(const WiFiConnectionDetails& details)
-        : WebSocketMessage(Type::ON_WIFI_CONNECTION_DETAILS), details(details)
+    struct WiFiStatusMessage : Message
     {
-    }
-};
+        WiFiStatus status;
 
-struct WebSocketWiFiDetailsMessage : WebSocketMessage
-{
-    WiFiDetails details;
+        explicit WiFiStatusMessage(const WiFiStatus& status)
+            : Message(Type::ON_WIFI_STATUS), status(status)
+        {
+        }
+    };
 
-    explicit WebSocketWiFiDetailsMessage(const WiFiDetails& details)
-        : WebSocketMessage(Type::ON_WIFI_DETAILS), details(details)
+    struct AlexaIntegrationSettingsMessage : Message
     {
-    }
-};
+        AlexaIntegration::Settings settings;
 
-struct WebSocketWiFiStatusMessage : WebSocketMessage
-{
-    WiFiStatus status;
+        explicit AlexaIntegrationSettingsMessage(const AlexaIntegration::Settings& settings)
+            : Message(Type::ON_ALEXA_INTEGRATION_SETTINGS), settings(settings)
+        {
+        }
+    };
 
-    explicit WebSocketWiFiStatusMessage(const WiFiStatus& status)
-        : WebSocketMessage(Type::ON_WIFI_STATUS), status(status)
+    struct OtaProgressMessage : Message
     {
-    }
-};
+        OtaState otaState;
 
-struct WebSocketAlexaIntegrationSettingsMessage : WebSocketMessage
-{
-    AlexaIntegration::Settings settings;
+        explicit OtaProgressMessage(const OtaState& otaState)
+            : Message(Type::ON_OTA_PROGRESS),
+              otaState(otaState)
+        {
+        }
+    };
 
-    explicit WebSocketAlexaIntegrationSettingsMessage(const AlexaIntegration::Settings& settings)
-        : WebSocketMessage(Type::ON_ALEXA_INTEGRATION_SETTINGS), settings(settings)
+    struct HeapMessage : Message
     {
-    }
-};
+        uint32_t freeHeap;
 
-struct WebSocketOtaProgressMessage : WebSocketMessage
-{
-    OtaState otaState;
+        explicit HeapMessage(const uint32_t freeHeap)
+            : Message(Type::ON_HEAP), freeHeap(freeHeap)
+        {
+        }
+    };
 
-    explicit WebSocketOtaProgressMessage(const OtaState& otaState)
-        : WebSocketMessage(Type::ON_OTA_PROGRESS),
-          otaState(otaState)
+    struct EspNowDevicesMessage : Message
     {
-    }
-};
+        EspNowDeviceData data;
 
-struct WebSocketHeapMessage : WebSocketMessage
-{
-    uint32_t freeHeap;
+        explicit EspNowDevicesMessage(const EspNowDeviceData& data)
+            : Message(Type::ON_ESP_NOW_DEVICES), data(data)
+        {
+        }
+    };
 
-    explicit WebSocketHeapMessage(const uint32_t freeHeap)
-        : WebSocketMessage(Type::ON_HEAP), freeHeap(freeHeap)
+    struct FirmwareVersionMessage : Message
     {
-    }
-};
+        std::array<char, 10> version;
 
-struct WebSocketEspNowDevicesMessage : WebSocketMessage
-{
-    EspNowDeviceData data;
-
-    explicit WebSocketEspNowDevicesMessage(const EspNowDeviceData& data)
-        : WebSocketMessage(Type::ON_ESP_NOW_DEVICES), data(data)
-    {
-    }
-};
-
-struct WebSocketFirmwareVersionMessage : WebSocketMessage
-{
-    std::array<char, 10> version;
-
-    explicit WebSocketFirmwareVersionMessage(const std::array<char, 10>& version)
-        : WebSocketMessage(Type::ON_FIRMWARE_VERSION), version(version)
-    {
-    }
-};
+        explicit FirmwareVersionMessage(const std::array<char, 10>& version)
+            : Message(Type::ON_FIRMWARE_VERSION), version(version)
+        {
+        }
+    };
 
 
 #pragma pack(pop)
+}
