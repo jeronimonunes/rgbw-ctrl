@@ -6,11 +6,10 @@
 
 class ToggleSwitch
 {
-private:
     static constexpr uint16_t DEBOUNCE = 50;
     static constexpr uint16_t TASK_DELAY_MS = 10;
 
-    gpio_num_t pin;
+    const gpio_num_t pin;
     bool state = false;
     bool lastStableState = false;
     unsigned long lastChangeTime = 0;
@@ -18,9 +17,9 @@ private:
     TaskHandle_t taskHandle = nullptr;
     std::function<void(bool)> callback;
 
-    [[noreturn]] static void taskLoop(void *arg)
+    [[noreturn]] static void taskLoop(void* arg)
     {
-        auto *self = static_cast<ToggleSwitch *>(arg);
+        auto* self = static_cast<ToggleSwitch*>(arg);
         for (;;)
         {
             self->handle(millis());
@@ -29,7 +28,7 @@ private:
     }
 
 public:
-    explicit ToggleSwitch(gpio_num_t pin) : pin(pin)
+    explicit ToggleSwitch(const gpio_num_t pin) : pin(pin)
     {
         pinMode(pin, INPUT_PULLUP);
         state = digitalRead(pin) == HIGH;
@@ -44,10 +43,10 @@ public:
         }
     }
 
-    void handle(unsigned long now)
+    void handle(const unsigned long now)
     {
-        bool current = digitalRead(pin) == HIGH;
-        if (current != lastStableState)
+        if (const bool current = digitalRead(pin) == HIGH;
+            current != lastStableState)
         {
             if (now - lastChangeTime >= DEBOUNCE)
             {
@@ -65,7 +64,7 @@ public:
         }
     }
 
-    void onChanged(std::function<void(bool)> cb)
+    void onChanged(const std::function<void(bool)>& cb)
     {
         this->callback = cb;
     }

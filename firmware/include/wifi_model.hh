@@ -113,11 +113,11 @@ struct WiFiScanResult
 struct WiFiDetails
 {
     std::array<char, WIFI_MAX_SSID_LENGTH + 1> ssid = {};
-    std::array<uint8_t, 6> mac;
-    uint32_t ip;
-    uint32_t gateway;
-    uint32_t subnet;
-    uint32_t dns;
+    std::array<uint8_t, 6> mac = {};
+    uint32_t ip = 0;
+    uint32_t gateway = 0;
+    uint32_t subnet = 0;
+    uint32_t dns = 0;
 
     bool operator==(const WiFiDetails& other) const
     {

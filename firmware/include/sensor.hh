@@ -4,8 +4,7 @@
 
 class Sensor
 {
-private:
-    gpio_num_t pin;
+    const gpio_num_t pin;
 
 public:
     explicit Sensor(const gpio_num_t pin) : pin(pin)

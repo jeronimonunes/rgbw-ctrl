@@ -30,7 +30,7 @@ Light(gpio_num_t pin, bool invert = false);
 ## 🔧 Main Methods
 
 | Method                  | Description                                            |
-| ----------------------- | ------------------------------------------------------ |
+|-------------------------|--------------------------------------------------------|
 | `setup()`               | Initializes PWM and restores the last persisted state  |
 | `handle(unsigned long)` | Should be called periodically to persist state changes |
 | `toggle()`              | Toggles the on/off state                               |

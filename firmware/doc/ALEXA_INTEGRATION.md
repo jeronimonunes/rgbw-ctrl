@@ -4,7 +4,7 @@
 
 ## Features
 
-* Supports 4 Alexa integration modes:
+* Supports four Alexa integration modes:
 
     * `OFF`: integration disabled
     * `RGBW_DEVICE`: unified RGB and white channel control
@@ -67,7 +67,7 @@ std::array<std::array<char, MAX_DEVICE_NAME_LENGTH>, 4> deviceNames;
 ## Notes
 
 * The class dynamically allocates memory for devices; pointers are cleared in the destructor.
-* Device state is updated every 500ms if `Output` state has changed.
+* Device state is updated every 500 ms if `Output` state has changed.
 * Color conversion is handled by `AsyncEspAlexaColorUtils`.
 
 ## Dependencies

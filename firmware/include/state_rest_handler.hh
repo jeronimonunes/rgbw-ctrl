@@ -11,7 +11,7 @@ class StateRestHandler final : public HTTP::AsyncWebHandlerCreator
 
 public:
     explicit StateRestHandler(const std::vector<StateJsonFiller*>&& jsonStateFillers)
-        : jsonStateFillers(std::move(jsonStateFillers))
+        : jsonStateFillers(jsonStateFillers)
     {
     }
 

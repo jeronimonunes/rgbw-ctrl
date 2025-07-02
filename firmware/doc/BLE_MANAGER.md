@@ -1,6 +1,6 @@
 # BLEManager
 
-`BleManager` is a C++ class designed to manage BLE (Bluetooth Low Energy) functionality for an embedded device using the NimBLE library. It provides services and characteristics that expose control and configuration options such as WiFi credentials, device state, heap usage, Alexa integration, and ESP-NOW device synchronization.
+`BleManager` is a C++ class designed to manage BLE (Bluetooth Low Energy) functionality for an embedded device using the NimBLE library. It provides services and characteristics that expose control and configuration options such as Wi-Fi credentials, device state, heap usage, Alexa integration, and ESP-NOW device synchronization.
 
 ---
 
@@ -13,11 +13,11 @@
     * Output color state (with throttled notifications)
     * Alexa settings
     * ESP-NOW device sync
-    * WiFi credentials, scan status, and connection status
+    * Wi-Fi credentials, scan status, and connection status
 * Sends periodic BLE notifications for heap and output color state.
 * Auto-restarts the device via BLE command.
 * Automatically shuts down BLE if no client connects within a timeout.
-* Notifies changes in WiFi details dynamically.
+* Notifies changes in Wi-Fi details dynamically.
 
 ---
 
@@ -26,7 +26,7 @@
 ### Device Details Service (`12345678-1234-1234-1234-1234567890ac`)
 
 | Characteristic   | UUID                                   | Properties          |
-| ---------------- | -------------------------------------- | ------------------- |
+|------------------|----------------------------------------|---------------------|
 | Device Restart   | `aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000` | Write               |
 | Device Name      | `aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001` | Read, Write, Notify |
 | Firmware Version | `aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002` | Read                |
@@ -36,10 +36,10 @@
 | Alexa Settings   | `aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006` | Read, Write         |
 | ESP-NOW Devices  | `aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007` | Read, Write         |
 
-### WiFi Service (`12345678-1234-1234-1234-1234567890ab`)
+### Wi-Fi Service (`12345678-1234-1234-1234-1234567890ab`)
 
 | Characteristic   | UUID                                   | Properties          |
-| ---------------- | -------------------------------------- | ------------------- |
+|------------------|----------------------------------------|---------------------|
 | WiFi Details     | `aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008` | Read, Notify        |
 | WiFi Status      | `aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009` | Read, Write, Notify |
 | WiFi Scan Status | `aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a` | Read, Write, Notify |
@@ -51,7 +51,7 @@
 
 To avoid flooding BLE notifications:
 
-* Output color notifications are throttled to once every 500ms.
+* Output color notifications are throttled to once every 500 ms.
 * Free heap notifications are throttled similarly.
 
 ---

@@ -100,9 +100,10 @@ public:
     bool isMacAllowed(const uint8_t* mac)
     {
         std::lock_guard lock(getMutex());
-        for (const auto& [name, address] : deviceData.devices)
+        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
         {
-            if (std::equal(address.begin(), address.end(), mac))
+            if (const auto& [name, address] = deviceData.devices[i];
+                std::equal(address.begin(), address.end(), mac))
                 return true;
         }
         return false;
@@ -111,19 +112,21 @@ public:
     std::optional<EspNowDevice> findDeviceByMac(const uint8_t* mac) const
     {
         std::lock_guard lock(getMutex());
-        for (const auto& device : deviceData.devices)
+        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
         {
-            if (std::equal(device.address.begin(), device.address.end(), mac))
+            if (const auto& device = deviceData.devices[i];
+                std::equal(device.address.begin(), device.address.end(), mac))
                 return device;
         }
         return std::nullopt;
     }
 
-    std::optional<EspNowDevice> findDeviceByName(const std::string_view name) const
+    [[nodiscard]] std::optional<EspNowDevice> findDeviceByName(const std::string_view name) const
     {
         std::lock_guard lock(getMutex());
-        for (const auto& device : deviceData.devices)
+        for (uint8_t i = 0; i < deviceData.deviceCount; ++i)
         {
+            const auto& device = deviceData.devices[i];
             const auto& devName = device.name;
             if (std::string_view(devName.data(), strnlen(devName.data(), devName.size())) == name)
                 return device;

@@ -17,7 +17,7 @@ public:
     {
         pinMode(static_cast<uint8_t>(Hardware::Pin::Header::H1::P4), OUTPUT);
         digitalWrite(static_cast<uint8_t>(Hardware::Pin::Header::H1::P4), LOW);
-        this->rotaryEncoder.setEncoderType(EncoderType::FLOATING);
+        this->rotaryEncoder.setEncoderType(FLOATING);
         this->rotaryEncoder.begin(true);
     }
 

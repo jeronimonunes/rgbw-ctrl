@@ -52,20 +52,20 @@ namespace Hardware
             };
         }
 
-        static constexpr std::array<uint8_t, 5> INPUTS = {
+        static constexpr std::array INPUTS = {
             static_cast<uint8_t>(Button::BUTTON1),
             static_cast<uint8_t>(Header::H1::P1),
             static_cast<uint8_t>(Header::H1::P2),
             static_cast<uint8_t>(Header::H1::P3),
             static_cast<uint8_t>(Header::H1::P4)};
 
-        static constexpr std::array<uint8_t, 4> OUTPUTS = {
+        static constexpr std::array OUTPUTS = {
             static_cast<uint8_t>(Output::RED),
             static_cast<uint8_t>(Output::GREEN),
             static_cast<uint8_t>(Output::BLUE),
             static_cast<uint8_t>(Output::WHITE)};
 
-        static constexpr std::array<uint8_t, 3> LEDS = {
+        static constexpr std::array LEDS = {
             static_cast<uint8_t>(BoardLed::RED),
             static_cast<uint8_t>(BoardLed::GREEN),
             static_cast<uint8_t>(BoardLed::BLUE)};
