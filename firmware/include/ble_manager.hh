@@ -11,7 +11,6 @@
 
 namespace BLE
 {
-
     class Manager final : public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
     {
         static constexpr auto LOG_TAG = "BleManager";
@@ -35,7 +34,16 @@ namespace BLE
             bluetoothAdvertisementTimeout = millis() + BLE_TIMEOUT_MS;
             if (server != nullptr) return;
 
-            createServicesAndCharacteristics();
+            ESP_LOGI(LOG_TAG, "Starting bluetooth");
+            BLEDevice::init(deviceManager.getDeviceName());
+            server = BLEDevice::createServer();
+            server->setCallbacks(new BLEServerCallback());
+
+            for (const auto& service : services)
+            {
+                service->createServiceAndCharacteristics(server);
+            }
+
             startAdvertising();
         }
 
@@ -44,7 +52,7 @@ namespace BLE
             handleAdvertisementTimeout(now);
         }
 
-        void disconnectAllClients() const
+        void stop()
         {
             if (server == nullptr) return;
             ESP_LOGI(LOG_TAG, "Disconnecting all BLE clients");
@@ -52,13 +60,15 @@ namespace BLE
             {
                 this->server->disconnect(connInfo); // NOLINT
             }
-        }
-
-        void stop() const
-        {
-            if (server == nullptr) return;
-            disconnectAllClients();
-            esp_restart();
+            ESP_LOGI(LOG_TAG, "Clearing all BLE saved pointers");
+            for (const auto& service : services)
+            {
+                service->clearServiceAndCharacteristics();
+            }
+            ESP_LOGI(LOG_TAG, "Destroying BLE stack");
+            BLEDevice::deinit(true);
+            this->server = nullptr;
+            ESP_LOGI(LOG_TAG, "BLE server stopped");
         }
 
         [[nodiscard]] Status getStatus() const
@@ -128,18 +138,6 @@ namespace BLE
             }
         }
 
-        void createServicesAndCharacteristics()
-        {
-            BLEDevice::init(deviceManager.getDeviceName());
-            server = BLEDevice::createServer();
-            server->setCallbacks(new BLEServerCallback());
-
-            for (const auto& service : services)
-            {
-                service->createServiceAndCharacteristics(server);
-            }
-        }
-
         class AsyncRestWebHandler final : public AsyncWebHandler
         {
             Manager* bleManager;
@@ -172,7 +170,7 @@ namespace BLE
 
                 if (state)
                     return sendMessageJsonResponse(request, "Bluetooth enabled");
-                return sendMessageJsonResponse(request, "Bluetooth disabled, device will restart");
+                return sendMessageJsonResponse(request, "Bluetooth disabled");
             }
         };
 

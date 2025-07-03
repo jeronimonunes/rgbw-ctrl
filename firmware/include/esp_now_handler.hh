@@ -175,12 +175,17 @@ namespace EspNow
 
         void createServiceAndCharacteristics(NimBLEServer* server) override
         {
-            const auto service = server->createService(BLE::UUID::ESP_NOW_SERVICE);
-            service->createCharacteristic(
+            const auto bleService = server->createService(BLE::UUID::ESP_NOW_SERVICE);
+            bleService->createCharacteristic(
                 BLE::UUID::ESP_NOW_DEVICES_CHARACTERISTIC,
                 READ | WRITE
             )->setCallbacks(new EspNowDevicesCallback(this));
-            service->start();
+            bleService->start();
+        }
+
+        void clearServiceAndCharacteristics() override
+        {
+            ESP_LOGI(LOG_TAG, "No BLE pointers to be cleared");
         }
 
         void fillState(const JsonObject& root) const override

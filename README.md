@@ -167,7 +167,7 @@ Performs a factory reset (clears NVS), stops BLE, and restarts.
 Enables or disables Bluetooth based on the query parameter.
 
 - `state=on` → enables BLE
-- `state=off` → disables BLE and restarts
+- `state=off` → disables BLE
 
 ---
 

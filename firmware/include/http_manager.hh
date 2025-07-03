@@ -142,6 +142,11 @@ namespace HTTP
             httpDetailsService->start();
         }
 
+        void clearServiceAndCharacteristics() override
+        {
+            ESP_LOGI(LOG_TAG, "No BLE pointers to be cleared");
+        }
+
     private:
         void updateServerCredentials(const Credentials& credentials)
         {

@@ -18,7 +18,6 @@
 
 class WiFiManager final : public BLE::Service, public StateJsonFiller
 {
-
     static constexpr auto LOG_TAG = "WiFiManager";
     static constexpr auto PREFERENCES_NAME = "wifi-config";
 
@@ -29,10 +28,10 @@ class WiFiManager final : public BLE::Service, public StateJsonFiller
     QueueHandle_t wifiScanQueue = nullptr;
     WiFiScanResult scanResult;
 
-    NimBLECharacteristic* wifiDetailsCharacteristic = nullptr;
-    NimBLECharacteristic* wifiStatusCharacteristic = nullptr;
-    NimBLECharacteristic* wifiScanStatusCharacteristic = nullptr;
-    NimBLECharacteristic* wifiScanResultCharacteristic = nullptr;
+    NimBLECharacteristic* bleDetailsCharacteristic = nullptr;
+    NimBLECharacteristic* bleStatusCharacteristic = nullptr;
+    NimBLECharacteristic* bleScanStatusCharacteristic = nullptr;
+    NimBLECharacteristic* bleScanResultCharacteristic = nullptr;
 
     std::function<void()> gotIpChanged;
 
@@ -77,8 +76,8 @@ public:
                     break;
                 }
                 break;
-
             default:
+                setStatus(WiFiStatus::DISCONNECTED);
                 ESP_LOGD(LOG_TAG, "Unhandled WiFi event: %d", event);
                 break;
             }
@@ -107,7 +106,7 @@ public:
         return wifiStatus;
     }
 
-    [[nodiscard]] const char* getStatusString() const
+    [[nodiscard]] static const char* wifiStatusString(const WiFiStatus wifiStatus)
     {
         switch (wifiStatus)
         {
@@ -272,23 +271,29 @@ private:
         prefs.end();
     }
 
-    void setStatus(WiFiStatus newStatus)
+    void setStatus(const WiFiStatus newStatus)
     {
         if (newStatus == wifiStatus) return;
-        ESP_LOGI(LOG_TAG, "WiFi status changed: %d -> %d",
-                 static_cast<int>(wifiStatus.load()), static_cast<int>(newStatus));
+        ESP_LOGI(LOG_TAG, "WiFi status changed: %s -> %s",
+                 wifiStatusString(wifiStatus.load()), wifiStatusString(newStatus));
         wifiStatus = newStatus;
         fillWiFiDetails();
-        if (wifiStatusCharacteristic)
+
+        std::lock_guard bleLock(getBleMutex());
+        if (bleStatusCharacteristic)
         {
-            wifiStatusCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wifiStatus),
-                                               sizeof(wifiStatus));
-            wifiStatusCharacteristic->notify(); // NOLINT
+            ESP_LOGI(LOG_TAG, "Notifying WiFiStatus via BLE");
+            bleStatusCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wifiStatus),
+                                              sizeof(wifiStatus));
+            bleStatusCharacteristic->notify(); // NOLINT
+            ESP_LOGI(LOG_TAG, "DONE notifying WiFiStatus via BLE");
         }
-        if (wifiDetailsCharacteristic)
+        if (bleDetailsCharacteristic)
         {
-            wifiDetailsCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wifiDetails), sizeof(wifiDetails));
-            wifiDetailsCharacteristic->notify(); // NOLINT
+            ESP_LOGI(LOG_TAG, "Notifying WiFiDetails via BLE");
+            bleDetailsCharacteristic->setValue(reinterpret_cast<uint8_t*>(&wifiDetails), sizeof(wifiDetails));
+            bleDetailsCharacteristic->notify(); // NOLINT
+            ESP_LOGI(LOG_TAG, "DONE notifying WiFiDetails via BLE");
         }
     }
 
@@ -306,23 +311,25 @@ private:
     {
         if (status == scanStatus) return;
         this->scanStatus = status;
-        if (wifiScanStatusCharacteristic)
+        std::lock_guard bleLock(getBleMutex());
+        if (bleScanStatusCharacteristic)
         {
-            wifiScanStatusCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanStatus), sizeof(scanStatus));
-            wifiScanStatusCharacteristic->notify(); // NOLINT
+            bleScanStatusCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanStatus), sizeof(scanStatus));
+            bleScanStatusCharacteristic->notify(); // NOLINT
         }
     }
 
     void setScanResult(const WiFiScanResult& r)
     {
-        std::lock_guard lock(getWiFiScanResultMutex());
+        std::lock_guard ScanResultLock(getWiFiScanResultMutex());
         if (r != scanResult)
         {
             scanResult = r;
-            if (wifiScanResultCharacteristic)
+            std::lock_guard bleLock(getBleMutex());
+            if (bleScanResultCharacteristic)
             {
-                wifiScanResultCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanResult), sizeof(scanResult));
-                wifiScanResultCharacteristic->notify(); // NOLINT
+                bleScanResultCharacteristic->setValue(reinterpret_cast<uint8_t*>(&scanResult), sizeof(scanResult));
+                bleScanResultCharacteristic->notify(); // NOLINT
             }
         }
     }
@@ -421,38 +428,54 @@ public:
     {
         const auto& wifi = obj["wifi"].to<JsonObject>();
         WiFiDetails::toJson(wifi["details"].to<JsonObject>());
-        wifi["status"] = getStatusString();
+        wifi["status"] = wifiStatusString(wifiStatus);
     }
 
     void createServiceAndCharacteristics(NimBLEServer* server) override
     {
-        const auto bleWiFiService = server->createService(BLE::UUID::WIFI_SERVICE);
+        std::lock_guard bleLock(getBleMutex());
+        const auto bleService = server->createService(BLE::UUID::WIFI_SERVICE);
 
-        wifiDetailsCharacteristic = bleWiFiService->createCharacteristic(
+        bleDetailsCharacteristic = bleService->createCharacteristic(
             BLE::UUID::WIFI_DETAILS_CHARACTERISTIC,
             READ | NOTIFY
         );
-        wifiDetailsCharacteristic->setCallbacks(new WiFiDetailsCallback(this));
+        bleDetailsCharacteristic->setCallbacks(new WiFiDetailsCallback(this));
 
-        wifiStatusCharacteristic = bleWiFiService->createCharacteristic(
+        bleStatusCharacteristic = bleService->createCharacteristic(
             BLE::UUID::WIFI_STATUS_CHARACTERISTIC,
             WRITE | READ | NOTIFY
         );
-        wifiStatusCharacteristic->setCallbacks(new WiFiStatusCallback(this));
+        bleStatusCharacteristic->setCallbacks(new WiFiStatusCallback(this));
 
-        wifiScanStatusCharacteristic = bleWiFiService->createCharacteristic(
+        bleScanStatusCharacteristic = bleService->createCharacteristic(
             BLE::UUID::WIFI_SCAN_STATUS_CHARACTERISTIC,
             WRITE | READ | NOTIFY
         );
-        wifiScanStatusCharacteristic->setCallbacks(new WiFiScanStatusCallback(this));
+        bleScanStatusCharacteristic->setCallbacks(new WiFiScanStatusCallback(this));
 
-        wifiScanResultCharacteristic = bleWiFiService->createCharacteristic(
+        bleScanResultCharacteristic = bleService->createCharacteristic(
             BLE::UUID::WIFI_SCAN_RESULT_CHARACTERISTIC,
             READ | NOTIFY
         );
-        wifiScanResultCharacteristic->setCallbacks(new WiFiScanResultCallback(this));
+        bleScanResultCharacteristic->setCallbacks(new WiFiScanResultCallback(this));
 
-        bleWiFiService->start();
+        bleService->start();
+    }
+
+    void clearServiceAndCharacteristics() override
+    {
+        std::lock_guard bleLock(getBleMutex());
+        bleDetailsCharacteristic = nullptr;
+        bleStatusCharacteristic = nullptr;
+        bleScanStatusCharacteristic = nullptr;
+        bleScanResultCharacteristic = nullptr;
+    }
+
+    static std::mutex& getBleMutex()
+    {
+        static std::mutex mutex;
+        return mutex;
     }
 
     class WiFiDetailsCallback final : public NimBLECharacteristicCallbacks

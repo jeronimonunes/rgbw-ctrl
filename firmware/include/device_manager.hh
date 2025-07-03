@@ -14,7 +14,6 @@
 
 class DeviceManager final : public BLE::Service, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
 {
-
 public:
     static constexpr auto DEVICE_BASE_NAME = "rgbw-ctrl-";
     static constexpr auto DEVICE_NAME_MAX_LENGTH = 28;
@@ -24,8 +23,8 @@ private:
     static constexpr auto LOG_TAG = "DeviceManager";
     static constexpr auto PREFERENCES_NAME = "device-config";
 
-    NimBLECharacteristic* deviceNameCharacteristic = nullptr;
-    NimBLECharacteristic* deviceHeapCharacteristic = nullptr;
+    NimBLECharacteristic* bleDeviceNameCharacteristic = nullptr;
+    NimBLECharacteristic* bleDeviceHeapCharacteristic = nullptr;
 
     mutable std::array<char, DEVICE_NAME_TOTAL_LENGTH> deviceName = {};
     ThrottledValue<uint32_t> heapNotificationThrottle{500};
@@ -83,10 +82,12 @@ public:
         WiFiClass::setHostname(safeName);
         WiFi.reconnect();
 
-        if (!deviceHeapCharacteristic) return;
+        std::lock_guard bleLock(getBleMutex());
+        if (bleDeviceHeapCharacteristic == nullptr) return;
+        ESP_LOGI(LOG_TAG, "Notifying device name change via BLE");
         const auto len = std::min(strlen(safeName), static_cast<size_t>(DEVICE_NAME_MAX_LENGTH));
-        deviceNameCharacteristic->setValue(reinterpret_cast<uint8_t*>(safeName), len);
-        deviceNameCharacteristic->notify(); // NOLINT
+        bleDeviceNameCharacteristic->setValue(reinterpret_cast<uint8_t*>(safeName), len);
+        bleDeviceNameCharacteristic->notify(); // NOLINT
     }
 
     AsyncWebHandler* createAsyncWebHandler() override
@@ -103,6 +104,8 @@ public:
 
     void createServiceAndCharacteristics(NimBLEServer* server) override
     {
+        ESP_LOGI(LOG_TAG, "Creating BLE services and characteristics");
+        std::lock_guard bleLock(getBleMutex());
         const auto service = server->createService(BLE::UUID::DEVICE_DETAILS_SERVICE);
 
         service->createCharacteristic(
@@ -110,23 +113,39 @@ public:
             WRITE
         )->setCallbacks(new RestartCallback());
 
-        deviceNameCharacteristic = service->createCharacteristic(
+        bleDeviceNameCharacteristic = service->createCharacteristic(
             BLE::UUID::DEVICE_NAME_CHARACTERISTIC,
             WRITE | READ | NOTIFY
         );
-        deviceNameCharacteristic->setCallbacks(new DeviceNameCallback(this));
+        bleDeviceNameCharacteristic->setCallbacks(new DeviceNameCallback(this));
 
         service->createCharacteristic(
             BLE::UUID::FIRMWARE_VERSION_CHARACTERISTIC,
             READ
         )->setCallbacks(new FirmwareVersionCallback());
 
-        deviceHeapCharacteristic = service->createCharacteristic(
+        bleDeviceHeapCharacteristic = service->createCharacteristic(
             BLE::UUID::DEVICE_HEAP_CHARACTERISTIC,
             NOTIFY
         );
 
         service->start();
+        ESP_LOGI(LOG_TAG, "DONE creating BLE services and characteristics");
+    }
+
+    void clearServiceAndCharacteristics() override
+    {
+        ESP_LOGI(LOG_TAG, "Clearing BLE services and characteristics");
+        std::lock_guard bleLock(getBleMutex());
+        bleDeviceNameCharacteristic = nullptr;
+        bleDeviceHeapCharacteristic = nullptr;
+        ESP_LOGI(LOG_TAG, "DONE clearing BLE services and characteristics");
+    }
+
+    static std::mutex& getBleMutex()
+    {
+        static std::mutex mutex;
+        return mutex;
     }
 
 private:
@@ -156,13 +175,14 @@ private:
 
     void sendHeapNotification(const unsigned long now)
     {
-        if (!deviceHeapCharacteristic) return;
+        std::lock_guard bleLock(getBleMutex());
+        if (bleDeviceHeapCharacteristic == nullptr) return;
 
         auto state = ESP.getFreeHeap();
         if (!heapNotificationThrottle.shouldSend(now, state))
             return;
-        deviceHeapCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
-        if (deviceHeapCharacteristic->notify())
+        bleDeviceHeapCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
+        if (bleDeviceHeapCharacteristic->notify())
         {
             heapNotificationThrottle.setLastSent(now, state);
         }

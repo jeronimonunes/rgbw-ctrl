@@ -61,7 +61,7 @@ namespace Output
 
         static_assert(static_cast<size_t>(Color::White) < 4, "Color enum out of bounds");
 
-        NimBLECharacteristic* outputColorCharacteristic = nullptr;
+        NimBLECharacteristic* bleOutputColorCharacteristic = nullptr;
         ThrottledValue<State> colorNotificationThrottle{500};
 
     public:
@@ -238,25 +238,44 @@ namespace Output
 
         void createServiceAndCharacteristics(NimBLEServer* server) override
         {
-            const auto service = server->createService(BLE::UUID::OUTPUT_SERVICE);
-            outputColorCharacteristic = service->createCharacteristic(
+            ESP_LOGI(LOG_TAG, "Creating BLE services and characteristics");
+            std::lock_guard bleLock(getBleMutex());
+            const auto bleOutputService = server->createService(BLE::UUID::OUTPUT_SERVICE);
+            bleOutputColorCharacteristic = bleOutputService->createCharacteristic(
                 BLE::UUID::OUTPUT_COLOR_CHARACTERISTIC,
                 READ | WRITE | NOTIFY
             );
-            outputColorCharacteristic->setCallbacks(new OutputColorCallback(this));
-            service->start();
+            bleOutputColorCharacteristic->setCallbacks(new OutputColorCallback(this));
+            bleOutputService->start();
+            ESP_LOGI(LOG_TAG, "DONE creating BLE services and characteristics");
+        }
+
+        void clearServiceAndCharacteristics() override
+        {
+            ESP_LOGI(LOG_TAG, "Clearing all BLE saved pointers");
+            std::lock_guard bleLock(getBleMutex());
+            bleOutputColorCharacteristic = nullptr;
+            ESP_LOGI(LOG_TAG, "DONE clearing all BLE saved pointers");
+        }
+
+        static std::mutex& getBleMutex()
+        {
+            static std::mutex bleMutex;
+            return bleMutex;
         }
 
     private:
         void sendColorNotification(const unsigned long now)
         {
-            if (outputColorCharacteristic == nullptr) return;
+            std::lock_guard bleLock(getBleMutex());
+            if (bleOutputColorCharacteristic == nullptr) return;
 
             State state = getState();
             if (!colorNotificationThrottle.shouldSend(now, state))
                 return;
-            outputColorCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
-            if (outputColorCharacteristic->notify())
+
+            bleOutputColorCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
+            if (bleOutputColorCharacteristic->notify())
             {
                 colorNotificationThrottle.setLastSent(now, state);
             }

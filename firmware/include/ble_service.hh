@@ -16,6 +16,7 @@ namespace BLE
     public:
         virtual ~Service() = default;
         virtual void createServiceAndCharacteristics(NimBLEServer* server) = 0;
+        virtual void clearServiceAndCharacteristics() = 0;
     };
 
     namespace UUID

@@ -461,6 +461,11 @@ public:
         service->start();
     }
 
+    void clearServiceAndCharacteristics() override
+    {
+        ESP_LOGI(LOG_TAG, "No BLE pointers to be cleared");
+    }
+
 private:
     class AlexaCallback final : public NimBLECharacteristicCallbacks
     {

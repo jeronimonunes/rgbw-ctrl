@@ -296,7 +296,7 @@ namespace WebSocket
                 break;
 
             case Message::Type::ON_BLE_STATUS:
-                handleBleStatusMessage(client, data, len);
+                handleBleStatusMessage(data, len);
                 break;
 
             case Message::Type::ON_WIFI_CONNECTION_DETAILS:
@@ -350,7 +350,7 @@ namespace WebSocket
             deviceManager->setDeviceName(message->deviceName.data());
         }
 
-        void handleBleStatusMessage(AsyncWebSocketClient* client, const uint8_t* data, const size_t len) const
+        void handleBleStatusMessage(const uint8_t* data, const size_t len) const
         {
             if (bleManager == nullptr) return;
             if (len < sizeof(BleStatusMessage)) return;
@@ -359,21 +359,19 @@ namespace WebSocket
                 message->status
             )
             {
-                case BLE::Status::ADVERTISING:
+            case BLE::Status::ADVERTISING:
                 async_call([this]
                 {
                     bleManager->start();
                 }, 4096, 0);
                 break;
-                case BLE::Status::OFF:
-                async_call([client,this]
+            case BLE::Status::OFF:
+                async_call([this]
                 {
-                    client->close();
-                    delay(100);
                     bleManager->stop();
-                }, 2048, 0);
+                }, 4096, 0);
                 break;
-                default:
+            default:
                 break;
             }
         }
