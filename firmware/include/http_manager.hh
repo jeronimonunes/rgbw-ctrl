@@ -68,7 +68,8 @@ namespace HTTP
         void begin(AsyncWebHandler* alexaHandler,
                    const std::vector<AsyncWebHandlerCreator*>&& httpHandlers)
         {
-            webServer.addHandler(alexaHandler);
+            if (alexaHandler != nullptr)
+                webServer.addHandler(alexaHandler);
             // Alexa can't have authenticationMiddleware
 
             for (const auto& httpHandler : httpHandlers)
