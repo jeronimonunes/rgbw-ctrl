@@ -82,13 +82,13 @@
       <div class="info-item">
         <div class="label">WiFi Status:</div>
         <span [ngSwitch]="wifiStatus">
-        <ng-container *ngSwitchCase="WiFiStatus.DISCONNECTED">Desconectado</ng-container>
-        <ng-container *ngSwitchCase="WiFiStatus.CONNECTED">Conectado</ng-container>
-        <ng-container *ngSwitchCase="WiFiStatus.CONNECTED_NO_IP">Conectado, mas sem IP</ng-container>
-        <ng-container *ngSwitchCase="WiFiStatus.WRONG_PASSWORD">Senha incorreta</ng-container>
-        <ng-container *ngSwitchCase="WiFiStatus.NO_AP_FOUND">Rede não encontrada</ng-container>
-        <ng-container *ngSwitchCase="WiFiStatus.CONNECTION_FAILED">Falha na conexão</ng-container>
-        <ng-container *ngSwitchDefault>Desconhecido</ng-container>
+        <ng-container *ngSwitchCase="WiFiStatus.DISCONNECTED">Disconnected</ng-container>
+        <ng-container *ngSwitchCase="WiFiStatus.CONNECTED">Connected</ng-container>
+        <ng-container *ngSwitchCase="WiFiStatus.CONNECTED_NO_IP">Connected, but no IP</ng-container>
+        <ng-container *ngSwitchCase="WiFiStatus.WRONG_PASSWORD">Wrong password</ng-container>
+        <ng-container *ngSwitchCase="WiFiStatus.NO_AP_FOUND">Network not found</ng-container>
+        <ng-container *ngSwitchCase="WiFiStatus.CONNECTION_FAILED">Connection failed</ng-container>
+        <ng-container *ngSwitchDefault>Unknown</ng-container>
       </span>
       </div>
       <div class="info-item">

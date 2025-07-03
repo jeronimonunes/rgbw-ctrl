@@ -1,29 +1,29 @@
-# HttpHandler – API para controle do dispositivo
+# RestHandler – REST API for Device Control
 
-Esta feature expõe um conjunto de endpoints REST baseados em `ESPAsyncWebServer` para controle e monitoramento do dispositivo.
-
----
-
-## ✩ Sumário de Endpoints
-
-| Método | Caminho              | Descrição                          |
-| ------ | -------------------- | ---------------------------------- |
-| GET    | `/state`             | Retorna o estado atual do sistema  |
-| GET    | `/bluetooth`         | Ativa ou desativa o Bluetooth      |
-| GET    | `/output/color`      | Atualiza a cor do dispositivo      |
-| GET    | `/output/brightness` | Define brilho uniforme             |
-| GET    | `/system/restart`    | Reinicia o dispositivo             |
-| GET    | `/system/reset`      | Reseta o dispositivo para o padrão |
+This feature exposes a set of HTTP endpoints using `ESPAsyncWebServer` for controlling and monitoring the device.
 
 ---
 
-## 📘 Endpoints Detalhados
+## ✩ Endpoint Summary
+
+| Method | Path                 | Description                           |
+| ------ | -------------------- | ------------------------------------- |
+| GET    | `/state`             | Returns the current system state      |
+| GET    | `/bluetooth`         | Enables or disables Bluetooth         |
+| GET    | `/output/color`      | Updates the device color              |
+| GET    | `/output/brightness` | Sets uniform brightness               |
+| GET    | `/system/restart`    | Restarts the device                   |
+| GET    | `/system/reset`      | Resets the device to factory defaults |
+
+---
+
+## 📘 Detailed Endpoints
 
 ### 🔹 `GET /state`
 
-Retorna o estado atual do dispositivo em formato JSON.
+Returns the current device state as JSON.
 
-#### Exemplo de resposta:
+#### Example response:
 
 ```json
 {
@@ -89,70 +89,70 @@ Retorna o estado atual do dispositivo em formato JSON.
 
 ### 🎨 `GET /output/color`
 
-Define as cores RGBW individualmente.
+Sets the RGBW colors individually.
 
-#### Parâmetros:
+#### Parameters:
 
-* `r`: Valor do vermelho (0–255)
-* `g`: Valor do verde (0–255)
-* `b`: Valor do azul (0–255)
-* `w`: Valor do branco (0–255)
+* `r`: Red value (0–255)
+* `g`: Green value (0–255)
+* `b`: Blue value (0–255)
+* `w`: White value (0–255)
 
-#### Exemplo de requisição:
+#### Example request:
 
 ```
 GET /output/color?r=255&g=128&b=0&w=0
 ```
 
-#### Resposta:
+#### Response:
 
 ```json
 { "message": "Color updated" }
 ```
 
-> **Nota:** Liga automaticamente os canais com valor > 0.
+> **Note:** Channels with value > 0 are automatically turned on.
 
 ---
 
 ### 💡 `GET /output/brightness`
 
-Aplica o mesmo valor de brilho a todos os canais.
+Applies the same brightness value to all channels.
 
-#### Parâmetros:
+#### Parameters:
 
-* `value`: Intensidade (0–255)
+* `value`: Intensity (0–255)
 
-#### Exemplo:
+#### Example:
 
 ```
 GET /rest/brightness?value=150
 ```
 
-#### Resposta:
+#### Response:
 
 ```json
 { "message": "OK" }
 ```
 
-> **Nota:** O canal será desligado se `value == 0`.
+> **Note:** The channel will be turned off if `value == 0`.
 
 ---
 
 ### 📶 `GET /bluetooth`
 
-Ativa ou desativa o Bluetooth.
+Enables or disables Bluetooth.
 
-#### Parâmetros:
+#### Parameters:
 
-* `state`: `"on"` para ligar; qualquer outro valor desliga.
+* `state`: `"on"` to enable; any other value disables.
 
-#### Exemplo:
+#### Example:
 
 ```
 GET /bluetooth?state=on
 ```
 
-#### Respostas:
+#### Responses:
 
 ```json
 { "message": "Bluetooth enabled" }
@@ -162,15 +162,15 @@ GET /bluetooth?state=on
 { "message": "Bluetooth disabled" }
 ```
 
-> Reinicia o dispositivo após desativar o Bluetooth.
+> Restarts the device after disabling Bluetooth.
 
 ---
 
 ### ↺ `GET /system/restart`
 
-Reinicia o dispositivo.
+Restarts the device.
 
-#### Resposta:
+#### Response:
 
 ```json
 { "message": "Restarting..." }
@@ -180,9 +180,9 @@ Reinicia o dispositivo.
 
 ### ⚠️ `GET /system/reset`
 
-Apaga as configurações persistentes e reinicia o dispositivo.
+Clears the persistent settings and restarts the device.
 
-#### Resposta:
+#### Response:
 
 ```json
 { "message": "Resetting to factory defaults..." }
@@ -190,12 +190,12 @@ Apaga as configurações persistentes e reinicia o dispositivo.
 
 ---
 
-## 📌 Observações
+## 📌 Notes
 
-* Todos os endpoints retornam JSON e incluem o cabeçalho:
+* All endpoints return JSON and include the header:
 
   ```
   Cache-Control: no-store
   ```
 
-* Os métodos HTTP utilizados são `GET`, mas para melhor conformidade REST, recomenda-se migrar endpoints mutáveis para `POST`.
+* The HTTP methods used are `GET`, but for better REST compliance, mutable endpoints should be migrated to `POST`.
