@@ -65,19 +65,17 @@ namespace HTTP
         AsyncAuthenticationMiddleware authMiddleware;
 
     public:
-        void begin(AsyncWebHandler* alexaHandler, AsyncWebHandler* ws,
+        void begin(AsyncWebHandler* alexaHandler,
                    const std::vector<AsyncWebHandlerCreator*>&& httpHandlers)
         {
-            webServer.addHandler(ws)
-                     .addMiddleware(&authMiddleware);
+            webServer.addHandler(alexaHandler);
+            // Alexa can't have authenticationMiddleware
 
             for (const auto& httpHandler : httpHandlers)
             {
                 webServer.addHandler(httpHandler->createAsyncWebHandler())
                          .addMiddleware(&authMiddleware);
             }
-
-            webServer.addHandler(alexaHandler);
 
             webServer.serveStatic("/", LittleFS, "/")
                      .setDefaultFile("index.html")
@@ -87,11 +85,6 @@ namespace HTTP
 
             updateServerCredentials(getCredentials());
             webServer.begin();
-        }
-
-        [[nodiscard]] AsyncWebServer* getWebServer()
-        {
-            return &webServer;
         }
 
         [[nodiscard]] const AsyncAuthenticationMiddleware& getAuthenticationMiddleware() const

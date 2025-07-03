@@ -24,16 +24,16 @@ void shutdownCallback();
 
 static constexpr auto LOG_TAG = "Controller";
 
-Output::Manager outputManager;
 BoardLED boardLED;
-Ota::Handler otaHandler;
 PushButton boardButton;
 WiFiManager wifiManager;
-EspNow::Handler espNowHandler;
 HTTP::Manager httpManager;
+DeviceManager deviceManager;
+Output::Manager outputManager;
+EspNow::Handler espNowHandler;
 RotaryEncoderManager rotaryEncoderManager;
 AlexaIntegration alexaIntegration(outputManager);
-DeviceManager deviceManager;
+OTA::Handler otaHandler(httpManager.getAuthenticationMiddleware());
 
 BLE::Manager bleManager(deviceManager, {
                             &deviceManager,
@@ -74,7 +74,6 @@ void setup()
     esp_now_init();
     esp_now_register_recv_cb(onDataReceived);
     espNowHandler.begin();
-    otaHandler.begin(httpManager);
     wifiManager.setGotIpCallback(beginAlexaAndWebServer);
     boardButton.setLongPressCallback(startBle);
     boardButton.setShortPressCallback(toggleOutput);
@@ -94,19 +93,19 @@ void loop()
 {
     const auto now = millis();
 
-    boardButton.handle(now);
-    alexaIntegration.handle(now);
-    webSocketHandler.handle(now);
-    deviceManager.handle(now);
     bleManager.handle(now);
+    boardButton.handle(now);
+    deviceManager.handle(now);
     outputManager.handle(now);
+    webSocketHandler.handle(now);
+    alexaIntegration.handle(now);
 
     boardLED.handle(
         now,
         bleManager.getStatus(),
         wifiManager.getScanStatus(),
         wifiManager.getStatus(),
-        otaHandler.getStatus() == Ota::Status::Started
+        otaHandler.getStatus() == OTA::Status::Started
     );
 }
 
@@ -150,8 +149,9 @@ void beginAlexaAndWebServer()
     alexaIntegration.begin();
     httpManager.begin(
         alexaIntegration.createAsyncWebHandler(),
-        webSocketHandler.getAsyncWebHandler(),
         {
+            &webSocketHandler,
+            &otaHandler,
             &stateRestHandler,
             &bleManager,
             &deviceManager,

@@ -125,9 +125,9 @@ namespace WebSocket
 
     struct OtaProgressMessage : Message
     {
-        Ota::State otaState;
+        OTA::State otaState;
 
-        explicit OtaProgressMessage(const Ota::State& otaState)
+        explicit OtaProgressMessage(const OTA::State& otaState)
             : Message(Type::ON_OTA_PROGRESS),
               otaState(otaState)
         {

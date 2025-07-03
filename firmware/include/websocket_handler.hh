@@ -7,13 +7,13 @@
 
 namespace WebSocket
 {
-    class Handler
+    class Handler final : public HTTP::AsyncWebHandlerCreator
     {
         static constexpr auto LOG_TAG = "WebSocketHandler";
         static constexpr auto HEAP_MESSAGE_INTERVAL_MS = 750;
 
         Output::Manager* outputManager;
-        Ota::Handler* otaHandler;
+        OTA::Handler* otaHandler;
         WiFiManager* wifiManager;
         HTTP::Manager* webServerHandler;
         AlexaIntegration* alexaIntegration;
@@ -26,7 +26,7 @@ namespace WebSocket
         ThrottledValue<Output::State> outputThrottle{200};
         ThrottledValue<BLE::Status> bleStatusThrottle{200};
         ThrottledValue<std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{200};
-        ThrottledValue<Ota::State> otaStateThrottle{200};
+        ThrottledValue<OTA::State> otaStateThrottle{200};
         ThrottledValue<EspNow::DeviceData> espNowDevicesThrottle{200};
         ThrottledValue<std::array<char, 10>> firmwareVersionThrottle{200};
         ThrottledValue<WiFiDetails> wifiDetailsThrottle{200};
@@ -38,7 +38,7 @@ namespace WebSocket
     public:
         Handler(
             Output::Manager* outputManager,
-            Ota::Handler* otaHandler,
+            OTA::Handler* otaHandler,
             WiFiManager* wifiManager,
             HTTP::Manager* webServerHandler,
             AlexaIntegration* alexaIntegration,
@@ -73,7 +73,7 @@ namespace WebSocket
             }
         }
 
-        AsyncWebHandler* getAsyncWebHandler()
+        AsyncWebHandler* createAsyncWebHandler() override
         {
             return &ws;
         }
@@ -141,7 +141,7 @@ namespace WebSocket
         void sendOtaProgressMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
         {
             if (otaHandler == nullptr) return;
-            sendThrottledMessage<Ota::State, OtaProgressMessage>(
+            sendThrottledMessage<OTA::State, OtaProgressMessage>(
                 otaHandler->getState(), otaStateThrottle, now, client);
         }
 

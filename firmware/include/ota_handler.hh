@@ -5,7 +5,7 @@
 #include <array>
 #include <atomic>
 
-namespace Ota
+namespace OTA
 {
     enum class Status : uint8_t
     {
@@ -50,36 +50,53 @@ namespace Ota
 
         bool operator!=(const State& other) const
         {
-            return !(*this == other);
+            return this->status != other.status ||
+                this->totalBytesExpected != other.totalBytesExpected ||
+                this->totalBytesReceived != other.totalBytesReceived;
         }
     };
 #pragma pack(pop)
 
-    class Handler final : public StateJsonFiller
+    class Handler final : public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
     {
-    public:
         static constexpr uint8_t MAX_UPDATE_ERROR_MSG_LEN = 64;
 
-        void begin(HTTP::Manager& webServerHandler)
+        const AsyncAuthenticationMiddleware& asyncAuthenticationMiddleware;
+
+        // `status` is atomic because we can have concurrent http requests
+        std::atomic<Status> status = Status::Idle;
+        // `totalBytesExpected/Received` are volatile for visibility during upload monitoring only.
+        volatile uint32_t totalBytesExpected = 0;
+        volatile uint32_t totalBytesReceived = 0;
+
+    public:
+        explicit Handler(const AsyncAuthenticationMiddleware& asyncAuthenticationMiddleware)
+            : asyncAuthenticationMiddleware(asyncAuthenticationMiddleware)
         {
-            const auto handler = new AsyncOtaWebHandler(webServerHandler.getAuthenticationMiddleware());
-            webServerHandler.getWebServer()->addHandler(handler);
-            otaWebHandler = handler;
         }
 
         [[nodiscard]] State getState() const
         {
-            return otaWebHandler ? otaWebHandler->getState() : State{};
+            return {
+                status.load(std::memory_order_relaxed),
+                totalBytesExpected,
+                totalBytesReceived
+            };
         }
 
         [[nodiscard]] Status getStatus() const
         {
-            return otaWebHandler ? otaWebHandler->getStatus() : Status::Idle;
+            return status.load(std::memory_order_relaxed);
         }
 
         void fillState(const JsonObject& root) const override
         {
             getState().toJson(root["ota"].to<JsonObject>());
+        }
+
+        AsyncWebHandler* createAsyncWebHandler() override
+        {
+            return new AsyncOtaWebHandler(*this);
         }
 
     private:
@@ -99,18 +116,16 @@ namespace Ota
             static constexpr auto MSG_ALREADY_FINALIZED = "OTA update already finalized";
             static constexpr auto MSG_SUCCESS = "OTA update successful";
 
-            const AsyncAuthenticationMiddleware& asyncAuthenticationMiddleware;
-
+            Handler& handler;
             mutable std::optional<std::array<char, MAX_UPDATE_ERROR_MSG_LEN>> updateError;
             mutable bool uploadCompleted = false;
 
-            // `status` is atomic because it's read and written from multiple handlers concurrently.
-            mutable std::atomic<Status> status = Status::Idle;
+        public:
+            explicit AsyncOtaWebHandler(Handler& handler): handler(handler)
+            {
+            }
 
-            // `totalBytesExpected/Received` are volatile for visibility during upload monitoring only.
-            mutable volatile uint32_t totalBytesExpected = 0;
-            mutable volatile uint32_t totalBytesReceived = 0;
-
+        private:
             bool canHandle(AsyncWebServerRequest* request) const override
             {
                 if (request->url() != HTTP::Endpoints::UPDATE)
@@ -119,22 +134,22 @@ namespace Ota
                 if (request->method() != HTTP_POST && request->method() != HTTP_GET)
                     return false;
 
-                if (asyncAuthenticationMiddleware.allowed(request))
+                if (handler.asyncAuthenticationMiddleware.allowed(request))
                     request->setAttribute(ATTR_AUTHENTICATED, true);
                 else
                     return true;
 
-                if (status == Status::Started)
+                if (handler.status == Status::Started)
                 {
                     request->setAttribute(ATTR_DOUBLE_REQUEST, true);
                     return true;
                 }
 
                 resetUpdateState();
-                status = Status::Started;
+                handler.status = Status::Started;
 
                 if (request->hasHeader(CONTENT_LENGTH_HEADER))
-                    totalBytesExpected = request->header(CONTENT_LENGTH_HEADER).toInt();
+                    handler.totalBytesExpected = request->header(CONTENT_LENGTH_HEADER).toInt();
 
                 if (request->hasParam("md5", false))
                 {
@@ -142,14 +157,14 @@ namespace Ota
                     if (!Update.setMD5(md5Param.c_str()))
                     {
                         setUpdateError("Invalid MD5 format");
-                        status = Status::Failed;
+                        handler.status = Status::Failed;
                         return true;
                     }
                 }
 
                 request->onDisconnect([this]
                 {
-                    if (status != Status::Completed)
+                    if (handler.status != Status::Completed)
                         Update.abort();
                     else
                         restartAfterUpdate();
@@ -163,14 +178,14 @@ namespace Ota
                     updateTarget = nameParam == "filesystem" ? U_SPIFFS : U_FLASH;
                 }
 
-                if (const unsigned int expected = totalBytesExpected;
+                if (const unsigned int expected = handler.totalBytesExpected;
                     Update.begin(expected == 0 ? UPDATE_SIZE_UNKNOWN : expected, updateTarget))
                 {
                     ESP_LOGI(LOG_TAG, "Update started");
                 }
                 else
                 {
-                    status = Status::Failed;
+                    handler.status = Status::Failed;
                     checkUpdateError();
                     ESP_LOGE(LOG_TAG, "Update.begin failed");
                 }
@@ -197,29 +212,29 @@ namespace Ota
                 if (updateError)
                     return sendErrorResponse(request);
 
-                if (status != Status::Started)
+                if (handler.status != Status::Started)
                     return request->send(500, "text/plain", MSG_NO_SPACE);
 
                 if (!uploadCompleted)
                 {
                     ESP_LOGW(LOG_TAG, "OTA upload incomplete: received %u of %u bytes",
-                             totalBytesReceived, totalBytesExpected);
-                    status = Status::Idle;
+                             handler.totalBytesReceived, handler.totalBytesExpected);
+                    handler.status = Status::Idle;
                     request->send(500, "text/plain", MSG_UPLOAD_INCOMPLETE);
                     return;
                 }
-                if (status == Status::Completed)
+                if (handler.status == Status::Completed)
                     return request->send(200, "text/plain", MSG_ALREADY_FINALIZED);
 
                 if (Update.end(true))
                 {
-                    status = Status::Completed;
+                    handler.status = Status::Completed;
                     ESP_LOGI(LOG_TAG, "Update successfully completed");
                     request->send(200, "text/plain", MSG_SUCCESS);
                 }
                 else
                 {
-                    status = Status::Failed;
+                    handler.status = Status::Failed;
                     checkUpdateError();
                     sendErrorResponse(request);
                 }
@@ -234,17 +249,17 @@ namespace Ota
                 const bool final
             ) override
             {
-                if (status != Status::Started) return;
+                if (handler.status != Status::Started) return;
                 if (!isRequestValidForUpload(request)) return;
 
                 if (Update.write(data, len) != len)
                 {
-                    status = Status::Failed;
+                    handler.status = Status::Failed;
                     checkUpdateError();
                     return;
                 }
 
-                totalBytesReceived += len;
+                handler.totalBytesReceived += len;
 
                 if (final) uploadCompleted = true;
             }
@@ -257,17 +272,17 @@ namespace Ota
                 const size_t total
             ) override
             {
-                if (status != Status::Started) return;
+                if (handler.status != Status::Started) return;
                 if (!isRequestValidForUpload(request)) return;
 
                 if (Update.write(data, len) != len)
                 {
-                    status = Status::Failed;
+                    handler.status = Status::Failed;
                     checkUpdateError();
                     return;
                 }
 
-                totalBytesReceived += len;
+                handler.totalBytesReceived += len;
 
                 if (index + len >= total)
                     uploadCompleted = true;
@@ -295,10 +310,10 @@ namespace Ota
 
             void resetUpdateState() const
             {
-                status = Status::Idle;
+                handler.status = Status::Idle;
+                handler.totalBytesExpected = 0;
+                handler.totalBytesReceived = 0;
                 uploadCompleted = false;
-                totalBytesExpected = 0;
-                totalBytesReceived = 0;
                 updateError.reset();
             }
 
@@ -316,28 +331,6 @@ namespace Ota
                 return request->hasAttribute(ATTR_AUTHENTICATED)
                     && !request->hasAttribute(ATTR_DOUBLE_REQUEST);
             }
-
-        public:
-            explicit AsyncOtaWebHandler(const AsyncAuthenticationMiddleware& asyncAuthenticationMiddleware)
-                : asyncAuthenticationMiddleware(asyncAuthenticationMiddleware)
-            {
-            }
-
-            [[nodiscard]] State getState() const
-            {
-                return {
-                    status.load(std::memory_order_relaxed),
-                    totalBytesExpected,
-                    totalBytesReceived
-                };
-            }
-
-            [[nodiscard]] Status getStatus() const
-            {
-                return status.load(std::memory_order_relaxed);
-            }
         };
-
-        AsyncOtaWebHandler* otaWebHandler = nullptr;
     };
 }
