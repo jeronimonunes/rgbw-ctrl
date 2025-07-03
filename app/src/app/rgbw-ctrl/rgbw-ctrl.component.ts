@@ -13,7 +13,6 @@ import {
   decodeCString,
   decodeEspNowDevice,
   decodeHttpCredentials,
-  decodeOutputState,
   decodeWiFiDetails,
   decodeWiFiScanResult,
   decodeWiFiScanStatus,
@@ -21,7 +20,6 @@ import {
   encodeAlexaIntegrationSettings,
   encodeEspNowMessage,
   encodeHttpCredentials,
-  encodeOutputState,
   encodeWiFiConnectionDetails,
   ESP_NOW_DEVICE_NAME_MAX_LENGTH,
   ESP_NOW_MAX_DEVICES_PER_MESSAGE,
@@ -46,7 +44,7 @@ import {LoadingComponent} from '../loading/loading.component';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {EditDeviceNameComponentDialog} from './edit-device-name-dialog/edit-device-name-component-dialog.component';
-import {asyncScheduler, firstValueFrom, Subscription, throttleTime} from 'rxjs';
+import {firstValueFrom} from 'rxjs';
 import {MatChipsModule} from '@angular/material/chips';
 import {
   EnterpriseWiFiConnectDialogComponent
@@ -57,10 +55,8 @@ import {MAX_HTTP_PASSWORD_LENGTH, MAX_HTTP_USERNAME_LENGTH} from '../http-creden
 import {KilobytesPipe} from '../kb.pipe';
 import {MatSliderModule} from '@angular/material/slider';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
-import {inversePerceptualMap, perceptualMap} from '../color-utils';
 import {RouterLink} from '@angular/router';
-
-const BLE_NAME = "rgbw-ctrl";
+import {ColorControlComponent, OUTPUT_SERVICE} from './color-control/color-control.component';
 
 const DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ab";
 const DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000";
@@ -70,9 +66,6 @@ const DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
 
 const HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890ac";
 const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
-
-const OUTPUT_SERVICE = "12345678-1234-1234-1234-1234567890ad";
-const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
 
 const ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890ae";
 const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
@@ -110,7 +103,8 @@ const WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
     KilobytesPipe,
     NgOptimizedImage,
     MatSlideToggleModule,
-    RouterLink
+    RouterLink,
+    ColorControlComponent
   ],
   templateUrl: './rgbw-ctrl.component.html',
   styleUrls: ['./rgbw-ctrl.component.scss']
@@ -125,17 +119,14 @@ export class RgbwCtrlComponent implements OnDestroy {
   readonly ESP_NOW_DEVICE_NAME_MAX_LENGTH = ESP_NOW_DEVICE_NAME_MAX_LENGTH;
   readonly ESP_NOW_MAX_DEVICES_PER_MESSAGE = ESP_NOW_MAX_DEVICES_PER_MESSAGE;
 
-
-  private colorSubscription: Subscription;
-
-  private server: BluetoothRemoteGATTServer | null = null;
+  protected server: BluetoothRemoteGATTServer | null = null;
 
   private deviceRestartCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private deviceNameCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private firmwareVersionCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private httpCredentialsCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private deviceHeapCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private outputColorCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+
   private alexaSettingsCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private espNowDevicesCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
 
@@ -147,7 +138,6 @@ export class RgbwCtrlComponent implements OnDestroy {
   initialized: boolean = false;
   loadingAlexa: boolean = false;
   loadingHttpCredentials = false;
-  readingOutputColor = false;
   readingEspNowDevices = false;
 
   firmwareVersion: string | null = null;
@@ -182,41 +172,6 @@ export class RgbwCtrlComponent implements OnDestroy {
     }),
   });
 
-  colorForm = new FormGroup({
-    r: new FormGroup({
-      value: new FormControl<number>(0, {
-        nonNullable: true
-      }),
-      on: new FormControl(false, {
-        nonNullable: true
-      })
-    }),
-    g: new FormGroup({
-      value: new FormControl<number>(0, {
-        nonNullable: true
-      }),
-      on: new FormControl(false, {
-        nonNullable: true
-      })
-    }),
-    b: new FormGroup({
-      value: new FormControl<number>(0, {
-        nonNullable: true
-      }),
-      on: new FormControl(false, {
-        nonNullable: true
-      })
-    }),
-    w: new FormGroup({
-      value: new FormControl<number>(0, {
-        nonNullable: true
-      }),
-      on: new FormControl(false, {
-        nonNullable: true
-      })
-    })
-  });
-
   httpCredentialsForm = new FormGroup({
     username: new FormControl<string>('', {
       nonNullable: true,
@@ -245,35 +200,9 @@ export class RgbwCtrlComponent implements OnDestroy {
     private matDialog: MatDialog,
     private snackBar: MatSnackBar
   ) {
-    this.colorSubscription = this.colorForm.valueChanges.pipe(
-      throttleTime(300, asyncScheduler, {
-        leading: true,
-        trailing: true
-      })
-    ).subscribe(value => {
-      const {r, g, b, w} = value!;
-      if (this.outputColorCharacteristic) {
-        const pr = perceptualMap(r!.value!);
-        const pg = perceptualMap(g!.value!);
-        const pb = perceptualMap(b!.value!);
-        const pw = perceptualMap(w!.value!);
-        const buffer = encodeOutputState({
-          values: [
-            {value: pr, on: r!.on!},
-            {value: pg, on: g!.on!},
-            {value: pb, on: b!.on!},
-            {value: pw, on: w!.on!}
-          ]
-        });
-        this.outputColorCharacteristic.writeValue(buffer)
-          .catch(console.error);
-      }
-    });
-
   }
 
   ngOnDestroy() {
-    this.colorSubscription.unsubscribe();
     this.disconnect();
   }
 
@@ -286,7 +215,6 @@ export class RgbwCtrlComponent implements OnDestroy {
     this.deviceRestartCharacteristic = null;
     this.deviceNameCharacteristic = null;
     this.firmwareVersionCharacteristic = null;
-    this.outputColorCharacteristic = null;
     this.alexaSettingsCharacteristic = null;
     this.espNowDevicesCharacteristic = null;
 
@@ -306,7 +234,6 @@ export class RgbwCtrlComponent implements OnDestroy {
 
     this.loadingAlexa = false;
     this.loadingHttpCredentials = false;
-    this.readingOutputColor = false;
     this.readingEspNowDevices = false;
 
     this.alexaIntegrationForm.reset();
@@ -336,7 +263,6 @@ export class RgbwCtrlComponent implements OnDestroy {
 
       await this.initBleWiFiServices();
       await this.initHttpDetailsService();
-      await this.initBleOutputServices();
       await this.initEspNowServices();
       await this.initBleAlexaServices();
       await this.initBleDeviceDetailsServices();
@@ -356,7 +282,6 @@ export class RgbwCtrlComponent implements OnDestroy {
       await this.readWiFiScanStatus();
       await this.readWiFiScanResult();
       await this.readAlexaIntegration();
-      await this.readOutputColor();
       await this.readEspNowDevices();
       this.snackBar.open('Device connected', 'Close', {duration: 3000});
       this.initialized = true;
@@ -579,13 +504,6 @@ export class RgbwCtrlComponent implements OnDestroy {
     this.httpCredentialsCharacteristic = await httpDetailsService.getCharacteristic(HTTP_CREDENTIALS_CHARACTERISTIC);
   }
 
-  private async initBleOutputServices() {
-    const service = await this.server!.getPrimaryService(OUTPUT_SERVICE);
-    this.outputColorCharacteristic = await service.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
-    this.outputColorCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.outputColorChanged(ev.target.value));
-    await this.outputColorCharacteristic.startNotifications();
-  }
-
   private async initBleAlexaServices() {
     const service = await this.server!.getPrimaryService(ALEXA_SERVICE);
     this.alexaSettingsCharacteristic = await service.getCharacteristic(ALEXA_SETTINGS_CHARACTERISTIC);
@@ -625,28 +543,6 @@ export class RgbwCtrlComponent implements OnDestroy {
 
   private deviceHeapChanged(view: DataView) {
     this.deviceHeap = view.getUint32(0, true);
-  }
-
-  private outputColorChanged(view: DataView) {
-    const state = decodeOutputState(new Uint8Array(view.buffer));
-    this.colorForm.setValue({
-      r: {
-        value: inversePerceptualMap(state.values[0].value),
-        on: state.values[0].on
-      },
-      g: {
-        value: inversePerceptualMap(state.values[1].value),
-        on: state.values[1].on
-      },
-      b: {
-        value: inversePerceptualMap(state.values[2].value),
-        on: state.values[2].on
-      },
-      w: {
-        value: inversePerceptualMap(state.values[3].value),
-        on: state.values[3].on
-      }
-    }, {emitEvent: false});
   }
 
   private espNowDevicesChangedChanged(view: DataView) {
@@ -705,13 +601,6 @@ export class RgbwCtrlComponent implements OnDestroy {
     const alexaDetails = decodeAlexaIntegrationSettings(new Uint8Array(view.buffer));
     this.resetAlexaIntegrationForm(alexaDetails.integrationMode);
     this.alexaIntegrationForm.reset(alexaDetails, {emitEvent: true});
-  }
-
-  async readOutputColor() {
-    this.readingOutputColor = true;
-    const view = await this.outputColorCharacteristic!.readValue();
-    this.outputColorChanged(view);
-    this.readingOutputColor = false;
   }
 
   async readEspNowDevices() {

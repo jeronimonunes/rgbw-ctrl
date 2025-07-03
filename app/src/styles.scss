@@ -13,5 +13,30 @@ html {
   ));
 }
 
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+mat-card {
+  min-width: 340px;
+  width: 100%;
+  max-width: 700px;
+
+  > mat-card-header {
+    min-height: 40px;
+    position: relative;
+
+    mat-card-title > div {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+  }
+
+}

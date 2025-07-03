@@ -39,7 +39,7 @@
       <div class="info-item" style="margin-top: 1rem">
         <div class="label">Device Name</div>
         <span>{{ deviceName }}
-          <button mat-icon-button class="small-icon-button">
+          <button mat-icon-button id="edit-device-name-button">
           <mat-icon (click)="editDeviceName()">settings</mat-icon>
         </button>
       </span>
@@ -57,47 +57,7 @@
 </mat-card>
 
 <!-- Color Control -->
-<mat-card *ngIf="initialized">
-  <mat-card-header>
-    <mat-card-title>
-      <div>
-        <span>Color Control</span>
-      </div>
-    </mat-card-title>
-  </mat-card-header>
-  <mat-card-content>
-    <mat-card appearance="outlined" style="margin-top: 0.5rem">
-      <mat-card-content>
-        <form class="color-form" [formGroup]="colorForm">
-          <ng-container formGroupName="r">
-            <mat-slider class="r" [max]="255" [min]="14">
-              <input matSliderThumb formControlName="value">
-            </mat-slider>
-            <mat-slide-toggle class="r" formControlName="on"/>
-          </ng-container>
-          <ng-container formGroupName="g">
-            <mat-slider class="g" [max]="255" [min]="14">
-              <input matSliderThumb formControlName="value">
-            </mat-slider>
-            <mat-slide-toggle class="g" formControlName="on"/>
-          </ng-container>
-          <ng-container formGroupName="b">
-            <mat-slider class="b" [max]="255" [min]="14">
-              <input matSliderThumb formControlName="value">
-            </mat-slider>
-            <mat-slide-toggle class="b" formControlName="on"/>
-          </ng-container>
-          <ng-container formGroupName="w">
-            <mat-slider class="w" [max]="255" [min]="14">
-              <input matSliderThumb formControlName="value">
-            </mat-slider>
-            <mat-slide-toggle class="w" formControlName="on"/>
-          </ng-container>
-        </form>
-      </mat-card-content>
-    </mat-card>
-  </mat-card-content>
-</mat-card>
+<app-color-control *ngIf="initialized && server !== null" [server]="server"></app-color-control>
 
 <!-- WiFi Configuration -->
 <mat-card *ngIf="initialized">

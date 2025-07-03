@@ -1,0 +1,41 @@
+<mat-card>
+  <mat-card-header>
+    <mat-card-title>
+      <div>
+        <span>Color Control</span>
+      </div>
+    </mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <mat-card appearance="outlined" style="margin-top: 0.5rem">
+      <mat-card-content>
+        <form class="color-form" [formGroup]="colorForm">
+          <ng-container formGroupName="r">
+            <mat-slider class="r" [max]="255" [min]="14">
+              <input matSliderThumb formControlName="value">
+            </mat-slider>
+            <mat-slide-toggle class="r" formControlName="on"/>
+          </ng-container>
+          <ng-container formGroupName="g">
+            <mat-slider class="g" [max]="255" [min]="14">
+              <input matSliderThumb formControlName="value">
+            </mat-slider>
+            <mat-slide-toggle class="g" formControlName="on"/>
+          </ng-container>
+          <ng-container formGroupName="b">
+            <mat-slider class="b" [max]="255" [min]="14">
+              <input matSliderThumb formControlName="value">
+            </mat-slider>
+            <mat-slide-toggle class="b" formControlName="on"/>
+          </ng-container>
+          <ng-container formGroupName="w">
+            <mat-slider class="w" [max]="255" [min]="14">
+              <input matSliderThumb formControlName="value">
+            </mat-slider>
+            <mat-slide-toggle class="w" formControlName="on"/>
+          </ng-container>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  </mat-card-content>
+</mat-card>
