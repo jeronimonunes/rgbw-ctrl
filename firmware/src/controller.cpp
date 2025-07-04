@@ -6,13 +6,14 @@
 #include "board_led.hh"
 #include "alexa_integration.hh"
 #include "device_manager.hh"
-#include "esp_now_handler.hh"
+#include "controller_esp_now_handler.hh"
 #include "output_manager.hh"
 #include "push_button.hh"
 #include "ota_handler.hh"
 #include "state_rest_handler.hh"
 #include "rotary_encoder_manager.hh"
 #include "websocket_handler.hh"
+#include "esp_now_handler.hh"
 
 void startBle();
 void toggleOutput();
@@ -20,22 +21,38 @@ void beginAlexaAndWebServer();
 void adjustBrightness(long);
 void encoderButtonPressed(unsigned long duration);
 void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, int len);
-void shutdownCallback();
 
 static constexpr auto LOG_TAG = "Controller";
 
-BoardLED boardLED;
-PushButton boardButton;
+BoardLED boardLED(ControllerHardware::Pin::BoardLed::RED,
+                  ControllerHardware::Pin::BoardLed::GREEN,
+                  ControllerHardware::Pin::BoardLed::BLUE);
+
+PushButton boardButton(ControllerHardware::Pin::Button::BUTTON1);
+
+Output::Manager outputManager(ControllerHardware::Pin::Output::RED,
+                              ControllerHardware::Pin::Output::GREEN,
+                              ControllerHardware::Pin::Output::BLUE,
+                              ControllerHardware::Pin::Output::WHITE);
+
+RotaryEncoderManager rotaryEncoderManager(ControllerHardware::Pin::Header::H1::P1,
+                                          ControllerHardware::Pin::Header::H1::P2,
+                                          ControllerHardware::Pin::Header::H1::P3,
+                                          ControllerHardware::Pin::Header::H1::P4);
+
 WiFiManager wifiManager;
 HTTP::Manager httpManager;
 DeviceManager deviceManager;
-Output::Manager outputManager;
-EspNow::Handler espNowHandler;
-RotaryEncoderManager rotaryEncoderManager;
+EspNow::ControllerHandler espNowHandler;
 AlexaIntegration alexaIntegration(outputManager);
 OTA::Handler otaHandler(httpManager.getAuthenticationMiddleware());
 
-BLE::Manager bleManager(deviceManager, {
+std::array<uint8_t, 4> advertisementData =
+    BLE::Manager::buildAdvertisementData(54321, 0xAA, 0xAA);
+
+BLE::Manager bleManager(advertisementData,
+                        deviceManager,
+                        {
                             &deviceManager,
                             &wifiManager,
                             &httpManager,
@@ -66,6 +83,7 @@ StateRestHandler stateRestHandler({
 void setup()
 {
     ESP_LOGI(LOG_TAG, "Starting controller");
+
     boardLED.begin();
     outputManager.begin();
     rotaryEncoderManager.begin();
@@ -85,7 +103,6 @@ void setup()
         wifiManager.connect(credentials.value());
     else
         bleManager.start();
-    esp_register_shutdown_handler(shutdownCallback);
     ESP_LOGI(LOG_TAG, "Startup complete");
 }
 
@@ -210,9 +227,4 @@ void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, const int l
     const auto message = reinterpret_cast<EspNow::Message*>(const_cast<uint8_t*>(incomingData));
 
     onEspNowMessage(message);
-}
-
-void shutdownCallback()
-{
-    ESP_LOGI(LOG_TAG, "Shutdown completed");
 }

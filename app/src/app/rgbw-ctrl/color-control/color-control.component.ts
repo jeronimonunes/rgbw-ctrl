@@ -7,9 +7,6 @@ import {asyncScheduler, Subscription, throttleTime} from 'rxjs';
 import {inversePerceptualMap, perceptualMap} from '../../color-utils';
 import {decodeOutputState, encodeOutputState} from '../../model';
 
-export const OUTPUT_SERVICE = "12345678-1234-1234-1234-1234567890ad";
-const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
-
 @Component({
   selector: 'app-color-control',
   imports: [
@@ -27,16 +24,23 @@ const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
 })
 export class ColorControlComponent implements OnDestroy {
 
-
-  @Input({required: true}) set server(server: BluetoothRemoteGATTServer) {
-    this.initBleOutputServices(server)
-      .then(() => this.readOutputColor());
-  }
-
   private colorSubscription: Subscription;
   readingOutputColor = false;
 
-  private outputColorCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
+  private _outputColorCharacteristic!: BluetoothRemoteGATTCharacteristic;
+
+  @Input({required: true})
+  set outputColorCharacteristic(characteristic: BluetoothRemoteGATTCharacteristic) {
+    this._outputColorCharacteristic = characteristic;
+    characteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.outputColorChanged(ev.target.value));
+    characteristic.startNotifications()
+      .then(() => this.readOutputColor())
+      .catch(console.error);
+  }
+
+  get outputColorCharacteristic(): BluetoothRemoteGATTCharacteristic | null {
+    return this._outputColorCharacteristic;
+  }
 
   colorForm = new FormGroup({
     r: new FormGroup({
@@ -100,13 +104,6 @@ export class ColorControlComponent implements OnDestroy {
     });
   }
 
-  private async initBleOutputServices(server: BluetoothRemoteGATTServer) {
-    const service = await server.getPrimaryService(OUTPUT_SERVICE);
-    this.outputColorCharacteristic = await service.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
-    this.outputColorCharacteristic.addEventListener('characteristicvaluechanged', (ev: any) => this.outputColorChanged(ev.target.value));
-    await this.outputColorCharacteristic.startNotifications();
-  }
-
   async readOutputColor() {
     this.readingOutputColor = true;
     const view = await this.outputColorCharacteristic!.readValue();
@@ -116,7 +113,6 @@ export class ColorControlComponent implements OnDestroy {
 
   ngOnDestroy() {
     this.colorSubscription.unsubscribe();
-    this.outputColorCharacteristic = null;
     this.readingOutputColor = false;
   }
 

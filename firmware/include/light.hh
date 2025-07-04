@@ -4,7 +4,7 @@
 #include <Preferences.h>
 #include <cmath>
 
-#include "hardware.hh"
+#include "controller_hardware.hh"
 
 class Light
 {
@@ -45,7 +45,7 @@ public:
     void setup()
     {
         prefs.begin(PREFERENCES_NAME, false);
-        if (const auto& channel = Hardware::getPwmChannel(pin))
+        if (const auto& channel = ControllerHardware::getPwmChannel(pin))
         {
             pinMode(pin, OUTPUT);
             ledcSetup(channel.value(), PWM_FREQUENCY, PWM_RESOLUTION);
@@ -89,7 +89,7 @@ private:
 
     void update()
     {
-        const auto& channel = Hardware::getPwmChannel(pin);
+        const auto& channel = ControllerHardware::getPwmChannel(pin);
         const auto duty = state.on ? state.value : OFF_VALUE;
 
         if (uint8_t outputValue = invert ? MAX_BRIGHTNESS - duty : duty;
@@ -160,7 +160,7 @@ public:
 
         const auto step = perceptualBrightnessStep(state.value, true);
 
-        ESP_LOGI(LOG_TAG, "Increasing brightness by %u", step);
+        ESP_LOGI(LOG_TAG, "Increasing brightness to %u", step);
         state.value = step;
         update();
     }
@@ -171,7 +171,7 @@ public:
 
         const auto step = perceptualBrightnessStep(state.value, false);
 
-        ESP_LOGI(LOG_TAG, "Decreasing brightness by %u", step);
+        ESP_LOGI(LOG_TAG, "Decreasing brightness to %u", step);
         state.value = step;
         update();
     }

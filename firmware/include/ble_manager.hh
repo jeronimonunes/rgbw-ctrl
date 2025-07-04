@@ -6,7 +6,6 @@
 
 #include "alexa_integration.hh"
 #include "device_manager.hh"
-#include "esp_now_handler.hh"
 #include "http_manager.hh"
 
 namespace BLE
@@ -18,14 +17,21 @@ namespace BLE
 
         unsigned long bluetoothAdvertisementTimeout = 0;
 
+        const std::array<uint8_t, 4>& advertisementData;
         const DeviceManager& deviceManager;
         const std::vector<Service*> services;
 
         NimBLEServer* server = nullptr;
 
     public:
-        explicit Manager(DeviceManager& deviceManager, const std::vector<Service*>&& services)
-            : deviceManager(deviceManager), services(services)
+        explicit Manager(
+            const std::array<uint8_t, 4>& advertisementData,
+            DeviceManager& deviceManager,
+            const std::vector<Service*>&& services
+        )
+            : advertisementData(advertisementData),
+              deviceManager(deviceManager),
+              services(services)
         {
         }
 
@@ -71,6 +77,17 @@ namespace BLE
             ESP_LOGI(LOG_TAG, "BLE server stopped");
         }
 
+        static constexpr std::array<uint8_t, 4> buildAdvertisementData(
+            const uint16_t manufacturerId, const uint8_t deviceType, const uint8_t deviceSubType)
+        {
+            std::array<uint8_t, 4> advertisementData = {};
+            advertisementData[0] = manufacturerId & 0xFF;
+            advertisementData[1] = manufacturerId >> 8 & 0xFF;
+            advertisementData[2] = deviceType;
+            advertisementData[3] = deviceSubType;
+            return advertisementData;
+        }
+
         [[nodiscard]] Status getStatus() const
         {
             if (this->server == nullptr)
@@ -112,14 +129,7 @@ namespace BLE
             const auto advertising = this->server->getAdvertising();
             advertising->setName(deviceManager.getDeviceName());
 
-            constexpr uint16_t manufacturerID = 0x0000;
-            uint8_t dataToAdvertise[4];
-            dataToAdvertise[0] = manufacturerID >> 8 & 0xFF;
-            dataToAdvertise[1] = manufacturerID & 0xFF;
-            dataToAdvertise[2] = 0xAA;
-            dataToAdvertise[3] = 0xAA;
-
-            advertising->setManufacturerData(dataToAdvertise, sizeof(dataToAdvertise));
+            advertising->setManufacturerData(advertisementData.data(), advertisementData.size());
             advertising->start();
             bluetoothAdvertisementTimeout = millis() + BLE_TIMEOUT_MS;
             ESP_LOGI(LOG_TAG, "BLE advertising started with device name: %s", deviceManager.getDeviceName());

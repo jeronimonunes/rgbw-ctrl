@@ -57,7 +57,7 @@
 </mat-card>
 
 <!-- Color Control -->
-<app-color-control *ngIf="initialized && server !== null" [server]="server"></app-color-control>
+<app-color-control *ngIf="initialized && characteristics.outputColor" [outputColorCharacteristic]="characteristics.outputColor"></app-color-control>
 
 <!-- WiFi Configuration -->
 <mat-card *ngIf="initialized">

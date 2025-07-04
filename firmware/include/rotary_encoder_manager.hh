@@ -1,23 +1,36 @@
 #pragma once
 
 #include <ESP32RotaryEncoder.h>
-#include "hardware.hh"
 
 class RotaryEncoderManager
 {
-
-    RotaryEncoder rotaryEncoder = RotaryEncoder(
-        static_cast<uint8_t>(Hardware::Pin::Header::H1::P1),
-        static_cast<uint8_t>(Hardware::Pin::Header::H1::P2),
-        static_cast<uint8_t>(Hardware::Pin::Header::H1::P3)
-    );
+    RotaryEncoder rotaryEncoder;
 
 public:
+    explicit RotaryEncoderManager(const gpio_num_t pinA,
+                                  const gpio_num_t pinB,
+                                  const gpio_num_t pinButton,
+                                  const gpio_num_t groundPin = GPIO_NUM_NC,
+                                  const gpio_num_t vccPin = GPIO_NUM_NC
+    ): rotaryEncoder(pinA, pinB, pinButton)
+    {
+        if (groundPin != GPIO_NUM_NC)
+        {
+            pinMode(groundPin, OUTPUT);
+            digitalWrite(groundPin, LOW);
+            this->rotaryEncoder.setEncoderType(FLOATING);
+        }
+        if (vccPin != GPIO_NUM_NC)
+        {
+            pinMode(vccPin, OUTPUT);
+            digitalWrite(vccPin, HIGH);
+            this->rotaryEncoder.setEncoderType(HAS_PULLUP);
+        }
+    }
+
+
     void begin()
     {
-        pinMode(static_cast<uint8_t>(Hardware::Pin::Header::H1::P4), OUTPUT);
-        digitalWrite(static_cast<uint8_t>(Hardware::Pin::Header::H1::P4), LOW);
-        this->rotaryEncoder.setEncoderType(FLOATING);
         this->rotaryEncoder.begin(true);
     }
 

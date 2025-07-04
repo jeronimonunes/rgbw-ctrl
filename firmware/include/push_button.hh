@@ -3,12 +3,10 @@
 #include <Arduino.h>
 #include <functional>
 
-#include "hardware.hh"
-
 class PushButton
 {
     static constexpr auto LOG_TAG = "PushButton";
-    gpio_num_t pin = static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Button::BUTTON1));
+    gpio_num_t pin;
 
     unsigned long lastDown = 0;
     unsigned long lastChange = 0;
@@ -26,8 +24,8 @@ class PushButton
     }
 
 public:
-    explicit PushButton(const unsigned long thresholdMs = 2500)
-        : longPressThresholdMs(thresholdMs)
+    explicit PushButton(const gpio_num_t pin, const unsigned long thresholdMs = 2500)
+        : pin(pin), longPressThresholdMs(thresholdMs)
     {
         pinMode(this->pin, INPUT_PULLUP);
     }

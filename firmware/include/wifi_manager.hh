@@ -77,7 +77,6 @@ public:
                 }
                 break;
             default:
-                setStatus(WiFiStatus::DISCONNECTED);
                 ESP_LOGD(LOG_TAG, "Unhandled WiFi event: %d", event);
                 break;
             }
@@ -218,7 +217,6 @@ public:
         if (const int result = WiFi.scanComplete(); result == WIFI_SCAN_RUNNING || result >= 0)
             WiFi.scanDelete();
 
-        WiFi.mode(WIFI_STA); // NOLINT
         WiFi.disconnect(true);
 
         if (isEap(details))

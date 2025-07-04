@@ -2,7 +2,6 @@
 
 #include "color.hh"
 #include "light.hh"
-#include "hardware.hh"
 
 #include <array>
 #include <Arduino.h>
@@ -52,19 +51,26 @@ namespace Output
     {
         static constexpr auto LOG_TAG = "Output";
 
-        std::array<Light, 4> lights = {
-            Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Output::RED))),
-            Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Output::GREEN))),
-            Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Output::BLUE))),
-            Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::Output::WHITE)))
-        };
-
+        std::array<Light, 4> lights;
         static_assert(static_cast<size_t>(Color::White) < 4, "Color enum out of bounds");
 
         NimBLECharacteristic* bleOutputColorCharacteristic = nullptr;
         ThrottledValue<State> colorNotificationThrottle{500};
 
     public:
+        explicit Manager(const gpio_num_t red,
+                         const gpio_num_t green,
+                         const gpio_num_t blue,
+                         const gpio_num_t white)
+            : lights{
+                Light(red, false),
+                Light(green, false),
+                Light(blue, false),
+                Light(white, false)
+            }
+        {
+        }
+
         void begin()
         {
             for (auto& light : lights)

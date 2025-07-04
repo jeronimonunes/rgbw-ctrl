@@ -5,7 +5,6 @@
 
 #include "color.hh"
 #include "light.hh"
-#include "hardware.hh"
 #include "ble_manager.hh"
 #include "wifi_model.hh"
 
@@ -15,12 +14,7 @@ class BoardLED
     static constexpr unsigned long BLINK_INTERVAL_MS = 20;
     static constexpr int TRANSITION_STEP = 4;
 
-    std::array<Light, 3> leds = {
-        Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::BoardLed::RED)), true),
-        Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::BoardLed::GREEN)), true),
-        Light(static_cast<gpio_num_t>(static_cast<uint8_t>(Hardware::Pin::BoardLed::BLUE)), true)
-    };
-
+    std::array<Light, 3> leds;
     static_assert(static_cast<size_t>(Color::Blue) < 3, "Color enum out of bounds for BoardLED");
 
     unsigned long lastBlinkTime = 0;
@@ -28,12 +22,21 @@ class BoardLED
     int fadeDirection = TRANSITION_STEP;
 
 public:
+    explicit BoardLED(const gpio_num_t red, const gpio_num_t green, const gpio_num_t blue)
+        : leds{
+            Light(red, true),
+            Light(green, true),
+            Light(blue, true)
+        }
+    {
+    }
+
     void begin()
     {
         for (auto& led : leds)
         {
             led.setup();
-            led.setOn(true);
+            led.setState({true, MAX_BRIGHTNESS});
         }
     }
 

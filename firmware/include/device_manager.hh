@@ -32,7 +32,7 @@ private:
 public:
     void begin() // NOLINT
     {
-        WiFi.mode(WIFI_STA); // NOLINT
+        WiFi.mode(WIFI_MODE_STA); // NOLINT
     }
 
     void handle(const unsigned long now)
