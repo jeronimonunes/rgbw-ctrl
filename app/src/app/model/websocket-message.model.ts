@@ -22,6 +22,7 @@ export enum WebSocketMessageType {
   ON_OTA_PROGRESS,
   ON_ALEXA_INTEGRATION_SETTINGS,
   ON_ESP_NOW_DEVICES,
+  ON_ESP_NOW_CONTROLLER,
 }
 
 export interface WebSocketColorMessage {
@@ -76,6 +77,11 @@ export interface WebSocketOtaProgressMessage extends OtaState {
 export interface WebSocketEspNowDevicesMessage {
   type: WebSocketMessageType.ON_ESP_NOW_DEVICES;
   devices: EspNowDevice[];
+}
+
+export interface WebSocketEspNowControllerMessage {
+  type: WebSocketMessageType.ON_ESP_NOW_CONTROLLER;
+  address: string;
 }
 
 export interface WebSocketFirmwareVersionMessage {

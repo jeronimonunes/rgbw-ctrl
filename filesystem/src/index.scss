@@ -224,13 +224,13 @@ section {
     margin-top: 0.5rem;
     font-size: 0.9rem;
 
-    th, td {
+    td {
       padding: 0.5rem 0.75rem;
       border: 1px solid var(--section-shadow);
       text-align: left;
     }
 
-    th {
+    > thead > tr > td {
       background-color: var(--table-header-bg);
     }
 

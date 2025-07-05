@@ -25,6 +25,7 @@ namespace WebSocket
             ON_OTA_PROGRESS,
             ON_ALEXA_INTEGRATION_SETTINGS,
             ON_ESP_NOW_DEVICES,
+            ON_ESP_NOW_CONTROLLER
         };
 
         Type type;
@@ -150,6 +151,16 @@ namespace WebSocket
 
         explicit EspNowDevicesMessage(const EspNow::DeviceData& data)
             : Message(Type::ON_ESP_NOW_DEVICES), data(data)
+        {
+        }
+    };
+
+    struct EspNowControllerMessage : Message
+    {
+        std::array<uint8_t, 6> address;
+
+        explicit EspNowControllerMessage(const std::array<uint8_t, 6>& address)
+            : Message(Type::ON_ESP_NOW_CONTROLLER), address(address)
         {
         }
     };

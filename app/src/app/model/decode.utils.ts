@@ -23,6 +23,7 @@ import {
   WebSocketBleStatusMessage,
   WebSocketColorMessage,
   WebSocketDeviceNameMessage,
+  WebSocketEspNowControllerMessage,
   WebSocketEspNowDevicesMessage,
   WebSocketFirmwareVersionMessage,
   WebSocketHeapInfoMessage,
@@ -262,6 +263,13 @@ export function decodeWebSocketEspNowDevicesMessage(buffer: ArrayBuffer): WebSoc
     type: WebSocketMessageType.ON_ESP_NOW_DEVICES,
     devices
   };
+}
+
+export function decodeWebSocketEspNowControllerMessage(buffer: ArrayBuffer): WebSocketEspNowControllerMessage {
+  const reader = new BufferReader(new Uint8Array(buffer));
+  const type = reader.readByte() as WebSocketMessageType.ON_ESP_NOW_CONTROLLER;
+  const address = macBytesToString(reader.readBytes(6));
+  return {type, address};
 }
 
 export function decodeFirmwareVersionMessage(buffer: ArrayBuffer): WebSocketFirmwareVersionMessage {

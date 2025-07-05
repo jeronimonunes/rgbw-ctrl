@@ -2,6 +2,7 @@
 
 #include <array>
 #include "websocket_message.hh"
+#include "remote_esp_now_handler.hh"
 #include "ble_manager.hh"
 #include "throttled_value.hh"
 
@@ -20,6 +21,7 @@ namespace WebSocket
         BLE::Manager* bleManager;
         DeviceManager* deviceManager;
         EspNow::ControllerHandler* controllerEspNowHandler;
+        EspNow::RemoteHandler* remoteEspNowHandler;
 
         AsyncWebSocket ws = AsyncWebSocket("/ws");
 
@@ -28,6 +30,7 @@ namespace WebSocket
         ThrottledValue<std::array<char, DeviceManager::DEVICE_NAME_TOTAL_LENGTH>> deviceNameThrottle{200};
         ThrottledValue<OTA::State> otaStateThrottle{200};
         ThrottledValue<EspNow::DeviceData> espNowDevicesThrottle{200};
+        ThrottledValue<std::array<uint8_t, 6>> espNowControllerThrottle{200};
         ThrottledValue<std::array<char, 10>> firmwareVersionThrottle{200};
         ThrottledValue<WiFiDetails> wifiDetailsThrottle{200};
         ThrottledValue<WiFiStatus> wifiStatusThrottle{200};
@@ -44,7 +47,8 @@ namespace WebSocket
             AlexaIntegration* alexaIntegration,
             BLE::Manager* bleManager,
             DeviceManager* deviceManager,
-            EspNow::ControllerHandler* controllerEspNowHandler
+            EspNow::ControllerHandler* controllerEspNowHandler,
+            EspNow::RemoteHandler* remoteEspNowHandler
         )
             :
             outputManager(outputManager),
@@ -54,7 +58,8 @@ namespace WebSocket
             alexaIntegration(alexaIntegration),
             bleManager(bleManager),
             deviceManager(deviceManager),
-            controllerEspNowHandler(controllerEspNowHandler)
+            controllerEspNowHandler(controllerEspNowHandler),
+            remoteEspNowHandler(remoteEspNowHandler)
         {
             ws.onEvent([this](AsyncWebSocket*, AsyncWebSocketClient* client,
                               const AwsEventType type, void* arg, const uint8_t* data,
@@ -110,6 +115,7 @@ namespace WebSocket
             sendDeviceNameMessage(now, client);
             sendOtaProgressMessage(now, client);
             sendEspNowDevicesMessage(now, client);
+            sendEspNowControllerMessage(now, client);
             sendFirmwareVersionMessage(now, client);
             sendWiFiDetailsMessage(now, client);
             sendWiFiStatusMessage(now, client);
@@ -160,6 +166,13 @@ namespace WebSocket
             if (controllerEspNowHandler == nullptr) return;
             sendThrottledMessage<EspNow::DeviceData, EspNowDevicesMessage>(
                 controllerEspNowHandler->getDeviceData(), espNowDevicesThrottle, now, client);
+        }
+
+        void sendEspNowControllerMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
+        {
+            if (remoteEspNowHandler == nullptr) return;
+            sendThrottledMessage<std::array<uint8_t, 6>, EspNowControllerMessage>(
+                remoteEspNowHandler->getControllerAddress(), espNowControllerThrottle, now, client);
         }
 
         void sendFirmwareVersionMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)

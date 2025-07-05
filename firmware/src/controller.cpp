@@ -68,7 +68,8 @@ WebSocket::Handler webSocketHandler(&outputManager,
                                     &alexaIntegration,
                                     &bleManager,
                                     &deviceManager,
-                                    &espNowHandler);
+                                    &espNowHandler,
+                                    nullptr);
 
 StateRestHandler stateRestHandler({
     &deviceManager,
