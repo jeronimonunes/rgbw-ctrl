@@ -65,7 +65,7 @@ jobs:
         run: pip install --upgrade platformio
 
       - name: Build PlatformIO Project
-        run: cd firmware && pio run
+        run: cd firmware && pio run -e controller && pio run -e remote
 
       - name: Build FileSystem
         run: cd firmware && pio run -t buildfs
@@ -81,8 +81,9 @@ jobs:
       - name: Package Release Artifacts
         run: |
           mkdir -p release
+          cp firmware/.pio/build/controller/littlefs.bin release/littlefs.bin
           cp firmware/.pio/build/controller/firmware.bin release/controller-firmware.bin
-          cp firmware/.pio/build/controller/littlefs.bin release/controller-littlefs.bin
+          cp firmware/.pio/build/remote/firmware.bin release/remote-firmware.bin
           cd release && zip -r ../v${{ github.event.inputs.releaseVersion }}.zip .
 
       - name: Create GitHub Release
