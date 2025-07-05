@@ -1,268 +1,271 @@
 # RGBW Controller
 
-ESP32 RGBW LED controller with web-based configuration and Alexa support. The firmware exposes Bluetooth Low Energy for initial setup, Wi‑Fi connectivity, a REST API, real‑time WebSocket control and OTA updates.
-## Requirements
-- Node.js 20+ and npm
-- PlatformIO CLI 6+
+**ESP32-based RGBW LED Controller with Web UI & Alexa Integration**
 
+**rgbw-ctrl** is a versatile, powerful controller designed for RGBW LED strips. It runs on the ESP32 platform and offers a seamless setup and control experience via Bluetooth, Wi-Fi, and a browser-based interface. Integration with Amazon Alexa, REST APIs, and WebSocket communication makes it ideal for hobbyists, smart home enthusiasts, and developers.
 
-## Project structure
+---
 
-| Path | Purpose |
-| --- | --- |
-| [/firmware](firmware) | ESP32 PlatformIO code |
-| [/filesystem](filesystem) | Device web UI assets |
-| [/app](app) | Angular setup app |
-| [/doc](doc) | Additional documentation |
+## 🚀 Features
 
-## Quick start
+* **Bluetooth Setup:** Fast and easy pairing for initial configuration
+* **Wi-Fi Management:** Configure, scan, and connect to networks effortlessly
+* **Alexa Integration:** Native support for voice control
+* **Web Interface:** Sleek UI for real-time RGBW control
+* **REST API:** Full-featured JSON API for remote control
+* **WebSocket:** Low-latency bidirectional communication
+* **OTA Updates:** Update firmware and UI over HTTP
+* **Rotary Encoder Support:** Optional hardware input for manual brightness control and BLE activation
 
-1. Install Node.js dependencies for the UI projects:
+---
+
+## 🎛️ Rotary Encoder Integration
+
+The device supports an optional rotary encoder connected via the H1 header. This allows for:
+
+* Turning lights on/off with a short press
+* Enabling Bluetooth with a long press
+* Adjusting brightness by rotating left or right
+
+To use this feature, connect a compatible rotary encoder to the H1 pins as follows:
+
+| Pin | Purpose          |
+| --- | ---------------- |
+| P1  | Encoder CLK      |
+| P2  | Encoder DT       |
+| P3  | Encoder SW (btn) |
+| P4  | GND              |
+
+Functionality is built-in and automatically enabled if the encoder is connected.
+
+## 🧰 Requirements
+
+* Node.js 20+
+* npm
+* PlatformIO CLI 6+
+
+---
+
+## 📁 Project Structure
+
+| Path          | Description                     |
+| ------------- | ------------------------------- |
+| `/firmware`   | PlatformIO-based ESP32 firmware |
+| `/filesystem` | Web-based device UI             |
+| `/app`        | Angular configuration app       |
+| `/doc`        | Additional documentation        |
+
+---
+
+## ⚡ Quick Start
+
+1. Build the web UI:
+
    ```bash
    cd filesystem && npm ci && npm run build
+   ```
+2. Set up the configuration app:
+
+   ```bash
    cd ../app && npm ci
    ```
-2. Compile and upload the firmware with PlatformIO:
+3. Upload firmware to the board:
+
    ```bash
    cd ../firmware
    pio run -t upload
    ```
-3. Upload the bundled web UI:
+4. Upload web UI files:
+
    ```bash
-   pio run -t uploadfs   # via USB
+   pio run -t uploadfs
    ```
 
-## Angular Configuration App
+---
 
-The `app` directory houses an Angular project used to configure the controller via Web Bluetooth.
+## 🧩 Configuration App (Angular)
 
-### Prerequisites
-- Node.js 20+
-- npm
+Provides a Web Bluetooth-based UI to configure the controller.
 
 ### Getting Started
+
 ```bash
 cd app
 npm install
 npm start
 ```
-Use `npm run build` to create production files. The BLE connection workflow along with Alexa and Wi-Fi settings forms is implemented in `src/app`.
 
-You can deploy the built project to GitHub Pages using `npm run deploy`.
+Build production version:
 
-
-## BOOT Button Behavior
-The BOOT button on the board has multiple context-sensitive behaviors:
-
-Short Press (< 2.5s)
-🟢 Toggles the board's lights on or off, depending on the current state.
-
-Long Press (> 2.5s)
-🔵 Enables Bluetooth, if it’s not already active.
-🔄 If Bluetooth is already on, it simply resets its 15s auto-shutdown timer.
-
-⏱️ Bluetooth automatically disables after 15 seconds if no connection is established.
-
-Firmware Update Mode
-🛠️ To enter UART firmware update mode:
-
-Hold the BOOT button,
-
-Then press RESET.
-
-## Board LED Status Indicator
-
-The `BoardLED` class provides a simple, visual representation of system status using the onboard RGB LED. It conveys Bluetooth, Wi-Fi, and OTA update states using colors and effects (steady or fading).
-
-### Features
-
-* ✨ **Smooth fade blinking** for advertising and scanning states
-* 🟢 **Static colors** for stable statuses
-* 🎯 **Priority handling** to ensure the most critical state is always shown
-
-### Color Codes & Behavior
-
-| State                   | Color      | Behavior | Description                             |
-| ----------------------- | ---------  | -------- | --------------------------------------- |
-| 🔄 OTA update running   | 🟣 Purple | Fading   | Indicates firmware update in progress   |
-| 🤝 BLE client connected | 🟡 Yellow | Steady   | Device is actively connected via BLE    |
-| 📡 BLE advertising      | 🔵 Blue   | Fading   | BLE is active, waiting for a connection |
-| 📶 Wi-Fi scan running   | 🟡 Yellow | Fading   | Scanning for available Wi-Fi networks   |
-| 🌐 Wi-Fi connected      | 🟢 Green  | Steady   | Device is connected to a Wi-Fi network  |
-| ❌ Wi-Fi disconnected   | 🔴 Red    | Steady   | No Wi-Fi connection available           |
-
-## WebSocket Features
-
-This firmware includes a WebSocket handler that supports real-time, bidirectional communication between the device and the front-end interface.
-
-### 🔌 Supported WebSocket Message Types
-
-| Type                            | Description                                 |
-|-------------------------------- |---------------------------------------------|
-| `ON_COLOR`                      | Update the LED RGBA values                  |
-| `ON_BLE_STATUS`                 | Toggle Bluetooth ON/OFF                     |
-| `ON_DEVICE_NAME`                | Set the device name                         |
-| `ON_HTTP_CREDENTIALS`           | Update HTTP basic auth credentials          |
-| `ON_WIFI_STATUS`                | Connect to a Wi-Fi network                  |
-| `ON_WIFI_SCAN_STATUS`           | Trigger a Wi-Fi scan                        |
-| `ON_WIFI_DETAILS`               | Reserved for future                         |
-| `ON_OTA_PROGRESS`               | Reserved for future                         |
-| `ON_ALEXA_INTEGRATION_SETTINGS` | Update Alexa integration preferences        |
-
-Messages are binary-encoded and processed asynchronously to prevent blocking the main execution loop. RGBW sliders and Bluetooth control UI are bound directly to these messages via a browser-based WebSocket connection.
-
-## REST API
-
-The device exposes a RESTful interface for status retrieval and control.
-
-### 📍 Available Endpoints
-
-#### `GET /rest/state`
-Returns a JSON document with full system state:
-
-```json
-{
-  "deviceName": "rgbw-ctrl-of-you",
-  "firmwareVersion": "1.0.0",
-  "heap": 117380,
-  "wifi": {
-    "details": {
-      "ssid": "my-wifi",
-      "mac": "00:00:00:00:00:00",
-      "ip": "192.168.0.2",
-      "gateway": "192.168.0.1",
-      "subnet": "255.255.255.0",
-      "dns": "1.1.1.1"
-    },
-    "status": "CONNECTED"
-  },
-  "alexa": {
-    "mode": "rgbw_device",
-    "names": [
-      "led strip"
-    ]
-  },
-  "output": [
-    { "state": "off", "value": 255 },
-    { "state": "off", "value": 255 },
-    { "state": "off", "value": 255 },
-    { "state": "off", "value": 255 }
-  ],
-  "ble": {
-    "status": "OFF"
-  },
-  "ota": {
-    "state": "Idle"
-  }
-}
+```bash
+npm run build
 ```
 
-#### `GET /rest/system/restart`
-Restarts the device after sending a response.
+Deploy via GitHub Pages:
 
-#### `GET /rest/system/reset`
-Performs a factory reset (clears NVS), stops BLE, and restarts.
-
-#### `GET /rest/bluetooth?state=on|off`
-Enables or disables Bluetooth based on the query parameter.
-
-- `state=on` → enables BLE
-- `state=off` → disables BLE
+```bash
+npm run deploy
+```
 
 ---
 
-### 🔒 Authentication
+## 🔘 BOOT Button Behavior
 
-REST endpoints use the same authentication as the web server and OTA.
+* **Short Press (< 2.5s):** Toggle light on/off
+* **Long Press (> 2.5s):** Enable Bluetooth or reset its timeout
+* **Firmware Update Mode:** Hold BOOT, press RESET
 
-## OTA Update via Web Server
-
-This project includes support for OTA (Over-the-Air) firmware and filesystem updates via HTTP POST requests.
-
-### 📡 Supported Upload Targets
-
-* **Firmware**
-* **Filesystem** (works only with LittleFS partitions)
+Bluetooth auto-disables after 15 seconds if unused.
 
 ---
 
-### 🔒 Authentication
+## 💡 Board LED Status
 
-OTA endpoints are protected using Basic Authentication. Unauthorized requests receive `401 Unauthorized`.
+| State              | Color     | Behavior | Description                     |
+| ------------------ | --------- | -------- | ------------------------------- |
+| OTA update         | 🔮 Purple | Fading   | Firmware update in progress     |
+| BLE connected      | 🟡 Yellow | Steady   | Active BLE connection           |
+| BLE advertising    | 🔵 Blue   | Fading   | Waiting for BLE connection      |
+| Wi-Fi scanning     | 🟡 Yellow | Fading   | Searching for Wi-Fi networks    |
+| Wi-Fi connected    | 🟢 Green  | Steady   | Successfully connected to Wi-Fi |
+| Wi-Fi disconnected | 🔴 Red    | Steady   | No Wi-Fi connection available   |
 
 ---
 
-### 🔧 Endpoints
+## 🌐 REST API
 
-#### `POST /update`
+The device offers a simple HTTP-based control interface using `GET` requests. While it resembles a REST API, all actions (even mutable ones) use `GET` methods.
 
-Uploads a new firmware or filesystem image.
+### ✩ Endpoint Summary
 
-##### Parameters
+| Method | Path                 | Description                           |
+| ------ | -------------------- | ------------------------------------- |
+| GET    | `/state`             | Returns the current system state      |
+| GET    | `/bluetooth`         | Enables or disables Bluetooth         |
+| GET    | `/output/color`      | Updates the device color              |
+| GET    | `/output/brightness` | Sets uniform brightness               |
+| GET    | `/system/restart`    | Restarts the device                   |
+| GET    | `/system/reset`      | Resets the device to factory defaults |
 
-| Parameter | Type   | Required  | Description                          |
-| --------- | ------ | --------- | ------------------------------------ |
-| `name`    | string | ❌ No     | `filesystem` (default is firmware)   |
-| `md5`     | string | ❌ No     | 32-char hex string to validate file  |
+### 📘 Detailed Endpoints
 
-##### Example
+#### `GET /state`
 
-**Upload firmware:**
+Returns the complete system state as a JSON object.
 
-Example (firmware):
+#### `GET /output/color`
+
+Sets the RGBW LED color channels individually.
+
+* Parameters: `r`, `g`, `b`, `w` (0–255)
+* Example: `/output/color?r=255&g=100&b=50&w=0`
+* Turns channels ON automatically if value > 0.
+
+#### `GET /output/brightness`
+
+Applies a uniform brightness level to all channels.
+
+* Parameter: `value` (0–255)
+* Value of 0 turns channels OFF.
+
+#### `GET /bluetooth`
+
+Toggles Bluetooth functionality.
+
+* Parameter: `state=on` enables; any other value disables
+* Example: `/bluetooth?state=on`
+* Disabling Bluetooth causes the device to restart.
+
+#### `GET /system/restart`
+
+Restarts the device gracefully.
+
+#### `GET /system/reset`
+
+Performs a full factory reset (clears persistent storage) and restarts the device.
+
+### Notes
+
+* All endpoints return JSON and use the header:
+
+  ```
+  Cache-Control: no-store
+  ```
+* For true REST semantics, POST/PUT should replace some GETs.
+
+## 🔄 WebSocket Protocol
+
+Efficient binary-encoded control channel. Below are the supported message types:
+
+| Type                            | Description                                                           |
+| ------------------------------- | --------------------------------------------------------------------- |
+| `ON_HEAP`                       | Sends free heap memory info (sent periodically, not client-triggered) |
+| `ON_DEVICE_NAME`                | Updates the device name                                               |
+| `ON_FIRMWARE_VERSION`           | Sends current firmware version                                        |
+| `ON_COLOR`                      | Sets the RGBW LED output state                                        |
+| `ON_HTTP_CREDENTIALS`           | Updates HTTP basic authentication credentials                         |
+| `ON_BLE_STATUS`                 | Enables or disables Bluetooth advertising                             |
+| `ON_WIFI_STATUS`                | Sends current Wi-Fi connection status                                 |
+| `ON_WIFI_SCAN_STATUS`           | Triggers a scan for nearby Wi-Fi networks                             |
+| `ON_WIFI_DETAILS`               | Sends detailed Wi-Fi configuration information                        |
+| `ON_WIFI_CONNECTION_DETAILS`    | Connects to a Wi-Fi network using given credentials                   |
+| `ON_OTA_PROGRESS`               | Sends OTA firmware update progress status                             |
+| `ON_ALEXA_INTEGRATION_SETTINGS` | Updates Alexa integration preferences                                 |
+| `ON_ESP_NOW_DEVICES`            | Sends a list of ESP-NOW connected devices                             |
+| `ON_ESP_NOW_CONTROLLER`         | Sends the MAC address of the paired ESP-NOW controller                |
+
+---
+
+## 🔧 OTA Updates
+
+Firmware and filesystem updates are supported over-the-air using HTTP POST.
+
+### Endpoint
+
+* `POST /update`
+
+  * Parameters:
+
+    * `file`: Required firmware or filesystem binary
+    * `name`: Optional; use `filesystem` to indicate a filesystem image
+    * `md5`: Optional; 32-character hash for file integrity verification
+
+### Examples
 
 ```bash
 curl -u user:pass -F "file=@firmware.bin" http://<device-ip>/update
-```
-
-Example (filesystem):
-
-```bash
 curl -u user:pass -F "name=filesystem" -F "file=@littlefs.bin" http://<device-ip>/update
+curl -u user:pass -F "file=@firmware.bin" "http://<device-ip>/update?md5=<hash>"
 ```
 
-Example with MD5:
+### Notes
+
+* OTA updates are protected by Basic Auth
+* Only one upload is accepted at a time; others are rejected
+* If `md5` is provided and doesn't match, update is aborted
+* The device restarts automatically after a successful upload
+
+See full details in the [OtaHandler documentation](doc/OTA.md).
+
+---
+
+## 🛠️ Build & Flash
 
 ```bash
-curl -u user:pass -F "file=@firmware.bin" "http://<device-ip>/update?md5=d41d8cd98f00b204e9800998ecf8427e"
+cd filesystem && npm install && npm run build
+cd ../firmware && pio run -t upload
+pio run -t uploadfs  # or use curl + /update endpoint
 ```
 
 ---
 
-### 🔁 Auto-Restart
+## 📄 License
 
-After a successful OTA update, the device automatically restarts.
-No state is lost, and the new firmware or filesystem is immediately active.
-More details available in the [OtaHandler documentation](doc/OTA.md).
+MIT License. See [LICENSE](LICENSE).
 
+More info:
 
-## ⚙️ Building & flashing
-
-1. Build the filesystem assets:
-   ```bash
-   cd filesystem
-   npm install
-   npm run build
-   ```
-2. Compile and upload the firmware with PlatformIO:
-   ```bash
-   cd ../firmware
-   pio run -t upload
-   ```
-3. Upload the filesystem:
-   ```bash
-   pio run -t uploadfs   # via USB
-   # or
-   curl -u user:pass -F "name=filesystem" -F "file=@littlefs.bin" http://<device-ip>/update
-   ```
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
-See the subproject documentation for more details:
-
-- [firmware/README.md](firmware/README.md)
-- [filesystem/README.md](filesystem/README.md)
-- [app/README.md](app/README.md)
-- Additional docs in the [doc](doc) directory.
+* [firmware/README.md](firmware/README.md)
+* [filesystem/README.md](filesystem/README.md)
+* [app/README.md](app/README.md)
+* Docs in [`/doc`](doc) folder
