@@ -57,7 +57,8 @@
 </mat-card>
 
 <!-- Color Control -->
-<app-color-control *ngIf="initialized && characteristics.outputColor" [outputColorCharacteristic]="characteristics.outputColor"></app-color-control>
+<app-color-control *ngIf="initialized && characteristics.outputColor"
+                   [outputColorCharacteristic]="characteristics.outputColor"></app-color-control>
 
 <!-- WiFi Configuration -->
 <mat-card *ngIf="initialized">
@@ -209,7 +210,7 @@
 </mat-card>
 
 <!-- Alexa Integration -->
-<mat-card *ngIf="initialized">
+<mat-card *ngIf="initialized && characteristics.alexaSettings">
   <mat-card-header>
     <mat-card-title>
       <div>
@@ -414,8 +415,8 @@
   </mat-card-content>
 </mat-card>
 
-<!-- ESP_NOW -->
-<mat-card *ngIf="initialized">
+<!-- ESP_NOW Remotes -->
+<mat-card *ngIf="initialized && characteristics.espNowRemotes">
   <mat-card-header>
     <mat-card-title>
       <div>
@@ -488,6 +489,48 @@
           <button mat-stroked-button color="primary" type="button"
                   [disabled]="espNowDevicesForm.invalid || !connected || espNowDevicesForm.untouched"
                   (click)="saveEspNowDevices()">
+            Save
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </mat-card-content>
+</mat-card>
+
+<!-- ESP_NOW Controller -->
+<mat-card *ngIf="initialized && characteristics.espNowController">
+  <mat-card-header>
+    <mat-card-title>
+      <div>
+        <span>esp_now controller</span>
+      </div>
+      <button mat-stroked-button matTooltip="Reload server configurations"
+              (click)="readEspNowController()" [disabled]="readingEspNowController || !connected" class="scan-button">
+        <mat-progress-spinner *ngIf="readingEspNowController" diameter="20" mode="indeterminate"
+                              color="accent"></mat-progress-spinner>
+        Reload
+      </button>
+    </mat-card-title>
+  </mat-card-header>
+  <mat-card-content>
+    <mat-card appearance="outlined" style="margin-top: 0.5rem">
+      <mat-card-content>
+        <mat-form-field appearance="outline"
+                        floatLabel="always" style="width: 100%">
+          <mat-label>MAC Address</mat-label>
+          <input matInput [formControl]="espNowControllerForm" placeholder="XX:XX:XX:XX:XX:XX" autocomplete="off">
+          <mat-error *ngIf="espNowControllerForm.hasError('required')">
+            This field is required
+          </mat-error>
+          <mat-error *ngIf="espNowControllerForm.hasError('pattern')">
+            Invalid MAC address format. Use XX:XX:XX:XX:XX:XX
+          </mat-error>
+        </mat-form-field>
+        <div
+          style="place-self: end; margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem; grid-column: span 3">
+          <button mat-stroked-button color="primary" type="button"
+                  [disabled]="espNowControllerForm.invalid || !connected || espNowControllerForm.untouched"
+                  (click)="saveEspNowController()">
             Save
           </button>
         </div>

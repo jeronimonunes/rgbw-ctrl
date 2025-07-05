@@ -184,6 +184,11 @@ export function decodeOutputState(buffer: Uint8Array): OutputState {
   }
 }
 
+export function decodeEspNowController(data: Uint8Array) {
+  const address = macBytesToString(data);
+  return {address};
+}
+
 export function decodeEspNowDevice(data: Uint8Array): EspNowDevice[] {
   const count = data[0];
   const espNowDevices = new Array<EspNowDevice>(count);
@@ -195,7 +200,6 @@ export function decodeEspNowDevice(data: Uint8Array): EspNowDevice[] {
   }
   return espNowDevices;
 }
-
 
 export function decodeDeviceNameMessage(buffer: ArrayBuffer): WebSocketDeviceNameMessage {
   const data = new Uint8Array(buffer);

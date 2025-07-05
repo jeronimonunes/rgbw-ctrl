@@ -169,7 +169,13 @@ export function encodeWiFiScanStatusMessage(): Uint8Array {
   return new Uint8Array([WebSocketMessageType.ON_WIFI_SCAN_STATUS]);
 }
 
-export function encodeEspNowMessage(devices: EspNowDevice[]) {
+export function encodeEspNowController(address: string) {
+  const writer = new BufferWriter(new Uint8Array(6));
+  encodeMacAddress(address, writer);
+  return writer.buffer;
+}
+
+export function encodeEspNowDevices(devices: EspNowDevice[]) {
   const writer = new BufferWriter(new Uint8Array(1 + ESP_NOW_DEVICE_LENGTH * devices.length));
   writer.writeUint8(devices.length);
   devices.forEach(dev => encodeEspNowDevice(dev, writer));

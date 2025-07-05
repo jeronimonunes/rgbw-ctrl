@@ -11,6 +11,7 @@ import {
   BufferReader,
   decodeAlexaIntegrationSettings,
   decodeCString,
+  decodeEspNowController,
   decodeEspNowDevice,
   decodeHttpCredentials,
   decodeWiFiDetails,
@@ -18,7 +19,8 @@ import {
   decodeWiFiScanStatus,
   decodeWiFiStatus,
   encodeAlexaIntegrationSettings,
-  encodeEspNowMessage,
+  encodeEspNowController,
+  encodeEspNowDevices,
   encodeHttpCredentials,
   encodeWiFiConnectionDetails,
   ESP_NOW_DEVICE_NAME_MAX_LENGTH,
@@ -147,6 +149,7 @@ export class RgbwCtrlComponent implements OnDestroy {
   loadingAlexa: boolean = false;
   loadingHttpCredentials = false;
   readingEspNowDevices = false;
+  readingEspNowController = false;
 
   firmwareVersion: string | null = null;
   deviceName: string | null = null;
@@ -195,6 +198,11 @@ export class RgbwCtrlComponent implements OnDestroy {
     name: FormControl<string>,
     address: FormControl<string>
   }>>([], {validators: Validators.maxLength(ESP_NOW_MAX_DEVICES_PER_MESSAGE)});
+
+  espNowControllerForm = new FormControl<string>('', {
+    nonNullable: true,
+    validators: [Validators.required, Validators.pattern(/^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$/)]
+  });
 
   get scanning() {
     return this.wifiScanStatus === WiFiScanStatus.RUNNING;
@@ -281,6 +289,7 @@ export class RgbwCtrlComponent implements OnDestroy {
       await this.readWiFiScanResult();
       await this.readAlexaIntegration();
       await this.readEspNowDevices();
+      await this.readEspNowController();
       this.snackBar.open('Device connected', 'Close', {duration: 3000});
       this.initialized = true;
       if (this.wifiScanResult.length === 0) {
@@ -288,6 +297,7 @@ export class RgbwCtrlComponent implements OnDestroy {
       }
     } catch (error) {
       console.error(error);
+      this.disconnect();
       this.snackBar.open('Failed to connect to device', 'Close', {duration: 3000});
     } finally {
       loading.close();
@@ -431,7 +441,7 @@ export class RgbwCtrlComponent implements OnDestroy {
         nonNullable: true,
         validators: [
           Validators.required,
-          Validators.pattern(/^[0-9a-fA-F]{2}([:-][0-9a-fA-F]{2}){5}$/),
+          Validators.pattern(/^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$/),
           this.unique('address')
         ]
       })
@@ -458,11 +468,25 @@ export class RgbwCtrlComponent implements OnDestroy {
     }
   }
 
+  async saveEspNowController() {
+    const loading = this.matDialog.open(LoadingComponent, {disableClose: true});
+    try {
+      const value = this.espNowControllerForm.getRawValue();
+      const buffer = encodeEspNowController(value);
+      await this.characteristics.espNowController!.writeValue(buffer);
+    } catch (e) {
+      console.error('Failed to update ESP-NOW controller:', e);
+      this.snackBar.open('Failed to update ESP-NOW controller', 'Close', {duration: 3000});
+    } finally {
+      loading.close();
+    }
+  }
+
   async saveEspNowDevices() {
     const loading = this.matDialog.open(LoadingComponent, {disableClose: true});
     try {
       const value = this.espNowDevicesForm.getRawValue();
-      const buffer = encodeEspNowMessage(value);
+      const buffer = encodeEspNowDevices(value);
       await this.characteristics.espNowRemotes!.writeValue(buffer);
     } catch (e) {
       console.error('Failed to update ESP-NOW devices:', e);
@@ -513,26 +537,35 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   private async initBleOutputServices() {
-    const service = await this.server!.getPrimaryService(OUTPUT_SERVICE);
-    this.characteristics.outputColor = await service.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
+    try {
+      const service = await this.server!.getPrimaryService(OUTPUT_SERVICE);
+      this.characteristics.outputColor = await service.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
+    } catch (e) {
+      // This device does not support output color service
+    }
   }
 
   private async initBleAlexaServices() {
-    const service = await this.server!.getPrimaryService(ALEXA_SERVICE);
-    this.characteristics.alexaSettings = await service.getCharacteristic(ALEXA_SETTINGS_CHARACTERISTIC);
+    try {
+      const service = await this.server!.getPrimaryService(ALEXA_SERVICE);
+      this.characteristics.alexaSettings = await service.getCharacteristic(ALEXA_SETTINGS_CHARACTERISTIC);
+    } catch (e) {
+      // This device does not support Alexa integration service
+    }
   }
 
   private async initEspNowServices() {
-    const service = await this.server!.getPrimaryService(ESP_NOW_CONTROLLER_SERVICE);
     try {
+      const service = await this.server!.getPrimaryService(ESP_NOW_CONTROLLER_SERVICE);
       this.characteristics.espNowRemotes = await service.getCharacteristic(ESP_NOW_REMOTES_CHARACTERISTIC);
     } catch (e) {
-      console.error('This device does not support ESP-NOW remotes service:', e);
+      // This device does not support ESP-NOW remotes service
     }
     try {
+      const service = await this.server!.getPrimaryService(ESP_NOW_REMOTE_SERVICE);
       this.characteristics.espNowController = await service.getCharacteristic(ESP_NOW_CONTROLLER_CHARACTERISTIC);
     } catch (e) {
-      console.error('This device does not support ESP-NOW controller service:', e);
+      // This device does not support ESP-NOW controller service:
     }
   }
 
@@ -567,7 +600,12 @@ export class RgbwCtrlComponent implements OnDestroy {
     this.deviceHeap = view.getUint32(0, true);
   }
 
-  private espNowDevicesChangedChanged(view: DataView) {
+  private espNowControllerChanged(view: DataView) {
+    const {address} = decodeEspNowController(new Uint8Array(view.buffer));
+    this.espNowControllerForm.reset(address);
+  }
+
+  private espNowDevicesChanged(view: DataView) {
     const devices = decodeEspNowDevice(new Uint8Array(view.buffer));
     while (this.espNowDevicesForm.length > devices.length) {
       this.espNowDevicesForm.removeAt(0);
@@ -619,17 +657,30 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   private async readAlexaIntegration() {
-    const view = await this.characteristics.alexaSettings!.readValue();
+    if (!this.characteristics.alexaSettings) return;
+    const view = await this.characteristics.alexaSettings.readValue();
     const alexaDetails = decodeAlexaIntegrationSettings(new Uint8Array(view.buffer));
     this.resetAlexaIntegrationForm(alexaDetails.integrationMode);
     this.alexaIntegrationForm.reset(alexaDetails, {emitEvent: true});
   }
 
+  async readEspNowController() {
+    if (!this.characteristics.espNowController) return;
+    this.readingEspNowController = true;
+    try {
+      const view = await this.characteristics.espNowController.readValue();
+      this.espNowControllerChanged(view);
+    } finally {
+      this.readingEspNowController = false;
+    }
+  }
+
   async readEspNowDevices() {
+    if (!this.characteristics.espNowRemotes) return;
     this.readingEspNowDevices = true;
     try {
-      const view = await this.characteristics.espNowRemotes!.readValue();
-      this.espNowDevicesChangedChanged(view);
+      const view = await this.characteristics.espNowRemotes.readValue();
+      this.espNowDevicesChanged(view);
     } finally {
       this.readingEspNowDevices = false;
     }
