@@ -16,6 +16,7 @@
 * **WebSocket:** Low-latency bidirectional communication
 * **OTA Updates:** Update firmware and UI over HTTP
 * **Rotary Encoder Support:** Optional hardware input for manual brightness control and BLE activation
+* **ESP-NOW Remote Control:** Optional secondary firmware for wireless control
 
 ---
 
@@ -50,10 +51,11 @@ Functionality is built-in and automatically enabled if the encoder is connected.
 
 | Path          | Description                     |
 | ------------- | ------------------------------- |
-| `/firmware`   | PlatformIO-based ESP32 firmware |
+| `/firmware`   | PlatformIO-based ESP32 firmware (controller & remote) |
 | `/filesystem` | Web-based device UI             |
 | `/app`        | Angular configuration app       |
 | `/doc`        | Additional documentation        |
+| `/doc/REMOTE.md` | ESP-NOW remote firmware docs  |
 
 ---
 
@@ -75,11 +77,24 @@ Functionality is built-in and automatically enabled if the encoder is connected.
    cd ../firmware
    pio run -t upload
    ```
-4. Upload web UI files:
+4. (Optional) Build and upload the remote firmware:
 
    ```bash
-   pio run -t uploadfs
+   pio run -e remote -t upload
    ```
+5. Upload web UI files:
+
+   ```bash
+pio run -t uploadfs
+```
+
+---
+
+## 📡 Remote Firmware
+
+An additional PlatformIO environment builds `remote.cpp`, providing a wireless
+ESP-NOW remote for the controller. The remote shares the same BLE setup and OTA
+update flow as the main firmware. See [doc/REMOTE.md](doc/REMOTE.md) for details.
 
 ---
 
@@ -255,6 +270,8 @@ See full details in the [OtaHandler documentation](doc/OTA.md).
 cd filesystem && npm install && npm run build
 cd ../firmware && pio run -t upload
 pio run -t uploadfs  # or use curl + /update endpoint
+# to flash the optional ESP-NOW remote use:
+# pio run -e remote -t upload
 ```
 
 ---
@@ -268,4 +285,4 @@ More info:
 * [firmware/README.md](firmware/README.md)
 * [filesystem/README.md](filesystem/README.md)
 * [app/README.md](app/README.md)
-* Docs in [`/doc`](doc) folder
+* Docs in [`/doc`](doc) folder (see [ESP-NOW remote](doc/REMOTE.md))
