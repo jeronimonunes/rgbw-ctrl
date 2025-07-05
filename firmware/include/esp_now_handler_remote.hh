@@ -44,12 +44,12 @@ namespace EspNow
 
         void setControllerAddress(const std::array<uint8_t, MAC_LENGTH>& address)
         {
+            espNowAddPeer(address);
+            persist(address);
             {
                 std::lock_guard lock(getMutex());
                 controllerAddress = address;
             }
-            espNowAddPeer(address);
-            persist(address);
         }
 
         [[nodiscard]] bool hasControllerAddress() const
@@ -103,17 +103,16 @@ namespace EspNow
             }
         }
 
-        static void espNowAddPeer(const std::array<uint8_t, MAC_LENGTH> address)
+        static void espNowAddPeer(const std::array<uint8_t, MAC_LENGTH>& address)
         {
-            esp_now_peer_info_t peerInfo = {
-                .peer_addr = {},
-                .encrypt = false,
-                .priv = nullptr,
-            };
-            std::copy_n(address.begin(), address.size(), peerInfo.peer_addr);
-
             if (!esp_now_is_peer_exist(address.data()))
             {
+                esp_now_peer_info_t peerInfo = {
+                    .peer_addr = {},
+                    .encrypt = false,
+                    .priv = nullptr,
+                };
+                std::copy_n(address.begin(), address.size(), peerInfo.peer_addr);
                 if (esp_now_add_peer(&peerInfo) != ESP_OK)
                 {
                     esp_now_deinit();
@@ -136,9 +135,9 @@ namespace EspNow
 
         void espNowSend(const Message& message) const
         {
-            const auto address = getControllerAddress();
-            espNowAddPeer(address);
-            switch (esp_now_send(address.data(), reinterpret_cast<const uint8_t*>(&message), sizeof(message)))
+            std::lock_guard lock(getMutex());
+            espNowAddPeer(controllerAddress);
+            switch (esp_now_send(controllerAddress.data(), reinterpret_cast<const uint8_t*>(&message), sizeof(message)))
             {
             case ESP_ERR_ESPNOW_NOT_INIT:
                 ESP_LOGE(LOG_TAG, "ESPNOW is not initialized");
