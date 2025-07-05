@@ -1,13 +1,58 @@
 :host {
   display: flex;
   flex-direction: column;
+  padding: 2rem;
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+}
+
+h1 {
+  display: flex;
   align-items: center;
-  gap: 1.5rem;
-  width: 100%;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: var(--mat-sys-on-surface);
+
+  a {
+    display: flex;
+    align-items: center;
+  }
+
+  img {
+    height: 72px;
+    width: 72px;
+  }
 }
 
 mat-card {
-  min-width: 340px;
-  width: 100%;
-  max-width: 700px;
+  background-color: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface);
+  border: 1px solid var(--mat-sys-outline-variant);
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem;
+
+  h2 {
+    margin-top: 0;
+    text-align: center;
+    color: var(--mat-sys-on-surface);
+  }
+
+  ul {
+    list-style: none;
+    padding-left: 1.25rem;
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    li::before {
+      content: "• ";
+      color: var(--mat-sys-primary);
+      font-weight: bold;
+      margin-right: 0.5rem;
+    }
+  }
 }

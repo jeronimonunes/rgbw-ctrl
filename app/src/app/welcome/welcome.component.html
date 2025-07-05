@@ -1,23 +1,39 @@
-<h1 style="display: flex; place-items: center">
+<h1>
   <a routerLink="/">
     <img ngSrc="icon.svg" style="margin: 0.5rem" alt="TypeInfo Logo" matTooltip="TypeInfo Logo" height="72" width="72">
   </a>
-  rgbw-ctrl welcomes you
+  Welcome to rgbw-ctrl
 </h1>
-
 
 <mat-card appearance="outlined">
   <mat-card-content>
+    <h2>Smart RGBW Lighting. Your Way.</h2>
     <p>
-      rgbw-ctrl is an ESP32 RGBW LED controller with web-based configuration and Alexa support.
-      The firmware exposes Bluetooth Low Energy for initial setup, Wi‑Fi connectivity,
-      a REST API, real‑time WebSocket control and OTA updates.
+      <strong>rgbw-ctrl</strong> is a powerful and flexible controller designed for RGBW LED strips, powered by the
+      <strong>ESP32</strong>.
+      Whether you're building ambient lighting at home or integrating with smart home systems, this device gives you
+      complete control — wirelessly and effortlessly.
     </p>
     <p>
-      When you are ready, continue to the configuration page to connect and customize your device.
+      With a modern, web-based interface, setup is fast and intuitive. You can manage your lighting via Bluetooth,
+      Wi-Fi, or even integrate with <strong>Amazon Alexa</strong> for hands-free voice control.
+    </p>
+    <ul>
+      <li>🔌 Easy Bluetooth pairing and setup</li>
+      <li>🌐 Wi-Fi configuration and OTA firmware updates</li>
+      <li>🎨 Real-time color control with RGBW sliders</li>
+      <li>🔊 Alexa integration with multiple modes</li>
+      <li>📡 ESP-NOW support for remote triggering</li>
+      <li>📱 REST API and WebSocket control for developers</li>
+    </ul>
+    <p>
+      Whether you're an enthusiast or a maker, rgbw-ctrl is made to be reliable, extensible, and delightful to use.
+    </p>
+    <p>
+      Ready to get started?
     </p>
   </mat-card-content>
   <mat-card-actions align="end">
-    <a mat-raised-button color="primary" routerLink="/configure">Configure device</a>
+    <a mat-raised-button color="primary" routerLink="/configure">Go to Configuration</a>
   </mat-card-actions>
 </mat-card>
