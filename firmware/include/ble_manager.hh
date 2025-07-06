@@ -127,7 +127,10 @@ namespace BLE
         void startAdvertising()
         {
             const auto advertising = this->server->getAdvertising();
-            advertising->setName(deviceManager.getDeviceName());
+
+            NimBLEAdvertisementData scanRespData;
+            scanRespData.setName(deviceManager.getDeviceName());
+            advertising->setScanResponseData(scanRespData);
 
             advertising->setManufacturerData(advertisementData.data(), advertisementData.size());
             advertising->start();
