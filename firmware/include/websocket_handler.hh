@@ -178,7 +178,7 @@ namespace WebSocket
         void sendFirmwareVersionMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
         {
             std::array<char, 10> version = {};
-            std::strncpy(version.data(), FIRMWARE_VERSION, version.size() - 1);
+            std::strncpy(version.data(), DeviceManager::FIRMWARE_VERSION, version.size() - 1);
             version[version.size() - 1] = '\0';
             sendThrottledMessage<std::array<char, 10>, FirmwareVersionMessage>(
                 version, firmwareVersionThrottle, now, client);

@@ -188,7 +188,7 @@ namespace BLE
         {
             void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override
             {
-                pServer->getAdvertising()->start();
+                pServer->startAdvertising(); // NOLINT
             }
         };
     };

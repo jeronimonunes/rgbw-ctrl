@@ -6,7 +6,6 @@
 #include "NimBLEService.h"
 #include "NimBLECharacteristic.h"
 #include "throttled_value.hh"
-#include "version.hh"
 #include "ble_service.hh"
 #include "http_manager.hh"
 #include "state_json_filler.hh"
@@ -15,6 +14,8 @@
 class DeviceManager final : public BLE::Service, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
 {
 public:
+    static constexpr auto FIRMWARE_VERSION = "5.1.0";
+
     static constexpr auto DEVICE_BASE_NAME = "rgbw-ctrl-";
     static constexpr auto DEVICE_NAME_MAX_LENGTH = 28;
     static constexpr auto DEVICE_NAME_TOTAL_LENGTH = DEVICE_NAME_MAX_LENGTH + 1;
