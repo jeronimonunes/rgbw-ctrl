@@ -30,7 +30,7 @@ export class EditDeviceNameComponentDialog {
     validators: [
       Validators.required,
       Validators.minLength(1),
-      Validators.maxLength(this.DEVICE_NAME_MAX_LENGTH),
+      Validators.maxLength(this.DEVICE_NAME_MAX_LENGTH - this.DEVICE_NAME_PREFIX.length),
       Validators.pattern(/^[a-zA-Z0-9-]+(?<!-)$/)
     ]
   });
