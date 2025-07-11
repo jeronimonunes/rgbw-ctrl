@@ -109,6 +109,9 @@ namespace EspNow
             {
                 esp_now_peer_info_t peerInfo = {
                     .peer_addr = {},
+                    .lmk = {},
+                    .channel = 0,
+                    .ifidx = WIFI_IF_STA,
                     .encrypt = false,
                     .priv = nullptr,
                 };
