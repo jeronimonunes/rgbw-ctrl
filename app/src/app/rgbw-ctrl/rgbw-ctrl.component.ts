@@ -59,33 +59,37 @@ import {MatSliderModule} from '@angular/material/slider';
 import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {RouterLink} from '@angular/router';
 import {ColorControlComponent} from './color-control/color-control.component';
+import {
+  CalibrateInputVoltageDialogComponent
+} from './calibrate-input-voltage-dialog/calibrate-input-voltage-dialog.component';
 
 const DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890a0";
 const DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000";
 const DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
 const FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
 const DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
+const INPUT_VOLTAGE_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
 
 const HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890a1";
-const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
+const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
 
 const OUTPUT_SERVICE = "12345678-1234-1234-1234-1234567890a2";
-const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
+const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
 
 const ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890a3";
-const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
+const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
 
 const ESP_NOW_CONTROLLER_SERVICE = "12345678-1234-1234-1234-1234567890a4";
-const ESP_NOW_REMOTES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
+const ESP_NOW_REMOTES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
 
 const ESP_NOW_REMOTE_SERVICE = "12345678-1234-1234-1234-1234567890a5";
-const ESP_NOW_CONTROLLER_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
+const ESP_NOW_CONTROLLER_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
 
 const WIFI_SERVICE = "12345678-1234-1234-1234-1234567890a6";
-const WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
-const WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0010";
-const WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0011";
-const WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0012";
+const WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
+const WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
+const WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000c";
+const WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000d";
 
 @Component({
   selector: 'app-rgbw-ctrl',
@@ -136,6 +140,7 @@ export class RgbwCtrlComponent implements OnDestroy {
     httpCredentials?: BluetoothRemoteGATTCharacteristic,
     outputColor?: BluetoothRemoteGATTCharacteristic,
     deviceHeap?: BluetoothRemoteGATTCharacteristic,
+    inputVoltage?: BluetoothRemoteGATTCharacteristic,
     alexaSettings?: BluetoothRemoteGATTCharacteristic,
     espNowRemotes?: BluetoothRemoteGATTCharacteristic,
     espNowController?: BluetoothRemoteGATTCharacteristic,
@@ -154,6 +159,7 @@ export class RgbwCtrlComponent implements OnDestroy {
   firmwareVersion: string | null = null;
   deviceName: string | null = null;
   deviceHeap: number = 0;
+  inputVoltage: number = 0;
 
   wifiStatus: WiFiStatus = WiFiStatus.UNKNOWN;
   wifiScanStatus: WiFiScanStatus = WiFiScanStatus.NOT_STARTED;
@@ -377,6 +383,35 @@ export class RgbwCtrlComponent implements OnDestroy {
     }
   }
 
+  async calibrateInputVoltage() {
+    const loading = this.matDialog.open(LoadingComponent, {disableClose: true});
+    let milliVolts = 0;
+    let calibrationFactor = 1.0;
+    try {
+      const data = await this.characteristics.inputVoltage?.readValue();
+      milliVolts = data?.getUint32(0, true) || 0;
+      calibrationFactor = data?.getFloat32(4, true) || 1.0;
+    } finally {
+      loading.close();
+    }
+    const factor = await firstValueFrom(this.matDialog.open(CalibrateInputVoltageDialogComponent, {
+      data: {
+        milliVolts, calibrationFactor
+      }
+    }).afterClosed())
+    if (factor) {
+      try {
+        const view = new DataView(new ArrayBuffer(4));
+        view.setFloat32(0, factor, true);
+        await this.characteristics.inputVoltage?.writeValue(view);
+        this.snackBar.open('Input voltage calibration factor updated', 'Close', {duration: 3000});
+      } catch (e) {
+        console.error('Failed to update device name:', e);
+        this.snackBar.open('Failed to update input voltage calibration factor', 'Close', {duration: 3000});
+      }
+    }
+  }
+
   async loadAlexaIntegrationSettings() {
     this.loadingAlexa = true;
     await this.readAlexaIntegration();
@@ -528,6 +563,10 @@ export class RgbwCtrlComponent implements OnDestroy {
     this.characteristics.deviceHeap = await deviceDetailsService.getCharacteristic(DEVICE_HEAP_CHARACTERISTIC);
     this.characteristics.deviceHeap.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceHeapChanged(ev.target.value));
     await this.characteristics.deviceHeap.startNotifications();
+
+    this.characteristics.inputVoltage = await deviceDetailsService.getCharacteristic(INPUT_VOLTAGE_CHARACTERISTIC);
+    this.characteristics.inputVoltage.addEventListener('characteristicvaluechanged', (ev: any) => this.inputVoltageChanged(ev.target.value));
+    await this.characteristics.inputVoltage.startNotifications();
   }
 
   private async initHttpDetailsService() {
@@ -597,6 +636,12 @@ export class RgbwCtrlComponent implements OnDestroy {
 
   private deviceHeapChanged(view: DataView) {
     this.deviceHeap = view.getUint32(0, true);
+  }
+
+  private inputVoltageChanged(view: DataView) {
+    const milliVolts = view.getUint32(0, true);
+    const calibrationFactor = view.getFloat32(4, true);
+    this.inputVoltage = milliVolts * calibrationFactor / 1000;
   }
 
   private espNowControllerChanged(view: DataView) {

@@ -39,7 +39,7 @@
       <div class="info-item" style="margin-top: 1rem">
         <div class="label">Device Name</div>
         <span>{{ deviceName }}
-          <button mat-icon-button id="edit-device-name-button">
+          <button mat-icon-button class="mini-button" matTooltip="Change device name">
           <mat-icon (click)="editDeviceName()">settings</mat-icon>
         </button>
       </span>
@@ -51,6 +51,14 @@
       <div class="info-item">
         <div class="label">Free Heap:</div>
         <span>{{ deviceHeap | kb:3 }}</span>
+      </div>
+      <div class="info-item">
+        <div class="label">Input voltage:</div>
+        <span>{{ inputVoltage | number: '1.2-2' }} V
+          <button mat-icon-button class="mini-button" matTooltip="Calibrate input voltage">
+            <mat-icon (click)="calibrateInputVoltage()">settings</mat-icon>
+          </button>
+        </span>
       </div>
     </mat-card>
   </mat-card-content>
