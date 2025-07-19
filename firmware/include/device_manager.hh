@@ -15,7 +15,7 @@
 class DeviceManager final : public BLE::Service, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
 {
 public:
-    static constexpr auto FIRMWARE_VERSION = "6.0.0";
+    static constexpr auto FIRMWARE_VERSION = "6.0.1";
 
     static constexpr auto DEVICE_BASE_NAME = "rgbw-ctrl-";
     static constexpr auto DEVICE_NAME_MAX_LENGTH = 28;
