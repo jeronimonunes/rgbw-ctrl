@@ -63,33 +63,33 @@ import {
   CalibrateInputVoltageDialogComponent
 } from './calibrate-input-voltage-dialog/calibrate-input-voltage-dialog.component';
 
-const DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890a0";
-const DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0000";
-const DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
-const FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
-const DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
-const INPUT_VOLTAGE_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
+const DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-123456789000";
+const DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
+const DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
+const FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
+const DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
+const INPUT_VOLTAGE_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
 
-const HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-1234567890a1";
-const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
+const HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-123456789001";
+const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee1001";
 
-const OUTPUT_SERVICE = "12345678-1234-1234-1234-1234567890a2";
-const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
+const OUTPUT_SERVICE = "12345678-1234-1234-1234-123456789002";
+const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee2001";
 
-const ALEXA_SERVICE = "12345678-1234-1234-1234-1234567890a3";
-const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0007";
+const ALEXA_SERVICE = "12345678-1234-1234-1234-123456789003";
+const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee3001";
 
-const ESP_NOW_CONTROLLER_SERVICE = "12345678-1234-1234-1234-1234567890a4";
-const ESP_NOW_REMOTES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0008";
+const ESP_NOW_CONTROLLER_SERVICE = "12345678-1234-1234-1234-123456789004";
+const ESP_NOW_REMOTES_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee4001";
 
-const ESP_NOW_REMOTE_SERVICE = "12345678-1234-1234-1234-1234567890a5";
-const ESP_NOW_CONTROLLER_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0009";
+const ESP_NOW_REMOTE_SERVICE = "12345678-1234-1234-1234-123456789005";
+const ESP_NOW_CONTROLLER_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee5001";
 
-const WIFI_SERVICE = "12345678-1234-1234-1234-1234567890a6";
-const WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000a";
-const WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000b";
-const WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000c";
-const WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee000d";
+const WIFI_SERVICE = "12345678-1234-1234-1234-123456789006";
+const WIFI_DETAILS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee6001";
+const WIFI_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee6002";
+const WIFI_SCAN_STATUS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee6003";
+const WIFI_SCAN_RESULT_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee6004";
 
 @Component({
   selector: 'app-rgbw-ctrl',
