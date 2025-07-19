@@ -27,6 +27,10 @@ public:
     explicit PushButton(const gpio_num_t pin, const unsigned long thresholdMs = 2500)
         : pin(pin), longPressThresholdMs(thresholdMs)
     {
+    }
+
+    void begin() const
+    {
         pinMode(this->pin, INPUT_PULLUP);
     }
 

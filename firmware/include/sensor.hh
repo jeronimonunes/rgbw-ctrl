@@ -46,7 +46,7 @@ public:
 
         std::lock_guard lock(getSensorMutex());
         values = analogReadMilliVolts(pin);
-        ESP_LOGI(LOG_TAG, "Initialized on pin %d with initial value: %u mV", pin, static_cast<uint32_t>(values));
+        ESP_LOGI(LOG_TAG, "Initialized on pin %d with initial value: %lu mV", pin, static_cast<uint32_t>(values));
     }
 
     void handle(const unsigned long now)

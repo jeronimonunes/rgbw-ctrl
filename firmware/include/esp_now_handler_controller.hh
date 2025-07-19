@@ -172,7 +172,7 @@ namespace EspNow
 
         void fillState(const JsonObject& root) const override
         {
-            const auto& espNow = root["espNow"].to<JsonObject>();
+            const auto espNow = root["espNow"].to<JsonObject>();
             const auto arr = espNow["devices"].to<JsonArray>();
             std::lock_guard lock(getMutex());
             for (uint8_t i = 0; i < deviceData.deviceCount && i < DeviceData::MAX_DEVICES_PER_MESSAGE; ++i)

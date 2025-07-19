@@ -217,7 +217,7 @@ namespace OTA
 
                 if (!uploadCompleted)
                 {
-                    ESP_LOGW(LOG_TAG, "OTA upload incomplete: received %u of %u bytes",
+                    ESP_LOGW(LOG_TAG, "OTA upload incomplete: received %lu of %lu bytes",
                              handler.totalBytesReceived, handler.totalBytesExpected);
                     handler.status = Status::Idle;
                     request->send(500, "text/plain", MSG_UPLOAD_INCOMPLETE);

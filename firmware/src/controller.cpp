@@ -15,11 +15,7 @@
 #include "websocket_handler.hh"
 #include "esp_now_handler.hh"
 
-void startBle();
-void toggleOutput();
 void beginAlexaAndWebServer();
-void adjustBrightness(long);
-void encoderButtonPressed(unsigned long duration);
 void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, int len);
 
 static constexpr auto LOG_TAG = "Controller";
@@ -35,9 +31,9 @@ Output::Manager outputManager(ControllerHardware::Pin::Output::RED,
                               ControllerHardware::Pin::Output::BLUE,
                               ControllerHardware::Pin::Output::WHITE);
 
+PushButton rotaryEncoderButton(ControllerHardware::Pin::Header::H1::P3);
 RotaryEncoderManager rotaryEncoderManager(ControllerHardware::Pin::Header::H1::P1,
                                           ControllerHardware::Pin::Header::H1::P2,
-                                          ControllerHardware::Pin::Header::H1::P3,
                                           ControllerHardware::Pin::Header::H1::P4);
 
 WiFiManager wifiManager;
@@ -87,17 +83,25 @@ void setup()
 
     boardLED.begin();
     outputManager.begin();
-    rotaryEncoderManager.begin();
-    wifiManager.begin();
     deviceManager.begin();
     esp_now_init();
     esp_now_register_recv_cb(onDataReceived);
     espNowHandler.begin();
+
+    wifiManager.begin();
     wifiManager.setGotIpCallback(beginAlexaAndWebServer);
-    boardButton.setLongPressCallback(startBle);
-    boardButton.setShortPressCallback(toggleOutput);
-    rotaryEncoderManager.onChanged(adjustBrightness);
-    rotaryEncoderManager.onPressed(encoderButtonPressed);
+
+    boardButton.setLongPressCallback([] { bleManager.start(); });
+    boardButton.setShortPressCallback([] { outputManager.toggleAll(); });
+    boardButton.begin();
+
+    rotaryEncoderButton.setLongPressCallback([] { bleManager.start(); });
+    rotaryEncoderButton.setShortPressCallback([] { outputManager.toggleAll(); });
+    rotaryEncoderButton.begin();
+
+    rotaryEncoderManager.onTurnLeft([] { outputManager.increaseBrightness(); });
+    rotaryEncoderManager.onTurnRight([] { outputManager.decreaseBrightness(); });
+    rotaryEncoderManager.begin();
 
     LittleFS.begin(true);
     if (const auto credentials = WiFiManager::loadCredentials())
@@ -113,6 +117,7 @@ void loop()
 
     bleManager.handle(now);
     boardButton.handle(now);
+    rotaryEncoderButton.handle(now);
     deviceManager.handle(now);
     outputManager.handle(now);
     webSocketHandler.handle(now);
@@ -125,42 +130,8 @@ void loop()
         wifiManager.getStatus(),
         otaHandler.getStatus() == OTA::Status::Started
     );
+    vTaskDelay(pdMS_TO_TICKS(1));
 }
-
-void toggleOutput()
-{
-    outputManager.toggleAll();
-}
-
-void startBle()
-{
-    bleManager.start();
-}
-
-
-void adjustBrightness(const long value)
-{
-    if (value > 0)
-        outputManager.increaseBrightness();
-    else if (value < 0)
-        outputManager.decreaseBrightness();
-    rotaryEncoderManager.setEncoderValue(0);
-}
-
-void encoderButtonPressed(const unsigned long duration)
-{
-    if (duration < 2500)
-    {
-        outputManager.toggleAll();
-        ESP_LOGI("Encoder", "Short press detected, toggling output");
-    }
-    else
-    {
-        bleManager.start();
-        ESP_LOGI("Encoder", "Long press detected, starting BLE server");
-    }
-}
-
 
 void beginAlexaAndWebServer()
 {

@@ -232,7 +232,7 @@ namespace Output
 
         void fillState(const JsonObject& root) const override
         {
-            const auto& arr = root["output"].to<JsonArray>();
+            const auto arr = root["output"].to<JsonArray>();
             for (const auto& light : lights)
                 light.toJson(arr.add<JsonObject>());
         }

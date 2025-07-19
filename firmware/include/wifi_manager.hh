@@ -217,7 +217,7 @@ public:
         if (const int result = WiFi.scanComplete(); result == WIFI_SCAN_RUNNING || result >= 0)
             WiFi.scanDelete();
 
-        WiFi.disconnect(true);
+        WiFi.disconnect();
 
         if (isEap(details))
             connect(details.ssid.data(), details.credentials.eap);
@@ -424,7 +424,7 @@ private:
 public:
     void fillState(const JsonObject& obj) const override
     {
-        const auto& wifi = obj["wifi"].to<JsonObject>();
+        const auto wifi = obj["wifi"].to<JsonObject>();
         WiFiDetails::toJson(wifi["details"].to<JsonObject>());
         wifi["status"] = wifiStatusString(wifiStatus);
     }
@@ -517,7 +517,10 @@ public:
                 return;
             }
             memcpy(&details, pCharacteristic->getValue().data(), sizeof(WiFiConnectionDetails));
-            wifiManager->connect(details);
+            async_call([details, this]
+            {
+                wifiManager->connect(details);
+            }, 4096, 0);
         }
     };
 

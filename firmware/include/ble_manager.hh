@@ -114,7 +114,7 @@ namespace BLE
 
         void fillState(const JsonObject& root) const override
         {
-            const auto& ble = root["ble"].to<JsonObject>();
+            const auto ble = root["ble"].to<JsonObject>();
             ble["status"] = getStatusString();
         }
 

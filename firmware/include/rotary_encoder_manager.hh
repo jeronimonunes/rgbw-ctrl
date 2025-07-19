@@ -1,51 +1,85 @@
 #pragma once
 
-#include <ESP32RotaryEncoder.h>
+#include "base/iot_knob.h"
 
 class RotaryEncoderManager
 {
-    RotaryEncoder rotaryEncoder;
+    static constexpr const char* LOG_TAG = "RotaryEncoderManager";
+
+    const gpio_num_t pinA;
+    const gpio_num_t pinB;
+    const gpio_num_t groundPin;
+    const gpio_num_t vccPin;
+
+    knob_handle_t knob;
+    std::function<void()> turnLeftCallback;
+    std::function<void()> turnRightCallback;
+
+    static void _knob_left_cb(void*, void* data)
+    {
+        if (const auto self = static_cast<RotaryEncoderManager*>(data);
+            self->turnLeftCallback)
+            self->turnLeftCallback();
+    }
+
+    static void _knob_right_cb(void*, void* data)
+    {
+        if (const auto self = static_cast<RotaryEncoderManager*>(data);
+            self->turnRightCallback)
+            self->turnRightCallback();
+    }
 
 public:
     explicit RotaryEncoderManager(const gpio_num_t pinA,
                                   const gpio_num_t pinB,
-                                  const gpio_num_t pinButton,
                                   const gpio_num_t groundPin = GPIO_NUM_NC,
                                   const gpio_num_t vccPin = GPIO_NUM_NC
-    ): rotaryEncoder(pinA, pinB, pinButton)
+    ) : pinA(pinA), pinB(pinB), groundPin(groundPin), vccPin(vccPin), knob(nullptr),
+        turnLeftCallback(nullptr), turnRightCallback(nullptr)
     {
-        if (groundPin != GPIO_NUM_NC)
-        {
-            pinMode(groundPin, OUTPUT);
-            digitalWrite(groundPin, LOW);
-            this->rotaryEncoder.setEncoderType(FLOATING);
-        }
-        if (vccPin != GPIO_NUM_NC)
-        {
-            pinMode(vccPin, OUTPUT);
-            digitalWrite(vccPin, HIGH);
-            this->rotaryEncoder.setEncoderType(HAS_PULLUP);
-        }
+    }
+
+    ~RotaryEncoderManager()
+    {
+        iot_knob_delete(knob);
     }
 
 
     void begin()
     {
-        this->rotaryEncoder.begin(true);
+        const knob_config_t cfg = {
+            .default_direction = 0,
+            .gpio_encoder_a = static_cast<uint8_t>(pinA),
+            .gpio_encoder_b = static_cast<uint8_t>(pinB),
+        };
+        knob = iot_knob_create(&cfg);
+        iot_knob_register_cb(knob, KNOB_LEFT, _knob_left_cb, this);
+        iot_knob_register_cb(knob, KNOB_RIGHT, _knob_right_cb, this);
+
+        if (groundPin != GPIO_NUM_NC)
+        {
+            pinMode(groundPin, OUTPUT);
+            digitalWrite(groundPin, LOW);
+        }
+        if (vccPin != GPIO_NUM_NC)
+        {
+            pinMode(vccPin, OUTPUT);
+            digitalWrite(vccPin, HIGH);
+        }
     }
 
-    void onChanged(const std::function<void(long)>& callback)
+    void onTurnLeft(const std::function<void()>& callback)
     {
-        this->rotaryEncoder.onTurned(callback);
+        this->turnLeftCallback = callback;
     }
 
-    void onPressed(const std::function<void(unsigned long)>& callback)
+    void onTurnRight(const std::function<void()>& callback)
     {
-        this->rotaryEncoder.onPressed(callback);
+        this->turnRightCallback = callback;
     }
 
-    void setEncoderValue(const long i)
-    {
-        this->rotaryEncoder.setEncoderValue(i);
-    }
+    // void onPressed(const std::function<void(unsigned long)>& callback)
+    // {
+    //     this->rotaryEncoder.onPressed(callback);
+    // }
 };

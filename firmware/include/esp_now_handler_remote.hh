@@ -170,7 +170,7 @@ namespace EspNow
         void fillState(const JsonObject& root) const override
         {
             const auto address = getControllerAddress();
-            const auto& espNow = root["espNow"].to<JsonObject>();
+            const auto espNow = root["espNow"].to<JsonObject>();
             char macString[18] = {};
             snprintf(macString, sizeof(macString), "%02X:%02X:%02X:%02X:%02X:%02X",
                      address[0], address[1], address[2], address[3], address[4], address[5]);
