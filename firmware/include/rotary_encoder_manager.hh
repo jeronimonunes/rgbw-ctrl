@@ -4,7 +4,7 @@
 
 class RotaryEncoderManager
 {
-    static constexpr const char* LOG_TAG = "RotaryEncoderManager";
+    static constexpr auto LOG_TAG = "RotaryEncoderManager";
 
     const gpio_num_t pinA;
     const gpio_num_t pinB;
@@ -41,7 +41,8 @@ public:
 
     ~RotaryEncoderManager()
     {
-        iot_knob_delete(knob);
+        if (knob != nullptr)
+            iot_knob_delete(knob);
     }
 
 
@@ -77,9 +78,4 @@ public:
     {
         this->turnRightCallback = callback;
     }
-
-    // void onPressed(const std::function<void(unsigned long)>& callback)
-    // {
-    //     this->rotaryEncoder.onPressed(callback);
-    // }
 };

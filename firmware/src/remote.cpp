@@ -11,19 +11,15 @@
 #include "rotary_encoder_manager.hh"
 #include "websocket_handler.hh"
 
-void startBle();
-void toggleOutput();
 void beginWebServer();
-void adjustBrightness(long);
-void encoderButtonPressed(unsigned long duration);
 
 static constexpr auto LOG_TAG = "Remote";
 
 PushButton boardButton(RemoteHardware::Pin::Button::BUTTON1);
 
+PushButton rotaryEncoderButton(RemoteHardware::Pin::Header::H1::P3);
 RotaryEncoderManager rotaryEncoderManager(RemoteHardware::Pin::Header::H1::P1,
                                           RemoteHardware::Pin::Header::H1::P2,
-                                          RemoteHardware::Pin::Header::H1::P3,
                                           RemoteHardware::Pin::Header::H1::P4);
 
 WiFiManager wifiManager;
@@ -66,14 +62,21 @@ void setup()
 {
     ESP_LOGI(LOG_TAG, "Starting controller");
     rotaryEncoderManager.begin();
+    rotaryEncoderButton.begin();
     wifiManager.begin();
     deviceManager.begin();
     remoteEspNowHandler.begin();
+
     wifiManager.setGotIpCallback(beginWebServer);
-    boardButton.setLongPressCallback(startBle);
-    boardButton.setShortPressCallback(toggleOutput);
-    rotaryEncoderManager.onChanged(adjustBrightness);
-    rotaryEncoderManager.onPressed(encoderButtonPressed);
+
+    boardButton.setLongPressCallback([] { bleManager.start(); });
+    boardButton.setShortPressCallback([] { remoteEspNowHandler.send(EspNow::Message::Type::ToggleAll); });
+
+    rotaryEncoderManager.onTurnLeft([] { remoteEspNowHandler.send(EspNow::Message::Type::DecreaseBrightness); });
+    rotaryEncoderManager.onTurnRight([] { remoteEspNowHandler.send(EspNow::Message::Type::IncreaseBrightness); });
+
+    rotaryEncoderButton.setLongPressCallback([] { bleManager.start(); });
+    rotaryEncoderButton.setShortPressCallback([] { remoteEspNowHandler.send(EspNow::Message::Type::ToggleAll); });
 
     LittleFS.begin(true);
     if (const auto credentials = WiFiManager::loadCredentials())
@@ -91,40 +94,8 @@ void loop()
     boardButton.handle(now);
     deviceManager.handle(now);
     webSocketHandler.handle(now);
-}
-
-void toggleOutput()
-{
-    remoteEspNowHandler.send(EspNow::Message::Type::ToggleAll);
-}
-
-void startBle()
-{
-    bleManager.start();
-}
-
-
-void adjustBrightness(const long value)
-{
-    if (value > 0)
-        remoteEspNowHandler.send(EspNow::Message::Type::IncreaseBrightness);
-    else if (value < 0)
-        remoteEspNowHandler.send(EspNow::Message::Type::DecreaseBrightness);
-    rotaryEncoderManager.setEncoderValue(0);
-}
-
-void encoderButtonPressed(const unsigned long duration)
-{
-    if (duration < 2500)
-    {
-        remoteEspNowHandler.send(EspNow::Message::Type::ToggleAll);
-        ESP_LOGI("Encoder", "Short press detected, toggling output");
-    }
-    else
-    {
-        bleManager.start();
-        ESP_LOGI("Encoder", "Long press detected, starting BLE server");
-    }
+    rotaryEncoderButton.handle(now);
+    delay(1);
 }
 
 
