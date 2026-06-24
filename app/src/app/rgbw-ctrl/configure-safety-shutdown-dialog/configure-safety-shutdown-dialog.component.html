@@ -1,0 +1,27 @@
+<h2 mat-dialog-title>Shutdown Safety</h2>
+<mat-dialog-content [formGroup]="form" style="display: grid">
+  <mat-form-field>
+    <mat-select placeholder="Shutdown Mode" formControlName="mode">
+      <mat-option *ngFor="let mode of shutdownModes" [value]="mode.value">
+        {{ mode.label }}
+      </mat-option>
+    </mat-select>
+  </mat-form-field>
+  <mat-form-field>
+    <input matInput placeholder="Device Name" formControlName="voltage" (keyup.enter)="submit()"/>
+    <mat-error *ngIf="form.hasError('required', 'voltage')">A value is required.</mat-error>
+    <mat-error *ngIf="form.hasError('min', 'voltage')">
+      The value should be greater than 0
+    </mat-error>
+    <mat-error *ngIf="form.hasError('max', 'voltage')">
+      The value should be smaller than 36
+    </mat-error>
+  </mat-form-field>
+</mat-dialog-content>
+<mat-dialog-actions>
+  <button mat-button mat-dialog-close>Cancel</button>
+  <button mat-stroked-button [mat-dialog-close]="form.value"
+          color="primary" [disabled]="form.invalid">
+    Save
+  </button>
+</mat-dialog-actions>

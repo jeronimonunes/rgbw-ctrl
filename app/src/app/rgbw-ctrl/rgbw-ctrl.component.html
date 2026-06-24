@@ -60,6 +60,15 @@
           </button>
         </span>
       </div>
+      <div class="info-item">
+        <div class="label">Safety Shutdown voltage:</div>
+        <span>Mode: {{ shutdownVoltageLabel }}</span>
+        <span>{{ safetyShutdownVoltage | number: '1.2-2' }} V
+          <button mat-icon-button class="mini-button" matTooltip="Calibrate input voltage">
+            <mat-icon (click)="calibrateSafetyShutdownVoltage()">settings</mat-icon>
+          </button>
+        </span>
+      </div>
     </mat-card>
   </mat-card-content>
 </mat-card>

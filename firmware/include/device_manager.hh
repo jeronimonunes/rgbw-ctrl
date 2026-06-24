@@ -25,7 +25,7 @@ private:
     static constexpr auto LOG_TAG = "DeviceManager";
     static constexpr auto PREFERENCES_NAME = "device-config";
 
-    Sensor sensor{ControllerHardware::Pin::Input::VOLTAGE};
+    Sensor& sensor;
 
     NimBLECharacteristic* bleDeviceNameCharacteristic = nullptr;
     NimBLECharacteristic* bleDeviceHeapCharacteristic = nullptr;
@@ -37,15 +37,17 @@ private:
     unsigned long lastVoltageNotification = 0;
 
 public:
+    explicit DeviceManager(Sensor& sensor) : sensor(sensor)
+    {
+    }
+
     void begin()
     {
-        sensor.begin();
         WiFi.mode(WIFI_MODE_STA); // NOLINT
     }
 
     void handle(const unsigned long now)
     {
-        sensor.handle(now);
         sendHeapNotification(now);
         sendInputVoltageNotification(now);
     }

@@ -1,7 +1,7 @@
 <h2 mat-dialog-title>Calibrate input voltage</h2>
 <mat-dialog-content>
   <mat-form-field>
-    <input matInput placeholder="Device Name" [formControl]="calibrationFactor" (keyup.enter)="submit()"/>
+    <input matInput placeholder="Calibration factor" [formControl]="calibrationFactor" (keyup.enter)="submit()"/>
     <mat-error *ngIf="calibrationFactor.hasError('required')">A value is required.</mat-error>
     <mat-error *ngIf="calibrationFactor.hasError('min')">
     The value should be greater than 0

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <Arduino.h>
 #include <Preferences.h>
 #include "moving_average.hh"

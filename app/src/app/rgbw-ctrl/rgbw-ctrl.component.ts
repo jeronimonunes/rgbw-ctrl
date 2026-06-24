@@ -62,6 +62,9 @@ import {ColorControlComponent} from './color-control/color-control.component';
 import {
   CalibrateInputVoltageDialogComponent
 } from './calibrate-input-voltage-dialog/calibrate-input-voltage-dialog.component';
+import {
+  ConfigureSafetyShutdownDialogComponent
+} from './configure-safety-shutdown-dialog/configure-safety-shutdown-dialog.component';
 
 const DEVICE_DETAILS_SERVICE = "12345678-1234-1234-1234-123456789000";
 const DEVICE_RESTART_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001";
@@ -75,6 +78,7 @@ const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee1001";
 
 const OUTPUT_SERVICE = "12345678-1234-1234-1234-123456789002";
 const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee2001";
+const SAFETY_SHUTDOWN_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee2002";
 
 const ALEXA_SERVICE = "12345678-1234-1234-1234-123456789003";
 const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee3001";
@@ -139,6 +143,7 @@ export class RgbwCtrlComponent implements OnDestroy {
     firmwareVersion?: BluetoothRemoteGATTCharacteristic,
     httpCredentials?: BluetoothRemoteGATTCharacteristic,
     outputColor?: BluetoothRemoteGATTCharacteristic,
+    safetyShutdown?: BluetoothRemoteGATTCharacteristic,
     deviceHeap?: BluetoothRemoteGATTCharacteristic,
     inputVoltage?: BluetoothRemoteGATTCharacteristic,
     alexaSettings?: BluetoothRemoteGATTCharacteristic,
@@ -160,6 +165,8 @@ export class RgbwCtrlComponent implements OnDestroy {
   deviceName: string | null = null;
   deviceHeap: number = 0;
   inputVoltage: number = 0;
+  safetyShutdownVoltage: number = 0;
+  safetyShutdownMode: number = 0;
 
   wifiStatus: WiFiStatus = WiFiStatus.UNKNOWN;
   wifiScanStatus: WiFiScanStatus = WiFiScanStatus.NOT_STARTED;
@@ -295,6 +302,7 @@ export class RgbwCtrlComponent implements OnDestroy {
       await this.readAlexaIntegration();
       await this.readEspNowDevices();
       await this.readEspNowController();
+      await this.readSafetyShutdown();
       this.snackBar.open('Device connected', 'Close', {duration: 3000});
       this.initialized = true;
       if (this.wifiScanResult.length === 0) {
@@ -408,6 +416,27 @@ export class RgbwCtrlComponent implements OnDestroy {
       } catch (e) {
         console.error('Failed to update device name:', e);
         this.snackBar.open('Failed to update input voltage calibration factor', 'Close', {duration: 3000});
+      }
+    }
+  }
+
+  async calibrateSafetyShutdownVoltage() {
+    if (!this.characteristics.safetyShutdown) return;
+    const config = await firstValueFrom(this.matDialog.open(ConfigureSafetyShutdownDialogComponent, {
+      data: {
+        voltage: this.safetyShutdownVoltage, mode: this.safetyShutdownMode
+      }
+    }).afterClosed())
+    if (config) {
+      try {
+        const view = new DataView(new ArrayBuffer(3));
+        view.setUint16(0, config.voltage * 1000, true);
+        view.setUint8(2, config.mode);
+        await this.characteristics.safetyShutdown.writeValue(view);
+        this.snackBar.open('Safety shutdown configuration updated', 'Close', {duration: 3000});
+      } catch (e) {
+        console.error('Failed to update safety shutdown configuration', e);
+        this.snackBar.open('Failed to update safety shutdown configuration', 'Close', {duration: 3000});
       }
     }
   }
@@ -578,6 +607,10 @@ export class RgbwCtrlComponent implements OnDestroy {
     try {
       const service = await this.server!.getPrimaryService(OUTPUT_SERVICE);
       this.characteristics.outputColor = await service.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
+
+      this.characteristics.safetyShutdown = await service.getCharacteristic(SAFETY_SHUTDOWN_CHARACTERISTIC);
+      this.characteristics.safetyShutdown.addEventListener('characteristicvaluechanged', (ev: any) => this.safetyShutdownChanged(ev.target.value));
+      await this.characteristics.safetyShutdown.startNotifications();
     } catch (e) {
       // This device does not support output color service
     }
@@ -642,6 +675,12 @@ export class RgbwCtrlComponent implements OnDestroy {
     const milliVolts = view.getUint32(0, true);
     const calibrationFactor = view.getFloat32(4, true);
     this.inputVoltage = milliVolts * calibrationFactor / 1000;
+  }
+
+  private safetyShutdownChanged(view: DataView) {
+    const milliVolts = view.getUint16(0, true);
+    this.safetyShutdownVoltage = milliVolts / 1000;
+    this.safetyShutdownMode = view.getUint8(2);
   }
 
   private espNowControllerChanged(view: DataView) {
@@ -730,6 +769,12 @@ export class RgbwCtrlComponent implements OnDestroy {
     }
   }
 
+  async readSafetyShutdown() {
+    if (!this.characteristics.safetyShutdown) return;
+    const view = await this.characteristics.safetyShutdown.readValue();
+    this.safetyShutdownChanged(view);
+  }
+
   private async sendWifiConfig(details: Uint8Array) {
     let loading = this.matDialog.open(LoadingComponent, {disableClose: true});
     try {
@@ -784,4 +829,9 @@ export class RgbwCtrlComponent implements OnDestroy {
         break;
     }
   }
+
+  get shutdownVoltageLabel(): string {
+    return ['Disabled', 'Full', 'Phased'][this.safetyShutdownMode];
+  }
+
 }

@@ -33,6 +33,7 @@ namespace BLE
 
         static constexpr auto OUTPUT_SERVICE = "12345678-1234-1234-1234-123456789002";
         static constexpr auto OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee2001";
+        static constexpr auto SAFETY_SHUTDOWN_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee2002";
 
         static constexpr auto ALEXA_SERVICE = "12345678-1234-1234-1234-123456789003";
         static constexpr auto ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee3001";

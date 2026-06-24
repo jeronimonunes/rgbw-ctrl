@@ -26,10 +26,13 @@ BoardLED boardLED(ControllerHardware::Pin::BoardLed::RED,
 
 PushButton boardButton(ControllerHardware::Pin::Button::BUTTON1);
 
+Sensor sensor{ControllerHardware::Pin::Input::VOLTAGE};
+
 Output::Manager outputManager(ControllerHardware::Pin::Output::RED,
                               ControllerHardware::Pin::Output::GREEN,
                               ControllerHardware::Pin::Output::BLUE,
-                              ControllerHardware::Pin::Output::WHITE);
+                              ControllerHardware::Pin::Output::WHITE,
+                              sensor);
 
 PushButton rotaryEncoderButton(ControllerHardware::Pin::Header::H1::P3);
 RotaryEncoderManager rotaryEncoderManager(ControllerHardware::Pin::Header::H1::P1,
@@ -38,7 +41,7 @@ RotaryEncoderManager rotaryEncoderManager(ControllerHardware::Pin::Header::H1::P
 
 WiFiManager wifiManager;
 HTTP::Manager httpManager;
-DeviceManager deviceManager;
+DeviceManager deviceManager(sensor);
 EspNow::ControllerHandler espNowHandler;
 AlexaIntegration alexaIntegration(outputManager);
 OTA::Handler otaHandler(httpManager.getAuthenticationMiddleware());
@@ -81,6 +84,7 @@ void setup()
 {
     ESP_LOGI(LOG_TAG, "Starting controller");
 
+    sensor.begin();
     boardLED.begin();
     outputManager.begin();
     deviceManager.begin();
@@ -115,6 +119,7 @@ void loop()
 {
     const auto now = millis();
 
+    sensor.handle(now);
     bleManager.handle(now);
     boardButton.handle(now);
     rotaryEncoderButton.handle(now);
