@@ -5,8 +5,9 @@
 #include <cmath>
 
 #include "controller_hardware.hh"
+#include "state_json_filler.hh"
 
-class Light
+class Light : public StateJsonFiller
 {
 public:
 #pragma pack(push, 1)
@@ -23,12 +24,6 @@ public:
         bool operator !=(const State& other) const
         {
             return on != other.on || value != other.value;
-        }
-
-        void toJson(const JsonObject& to) const
-        {
-            to["on"] = on;
-            to["value"] = value;
         }
     };
 #pragma pack(pop)
@@ -129,7 +124,7 @@ public:
         snprintf(valueKey, sizeof(valueKey), "%02uv", static_cast<unsigned>(pin));
     }
 
-    ~Light()
+    ~Light() override
     {
         prefs.end();
     }
@@ -176,9 +171,9 @@ public:
         update();
     }
 
-    void setState(const State& state)
+    void setState(const State& s)
     {
-        this->state = state;
+        this->state = s;
         update();
     }
 
@@ -189,9 +184,10 @@ public:
             state.value = MAX_BRIGHTNESS;
     }
 
-    void toJson(const JsonObject& to) const
+    void fillState(const JsonObject& to) const override
     {
-        state.toJson(to);
+        to["on"] = this->state.on;
+        to["value"] = this->state.value;
     }
 
     [[nodiscard]] bool isOn() const { return state.on; }

@@ -3,7 +3,9 @@
 #include <Arduino.h>
 #include <Preferences.h>
 
-class SafetyShutdown
+#include "state_json_filler.hh"
+
+class SafetyShutdown : public StateJsonFiller
 {
 public:
     enum class Mode: uint8_t
@@ -19,28 +21,27 @@ private:
     static constexpr auto PREFERENCES_MODE_KEY = "m";
     static constexpr auto LOG_TAG = "Safety Shutdown";
 
-    static constexpr uint16_t DEFAULT_SAFETY_SHUTDOWN_VOLTAGE = 22000;
+    static constexpr uint16_t DEFAULT_SAFETY_SHUTDOWN_MILLI_VOLTS = 22000;
     static constexpr auto DEFAULT_SAFETY_SHUTDOWN_MODE = Mode::OFF;
 
 public:
 #pragma pack(push, 1)
     struct Data
     {
-        uint16_t milliVolts;
+        uint16_t shutdownMilliVolts;
         Mode mode;
     };
 #pragma pack(pop)
 
 private:
 
-    uint16_t milliVolts = DEFAULT_SAFETY_SHUTDOWN_VOLTAGE;
-    Mode mode = DEFAULT_SAFETY_SHUTDOWN_MODE;
+    Data config {DEFAULT_SAFETY_SHUTDOWN_MILLI_VOLTS, DEFAULT_SAFETY_SHUTDOWN_MODE };
 
     [[nodiscard]] static Data loadConfigurations()
     {
         Preferences prefs;
         prefs.begin(PREFERENCES_NAME, true);
-        const auto shutdownVoltage = prefs.getUShort(PREFERENCES_VOLTAGE_KEY, DEFAULT_SAFETY_SHUTDOWN_VOLTAGE);
+        const auto shutdownVoltage = prefs.getUShort(PREFERENCES_VOLTAGE_KEY, DEFAULT_SAFETY_SHUTDOWN_MILLI_VOLTS);
         const auto shutdownMode = prefs.getUChar(PREFERENCES_MODE_KEY,
                                                  static_cast<uint8_t>(DEFAULT_SAFETY_SHUTDOWN_MODE));
         prefs.end();
@@ -51,7 +52,7 @@ private:
     {
         Preferences prefs;
         prefs.begin(PREFERENCES_NAME);
-        prefs.putUShort(PREFERENCES_VOLTAGE_KEY, data.milliVolts);
+        prefs.putUShort(PREFERENCES_VOLTAGE_KEY, data.shutdownMilliVolts);
         prefs.putUChar(PREFERENCES_MODE_KEY, static_cast<uint8_t>(data.mode));
         prefs.end();
     }
@@ -61,31 +62,40 @@ public:
 
     void begin()
     {
-        auto [mv, m] = loadConfigurations();
-        this->milliVolts = mv;
-        this->mode = m;
+        this->config = loadConfigurations();
     }
 
-    [[nodiscard]] Mode shutdownMode(float voltage) const
+    [[nodiscard]] Mode shutdownMode(const float voltage) const
     {
-        if (this->mode == Mode::OFF)
+        if (this->config.mode == Mode::OFF)
             return Mode::OFF;
-        if (voltage < static_cast<float>(this->milliVolts) / 1000.0f)
+        if (voltage < static_cast<float>(this->config.shutdownMilliVolts) / 1000.0f)
         {
-            return this->mode;
+            return this->config.mode;
         }
         return Mode::OFF;
     }
 
     [[nodiscard]] Data getData() const
     {
-        return Data{this->milliVolts, this->mode};
+        return this->config;
     }
 
-    void setData(const Data& data)
+    void setConfig(const Data& data)
     {
-        this->milliVolts = data.milliVolts;
-        this->mode = data.mode;
+        this->config = data;
         saveConfigurations(data);
+    }
+
+    void fillState(const JsonObject& obj) const override
+    {
+        obj["shutdownMilliVolts"] = this->config.shutdownMilliVolts;
+        switch (this->config.mode)
+        {
+            case Mode::OFF: obj["mode"] = "OFF"; break;
+            case Mode::FULL: obj["mode"] = "FULL"; break;
+            case Mode::PHASED: obj["mode"] = "PHASED"; break;
+            default : obj["mode"] = "UNKNOWN";
+        }
     }
 };

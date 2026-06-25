@@ -15,7 +15,7 @@
 class DeviceManager final : public BLE::Service, public StateJsonFiller, public HTTP::AsyncWebHandlerCreator
 {
 public:
-    static constexpr auto FIRMWARE_VERSION = "6.0.1";
+    static constexpr auto FIRMWARE_VERSION = "6.1.0";
 
     static constexpr auto DEVICE_BASE_NAME = "rgbw-ctrl-";
     static constexpr auto DEVICE_NAME_MAX_LENGTH = 28;
@@ -111,6 +111,7 @@ public:
     {
         root["deviceName"] = getDeviceName();
         root["firmwareVersion"] = FIRMWARE_VERSION;
+        root["inputVoltage"] = this->sensor.getVoltage();
         root["heap"] = esp_get_free_heap_size();
     }
 

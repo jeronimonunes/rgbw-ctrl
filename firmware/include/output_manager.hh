@@ -290,7 +290,8 @@ namespace Output
         {
             const auto arr = root["output"].to<JsonArray>();
             for (const auto& light : lights)
-                light.toJson(arr.add<JsonObject>());
+                light.fillState(arr.add<JsonObject>());
+            safetyShutdown.fillState(root["safetyShutdown"].to<JsonObject>());
         }
 
         AsyncWebHandler* createAsyncWebHandler() override
@@ -464,7 +465,7 @@ namespace Output
                 }
                 SafetyShutdown::Data safetyShutdownData = {};
                 memcpy(&safetyShutdownData, pCharacteristic->getValue().data(), sizeof(SafetyShutdown::Data));
-                safetyShutdown.setData(safetyShutdownData);
+                safetyShutdown.setConfig(safetyShutdownData);
                 pCharacteristic->notify(); // NOLINT
                 ESP_LOGI(LOG_TAG, "Safety shutdown changed by BLE");
             }
