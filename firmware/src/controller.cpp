@@ -11,10 +11,10 @@
 #include "push_button.hh"
 #include "ota_handler.hh"
 #include "state_rest_handler.hh"
-#include "rotary_encoder_manager.hh"
 #include "websocket_handler.hh"
 #include "esp_now_handler.hh"
 #include "safety-shutdown.hh"
+#include "switch.hh"
 
 void beginAlexaAndWebServer();
 void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, int len);
@@ -36,10 +36,12 @@ Output::Manager outputManager(ControllerHardware::Pin::Output::RED,
                               sensor);
 
 SafetyShutdown safetyShutdown(sensor, outputManager);
-PushButton rotaryEncoderButton(ControllerHardware::Pin::Header::H1::P3);
-RotaryEncoderManager rotaryEncoderManager(ControllerHardware::Pin::Header::H1::P1,
-                                          ControllerHardware::Pin::Header::H1::P2,
-                                          ControllerHardware::Pin::Header::H1::P4);
+std::array switches{
+    Switch(ControllerHardware::Pin::Header::H1::P1),
+    Switch(ControllerHardware::Pin::Header::H1::P2),
+    Switch(ControllerHardware::Pin::Header::H1::P3),
+    Switch(ControllerHardware::Pin::Header::H1::P4),
+};
 
 WiFiManager wifiManager;
 HTTP::Manager httpManager;
@@ -106,13 +108,11 @@ void setup()
     boardButton.setShortPressCallback([] { outputManager.toggleAll(); });
     boardButton.begin();
 
-    rotaryEncoderButton.setLongPressCallback([] { bleManager.start(); });
-    rotaryEncoderButton.setShortPressCallback([] { outputManager.toggleAll(); });
-    rotaryEncoderButton.begin();
-
-    rotaryEncoderManager.onTurnLeft([] { outputManager.increaseBrightness(); });
-    rotaryEncoderManager.onTurnRight([] { outputManager.decreaseBrightness(); });
-    rotaryEncoderManager.begin();
+    for (auto& sw : switches)
+    {
+        sw.onChanged([](auto v) { outputManager.toggleAll(); });
+        sw.begin();
+    }
 
     LittleFS.begin(true);
     if (const auto credentials = WiFiManager::loadCredentials())
@@ -130,7 +130,6 @@ void loop()
     sensor.handle(now);
     bleManager.handle(now);
     boardButton.handle(now);
-    rotaryEncoderButton.handle(now);
     deviceManager.handle(now);
     outputManager.handle(now);
     webSocketHandler.handle(now);
@@ -144,6 +143,10 @@ void loop()
         wifiManager.getStatus(),
         otaHandler.getStatus() == OTA::Status::Started
     );
+
+    for (auto& sw : switches)
+        sw.handle(now);
+
     vTaskDelay(pdMS_TO_TICKS(1));
 }
 
