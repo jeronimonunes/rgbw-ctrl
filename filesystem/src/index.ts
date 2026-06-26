@@ -22,16 +22,18 @@ import {
   decodeWebSocketOnOtaProgressMessage,
   decodeWebSocketWiFiDetailsMessage,
   decodeWebSocketWiFiStatusMessage,
+  decodeSensorDataMessage,
+  decodeSafetyShutdownDataMessage,
   EspNowDevice,
   LightState,
   otaStatusToString,
   WebSocketMessageType,
   WiFiDetails,
-  wifiStatusToString
+  wifiStatusToString,
+  numberToIp,
+  alexaModeToString
 } from "../../app/src/app/model"
 import {resetSystem, restartSystem} from "../../app/src/app/http-requests.ts";
-import {numberToIp} from "../../app/src/app/model/decode.utils.ts";
-import {alexaModeToString} from "../../app/src/app/model/alexa-integration-settings.model.ts";
 
 const sliders = Array.from(document.querySelectorAll<HTMLInputElement>('label.slider input[type="range"]'));
 const switches = Array.from(document.querySelectorAll<HTMLInputElement>('label.switch input[type="checkbox"]'));
@@ -113,6 +115,23 @@ webSocketHandlers.set(WebSocketMessageType.ON_DEVICE_NAME, (message: ArrayBuffer
   updateText("device-name", deviceName);
 });
 
+webSocketHandlers.set(WebSocketMessageType.ON_SENSOR_DATA, (message: ArrayBuffer) => {
+  const { calibrationFactor, milliVolts } = decodeSensorDataMessage(message);
+  updateText("input-voltage", (calibrationFactor * milliVolts / 1000).toFixed(3));
+});
+
+webSocketHandlers.set(WebSocketMessageType.ON_SAFETY_SHUTDOWN_DATA, (message: ArrayBuffer) => {
+  const { mode, shutdownMilliVolts} = decodeSafetyShutdownDataMessage(message);
+  updateText("safety-shutdown-mode", mode);
+  const pStyle = document.getElementById("safety-shutdown-voltage")!.parentElement!.style;
+  if (mode === "OFF") {
+    pStyle.display = "none";
+  } else {
+    pStyle.display = "block";
+    updateText("safety-shutdown-voltage", (shutdownMilliVolts / 1000).toFixed(3));
+  }
+});
+
 webSocketHandlers.set(WebSocketMessageType.ON_OTA_PROGRESS, (message: ArrayBuffer) => {
   const {status, totalBytesExpected, totalBytesReceived} = decodeWebSocketOnOtaProgressMessage(message);
   const percentage = totalBytesExpected > 0
@@ -170,6 +189,12 @@ webSocketHandlers.set(WebSocketMessageType.ON_ALEXA_INTEGRATION_SETTINGS, (messa
   document.getElementById("alexa-info")!.style.display = "block";
   updateText("alexa-mode", alexaModeToString(integrationMode));
   updateText("alexa-names", [rDeviceName, gDeviceName, bDeviceName, wDeviceName].filter(Boolean).join(", "));
+  const pStyle = document.getElementById("alexa-names")!.parentElement!.style;
+  if (rDeviceName || gDeviceName || bDeviceName || wDeviceName) {
+    pStyle.display = "block";
+  } else {
+    pStyle.display = "none";
+  }
 });
 
 function updateWiFiDetails(details: WiFiDetails) {

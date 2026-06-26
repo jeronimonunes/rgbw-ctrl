@@ -30,6 +30,16 @@ public:
     {
         uint16_t shutdownMilliVolts;
         Mode mode;
+
+        bool operator==(const Data& other) const
+        {
+            return shutdownMilliVolts == other.shutdownMilliVolts && mode == other.mode;
+        }
+
+        bool operator!=(const Data& other) const
+        {
+            return shutdownMilliVolts != other.shutdownMilliVolts || mode != other.mode;
+        }
     };
 #pragma pack(pop)
 

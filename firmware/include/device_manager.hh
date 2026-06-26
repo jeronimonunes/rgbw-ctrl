@@ -306,7 +306,7 @@ private:
             }
             float factor = 0;
             memcpy(&factor, pCharacteristic->getValue().data(), sizeof(float));
-            Sensor::setCalibrationFactor(factor);
+            sensor.setCalibrationFactor(factor);
             ESP_LOGI(LOG_TAG, "Calibration factor updated via BLE: %.3f", factor);
         }
     };

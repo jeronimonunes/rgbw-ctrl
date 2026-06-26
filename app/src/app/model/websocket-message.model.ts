@@ -23,6 +23,8 @@ export enum WebSocketMessageType {
   ON_ALEXA_INTEGRATION_SETTINGS,
   ON_ESP_NOW_DEVICES,
   ON_ESP_NOW_CONTROLLER,
+  ON_SENSOR_DATA,
+  ON_SAFETY_SHUTDOWN_DATA
 }
 
 export interface WebSocketColorMessage {
@@ -104,6 +106,18 @@ export interface WebSocketAlexaIntegrationSettingsMessage {
   settings: AlexaIntegrationSettings;
 }
 
+export interface WebSocketSensorDataMessage {
+  type: WebSocketMessageType.ON_SENSOR_DATA;
+  milliVolts: number;
+  calibrationFactor: number;
+}
+
+export interface WebSocketSafetyShutdownDataMessage {
+  type: WebSocketMessageType.ON_SAFETY_SHUTDOWN_DATA;
+  shutdownMilliVolts: number;
+  mode: "OFF" | "ALL" | "FULL" | "PHASED" | "UNKNOWN";
+}
+
 export type WebSocketMessage =
   | WebSocketColorMessage
   | WebSocketHttpCredentialsMessage
@@ -117,4 +131,6 @@ export type WebSocketMessage =
   | WebSocketOtaProgressMessage
   | WebSocketEspNowDevicesMessage
   | WebSocketFirmwareVersionMessage
-  | WebSocketWiFiDetailsMessage;
+  | WebSocketWiFiDetailsMessage
+  | WebSocketSensorDataMessage
+  | WebSocketSafetyShutdownDataMessage;

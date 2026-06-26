@@ -278,6 +278,11 @@ namespace Output
             return output;
         }
 
+        [[nodiscard]] SafetyShutdown::Data getSafetyShutdownData() const
+        {
+            return safetyShutdown.getData();
+        }
+
         [[nodiscard]] State getState() const
         {
             std::array<Light::State, 4> state;

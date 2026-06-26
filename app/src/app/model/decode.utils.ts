@@ -29,8 +29,10 @@ import {
   WebSocketHeapInfoMessage,
   WebSocketMessageType,
   WebSocketOtaProgressMessage,
+  WebSocketSensorDataMessage,
   WebSocketWiFiDetailsMessage,
-  WebSocketWiFiStatusMessage
+  WebSocketWiFiStatusMessage,
+  WebSocketSafetyShutdownDataMessage
 } from './websocket-message.model';
 import {LightState} from './light.model';
 import {OUTPUT_STATE_BYTE_SIZE, OutputState} from './output.model';
@@ -206,6 +208,34 @@ export function decodeDeviceNameMessage(buffer: ArrayBuffer): WebSocketDeviceNam
   const data = new Uint8Array(buffer);
   const deviceName = decodeCString(data.subarray(1));
   return {type: WebSocketMessageType.ON_DEVICE_NAME, deviceName};
+}
+
+export function decodeSensorDataMessage(buffer: ArrayBuffer): WebSocketSensorDataMessage {
+  const data = new DataView(buffer);
+  const milliVolts = data.getUint32(1, true);
+  const calibrationFactor = data.getFloat32(5, true);
+  return {type: WebSocketMessageType.ON_SENSOR_DATA, milliVolts, calibrationFactor};
+}
+
+export function decodeSafetyShutdownDataMessage(buffer: ArrayBuffer): WebSocketSafetyShutdownDataMessage {
+  const data = new DataView(buffer);
+  const shutdownMilliVolts = data.getUint16(1, true);
+  const numericMode = data.getUint8(3);
+  let mode: WebSocketSafetyShutdownDataMessage["mode"];
+  switch (numericMode) {
+    case 0:
+      mode = "OFF";
+      break;
+    case 1:
+      mode = "ALL";
+      break;
+    case 2:
+      mode = "PHASED";
+      break;
+    default:
+      mode = "UNKNOWN";
+  }
+  return {type: WebSocketMessageType.ON_SAFETY_SHUTDOWN_DATA, shutdownMilliVolts, mode};
 }
 
 export function decodeWebSocketOnBleStatusMessage(buffer: ArrayBuffer): WebSocketBleStatusMessage {

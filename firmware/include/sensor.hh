@@ -22,6 +22,16 @@ public:
     {
         uint32_t milliVolts; // Raw millivolts
         float calibrationFactor;
+
+        bool operator==(const Data& other) const
+        {
+            return milliVolts == other.milliVolts && calibrationFactor == other.calibrationFactor;
+        }
+
+        bool operator!=(const Data& other) const
+        {
+            return milliVolts != other.milliVolts || calibrationFactor != other.calibrationFactor;
+        }
     };
 #pragma pack(pop)
 
@@ -29,6 +39,7 @@ private:
     const gpio_num_t pin;
     unsigned long lastReadTime = 0;
     MovingAverage<uint32_t, 20> values{};
+    float calibrationFactor = DEFAULT_CALIBRATION_FACTOR;
 
     static std::mutex& getSensorMutex()
     {
@@ -47,6 +58,7 @@ public:
 
         std::lock_guard lock(getSensorMutex());
         values = analogReadMilliVolts(pin);
+        calibrationFactor = readCalibrationFactor();
         ESP_LOGI(LOG_TAG, "Initialized on pin %d with initial value: %lu mV", pin, static_cast<uint32_t>(values));
     }
 
@@ -70,7 +82,24 @@ public:
         return static_cast<float>(getRawMillivolts()) * getCalibrationFactor() / 1000.0f;
     }
 
-    [[nodiscard]] static float getCalibrationFactor()
+    [[nodiscard]] float getCalibrationFactor() const
+    {
+        return this->calibrationFactor;
+    }
+
+    void setCalibrationFactor(const float factor)
+    {
+        this->calibrationFactor = factor;
+        saveCalibrationFactor(factor);
+    }
+
+    [[nodiscard]] Data getData() const
+    {
+        return Data{getRawMillivolts(), getCalibrationFactor()};
+    }
+
+private:
+    [[nodiscard]] static float readCalibrationFactor()
     {
         Preferences prefs;
         prefs.begin(PREFERENCES_NAME, true);
@@ -79,16 +108,11 @@ public:
         return value;
     }
 
-    static void setCalibrationFactor(const float factor)
+    static void saveCalibrationFactor(const float factor)
     {
         Preferences prefs;
         prefs.begin(PREFERENCES_NAME, false);
         prefs.putFloat(PREFERENCES_KEY, factor);
         prefs.end();
-    }
-
-    [[nodiscard]] Data getData() const
-    {
-        return Data{getRawMillivolts(), getCalibrationFactor()};
     }
 };

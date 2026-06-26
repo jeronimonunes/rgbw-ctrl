@@ -25,7 +25,9 @@ namespace WebSocket
             ON_OTA_PROGRESS,
             ON_ALEXA_INTEGRATION_SETTINGS,
             ON_ESP_NOW_DEVICES,
-            ON_ESP_NOW_CONTROLLER
+            ON_ESP_NOW_CONTROLLER,
+            ON_SENSOR_DATA,
+            ON_SAFETY_SHUTDOWN_DATA
         };
 
         Type type;
@@ -120,6 +122,26 @@ namespace WebSocket
 
         explicit AlexaIntegrationSettingsMessage(const AlexaIntegration::Settings& settings)
             : Message(Type::ON_ALEXA_INTEGRATION_SETTINGS), settings(settings)
+        {
+        }
+    };
+
+    struct SensorDataMessage : Message
+    {
+        Sensor::Data data;
+
+        explicit SensorDataMessage(const Sensor::Data& data)
+            : Message(Type::ON_SENSOR_DATA), data(data)
+        {
+        }
+    };
+
+    struct SafetyShutdownDataMessage : Message
+    {
+        SafetyShutdown::Data data;
+
+        explicit SafetyShutdownDataMessage(const SafetyShutdown::Data& data)
+            : Message(Type::ON_SAFETY_SHUTDOWN_DATA), data(data)
         {
         }
     };

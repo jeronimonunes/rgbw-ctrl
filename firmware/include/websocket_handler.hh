@@ -22,6 +22,7 @@ namespace WebSocket
         DeviceManager* deviceManager;
         EspNow::ControllerHandler* controllerEspNowHandler;
         EspNow::RemoteHandler* remoteEspNowHandler;
+        Sensor* sensor;
 
         AsyncWebSocket ws = AsyncWebSocket("/ws");
 
@@ -35,6 +36,8 @@ namespace WebSocket
         ThrottledValue<WiFiDetails> wifiDetailsThrottle{200};
         ThrottledValue<WiFiStatus> wifiStatusThrottle{200};
         ThrottledValue<AlexaIntegration::Settings> alexaSettingsThrottle{200};
+        ThrottledValue<Sensor::Data> sensorDataThrottle{500};
+        ThrottledValue<SafetyShutdown::Data> safetyShutdownThrottle{200};
 
         unsigned long lastSentHeapInfo = 0;
 
@@ -48,7 +51,8 @@ namespace WebSocket
             BLE::Manager* bleManager,
             DeviceManager* deviceManager,
             EspNow::ControllerHandler* controllerEspNowHandler,
-            EspNow::RemoteHandler* remoteEspNowHandler
+            EspNow::RemoteHandler* remoteEspNowHandler,
+            Sensor* sensor
         )
             :
             outputManager(outputManager),
@@ -59,7 +63,8 @@ namespace WebSocket
             bleManager(bleManager),
             deviceManager(deviceManager),
             controllerEspNowHandler(controllerEspNowHandler),
-            remoteEspNowHandler(remoteEspNowHandler)
+            remoteEspNowHandler(remoteEspNowHandler),
+            sensor(sensor)
         {
             ws.onEvent([this](AsyncWebSocket*, AsyncWebSocketClient* client,
                               const AwsEventType type, void* arg, const uint8_t* data,
@@ -120,6 +125,8 @@ namespace WebSocket
             sendWiFiDetailsMessage(now, client);
             sendWiFiStatusMessage(now, client);
             sendAlexaIntegrationSettingsMessage(now, client);
+            sendSensorDataMessage(now, client);
+            sendSafetyShutdownDataMessage(now, client);
         }
 
         void sendOutputColorMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
@@ -203,6 +210,20 @@ namespace WebSocket
             if (alexaIntegration == nullptr) return;
             sendThrottledMessage<AlexaIntegration::Settings, AlexaIntegrationSettingsMessage>(
                 alexaIntegration->getSettings(), alexaSettingsThrottle, now, client);
+        }
+
+        void sendSensorDataMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
+        {
+            if (sensor == nullptr) return;
+            sendThrottledMessage<Sensor::Data, SensorDataMessage>(
+                sensor->getData(), sensorDataThrottle, now, client);
+        }
+
+        void sendSafetyShutdownDataMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
+        {
+            if (outputManager == nullptr) return;
+            sendThrottledMessage<SafetyShutdown::Data, SafetyShutdownDataMessage>(
+                outputManager->getSafetyShutdownData(), safetyShutdownThrottle, now, client);
         }
 
         // --------------------  Message Handling --------------------

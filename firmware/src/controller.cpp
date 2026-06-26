@@ -68,7 +68,8 @@ WebSocket::Handler webSocketHandler(&outputManager,
                                     &bleManager,
                                     &deviceManager,
                                     &espNowHandler,
-                                    nullptr);
+                                    nullptr,
+                                    &sensor);
 
 StateRestHandler stateRestHandler({
     &deviceManager,

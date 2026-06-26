@@ -228,6 +228,8 @@ Efficient binary-encoded control channel. Below are the supported message types:
 | `ON_ALEXA_INTEGRATION_SETTINGS` | Updates Alexa integration preferences                                 |
 | `ON_ESP_NOW_DEVICES`            | Sends a list of ESP-NOW connected devices                             |
 | `ON_ESP_NOW_CONTROLLER`         | Sends the MAC address of the paired ESP-NOW controller                |
+| `ON_SENSOR_DATA`                | Sends sensor data from the device                                     |
+| `ON_SAFETY_SHUTDOWN_DATA`       | Sends safety shutdown data from the device                            |
 
 ---
 
