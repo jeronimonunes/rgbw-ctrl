@@ -8,7 +8,6 @@
 #include <algorithm>
 
 #include "ble_service.hh"
-#include "safety-shutdown.hh"
 #include "http_manager.hh"
 #include "sensor.hh"
 #include "state_json_filler.hh"
@@ -57,10 +56,8 @@ namespace Output
         static_assert(static_cast<size_t>(Color::White) < 4, "Color enum out of bounds");
 
         NimBLECharacteristic* bleOutputColorCharacteristic = nullptr;
-        NimBLECharacteristic* bleSafetyShutdownCharacteristic = nullptr;
         ThrottledValue<State> colorNotificationThrottle{500};
         Sensor& sensor;
-        SafetyShutdown safetyShutdown;
 
     public:
         explicit Manager(const gpio_num_t red,
@@ -69,70 +66,26 @@ namespace Output
                          const gpio_num_t white,
                          Sensor& sensor)
             : lights{
-                Light(red, false),
-                Light(green, false),
-                Light(blue, false),
-                Light(white, false)
-            },
-            sensor(sensor)
+                  Light(red, false),
+                  Light(green, false),
+                  Light(blue, false),
+                  Light(white, false)
+              },
+              sensor(sensor)
         {
         }
 
         void begin()
         {
-            safetyShutdown.begin();
             for (auto& light : lights)
                 light.setup();
         }
 
         void handle(const unsigned long now)
         {
-            this->handleSafetyShutdown(now);
             for (auto& light : lights)
                 light.handle(now);
             sendColorNotification(now);
-        }
-
-        void handleSafetyShutdown(const unsigned long now)
-        {
-            static unsigned long lastRun = now;
-            if (now - lastRun < 3000) return;
-            lastRun = now;
-
-            switch (safetyShutdown.shutdownMode(sensor.getVoltage()))
-            {
-            case SafetyShutdown::Mode::OFF:
-                break;
-            case SafetyShutdown::Mode::FULL:
-                this->turnOffAll();
-                break;
-            case SafetyShutdown::Mode::PHASED:
-                this->phasedShutdown();
-                break;
-            }
-        }
-
-        void phasedShutdown()
-        {
-            if (this->isOn(Color::Red))
-            {
-                this->turnOff(Color::Red);
-                return;
-            }
-            if (this->isOn(Color::Green))
-            {
-                this->turnOff(Color::Green);
-                return;
-            }
-            if (this->isOn(Color::Blue))
-            {
-                this->turnOff(Color::Blue);
-                return;
-            }
-            if (this->isOn(Color::White))
-            {
-                this->turnOff(Color::White);
-            }
         }
 
         void setValue(const uint8_t value, Color color)
@@ -278,11 +231,6 @@ namespace Output
             return output;
         }
 
-        [[nodiscard]] SafetyShutdown::Data getSafetyShutdownData() const
-        {
-            return safetyShutdown.getData();
-        }
-
         [[nodiscard]] State getState() const
         {
             std::array<Light::State, 4> state;
@@ -296,7 +244,6 @@ namespace Output
             const auto arr = root["output"].to<JsonArray>();
             for (const auto& light : lights)
                 light.fillState(arr.add<JsonObject>());
-            safetyShutdown.fillState(root["safetyShutdown"].to<JsonObject>());
         }
 
         AsyncWebHandler* createAsyncWebHandler() override
@@ -304,7 +251,7 @@ namespace Output
             return new AsyncRestWebHandler(this);
         }
 
-        void createServiceAndCharacteristics(NimBLEServer* server) override
+        NimBLEService* createServiceAndCharacteristics(NimBLEServer* server) override
         {
             ESP_LOGI(LOG_TAG, "Creating BLE services and characteristics");
             std::lock_guard bleLock(getBleMutex());
@@ -315,14 +262,8 @@ namespace Output
             );
             bleOutputColorCharacteristic->setCallbacks(new OutputColorCallback(this));
 
-            bleSafetyShutdownCharacteristic = service->createCharacteristic(
-                BLE::UUID::SAFETY_SHUTDOWN_CHARACTERISTIC,
-                READ | WRITE | NOTIFY
-            );
-            bleSafetyShutdownCharacteristic->setCallbacks(new SafetyShutdownCallback(safetyShutdown));
-
-            service->start();
             ESP_LOGI(LOG_TAG, "DONE creating BLE services and characteristics");
+            return service;
         }
 
         void clearServiceAndCharacteristics() override
@@ -333,13 +274,13 @@ namespace Output
             ESP_LOGI(LOG_TAG, "DONE clearing all BLE saved pointers");
         }
 
+    private:
         static std::mutex& getBleMutex()
         {
             static std::mutex bleMutex;
             return bleMutex;
         }
 
-    private:
         void sendColorNotification(const unsigned long now)
         {
             std::lock_guard bleLock(getBleMutex());
@@ -419,7 +360,7 @@ namespace Output
             Manager* output;
 
         public:
-            explicit OutputColorCallback(Manager* output): output(output)
+            explicit OutputColorCallback(Manager* output) : output(output)
             {
             }
 
@@ -442,37 +383,6 @@ namespace Output
             {
                 auto state = output->getState();
                 pCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
-            }
-        };
-
-        class SafetyShutdownCallback final : public NimBLECharacteristicCallbacks
-        {
-            SafetyShutdown& safetyShutdown;
-
-        public:
-            explicit SafetyShutdownCallback(SafetyShutdown& safetyShutdown)
-                : safetyShutdown(safetyShutdown)
-            {
-            }
-
-            void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-            {
-                const auto data = safetyShutdown.getData();
-                pCharacteristic->setValue(reinterpret_cast<const uint8_t*>(&data), sizeof(data));
-            }
-
-            void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
-            {
-                if (pCharacteristic->getValue().size() != sizeof(SafetyShutdown::Data))
-                {
-                    ESP_LOGE(LOG_TAG, "Invalid safety shutdown data");
-                    return;
-                }
-                SafetyShutdown::Data safetyShutdownData = {};
-                memcpy(&safetyShutdownData, pCharacteristic->getValue().data(), sizeof(SafetyShutdown::Data));
-                safetyShutdown.setConfig(safetyShutdownData);
-                pCharacteristic->notify(); // NOLINT
-                ESP_LOGI(LOG_TAG, "Safety shutdown changed by BLE");
             }
         };
     };

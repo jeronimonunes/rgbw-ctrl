@@ -20,8 +20,8 @@ public:
 #pragma pack(push, 1)
     struct Data
     {
-        uint32_t milliVolts; // Raw millivolts
-        float calibrationFactor;
+        uint32_t milliVolts = 0; // Raw millivolts
+        float calibrationFactor = DEFAULT_CALIBRATION_FACTOR;
 
         bool operator==(const Data& other) const
         {

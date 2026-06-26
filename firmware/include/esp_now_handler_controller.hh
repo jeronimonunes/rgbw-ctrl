@@ -155,14 +155,14 @@ namespace EspNow
             setDeviceData(newData);
         }
 
-        void createServiceAndCharacteristics(NimBLEServer* server) override
+        NimBLEService* createServiceAndCharacteristics(NimBLEServer* server) override
         {
             const auto bleService = server->createService(BLE::UUID::ESP_NOW_CONTROLLER_SERVICE);
             bleService->createCharacteristic(
                 BLE::UUID::ESP_NOW_REMOTES_CHARACTERISTIC,
                 READ | WRITE
             )->setCallbacks(new EspNowDevicesCallback(this));
-            bleService->start();
+            return bleService;
         }
 
         void clearServiceAndCharacteristics() override

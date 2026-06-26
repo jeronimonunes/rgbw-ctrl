@@ -4,6 +4,7 @@
 #include "websocket_message.hh"
 #include "esp_now_handler_remote.hh"
 #include "ble_manager.hh"
+#include "safety-shutdown.hh"
 #include "throttled_value.hh"
 
 namespace WebSocket
@@ -23,6 +24,7 @@ namespace WebSocket
         EspNow::ControllerHandler* controllerEspNowHandler;
         EspNow::RemoteHandler* remoteEspNowHandler;
         Sensor* sensor;
+        SafetyShutdown* safetyShutdown;
 
         AsyncWebSocket ws = AsyncWebSocket("/ws");
 
@@ -52,7 +54,8 @@ namespace WebSocket
             DeviceManager* deviceManager,
             EspNow::ControllerHandler* controllerEspNowHandler,
             EspNow::RemoteHandler* remoteEspNowHandler,
-            Sensor* sensor
+            Sensor* sensor,
+            SafetyShutdown* safetyShutdown
         )
             :
             outputManager(outputManager),
@@ -64,7 +67,8 @@ namespace WebSocket
             deviceManager(deviceManager),
             controllerEspNowHandler(controllerEspNowHandler),
             remoteEspNowHandler(remoteEspNowHandler),
-            sensor(sensor)
+            sensor(sensor),
+            safetyShutdown(safetyShutdown)
         {
             ws.onEvent([this](AsyncWebSocket*, AsyncWebSocketClient* client,
                               const AwsEventType type, void* arg, const uint8_t* data,
@@ -221,9 +225,9 @@ namespace WebSocket
 
         void sendSafetyShutdownDataMessage(const unsigned long now, AsyncWebSocketClient* client = nullptr)
         {
-            if (outputManager == nullptr) return;
+            if (safetyShutdown == nullptr) return;
             sendThrottledMessage<SafetyShutdown::Data, SafetyShutdownDataMessage>(
-                outputManager->getSafetyShutdownData(), safetyShutdownThrottle, now, client);
+                safetyShutdown->getData(), safetyShutdownThrottle, now, client);
         }
 
         // --------------------  Message Handling --------------------

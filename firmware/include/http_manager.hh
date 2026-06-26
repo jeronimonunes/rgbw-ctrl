@@ -126,14 +126,14 @@ namespace HTTP
             return credentials;
         }
 
-        void createServiceAndCharacteristics(NimBLEServer* server) override
+        NimBLEService* createServiceAndCharacteristics(NimBLEServer* server) override
         {
             const auto httpDetailsService = server->createService(BLE::UUID::HTTP_DETAILS_SERVICE);
             httpDetailsService->createCharacteristic(
                 BLE::UUID::HTTP_CREDENTIALS_CHARACTERISTIC,
                 READ | WRITE
             )->setCallbacks(new CredentialsCallback(this));
-            httpDetailsService->start();
+            return httpDetailsService;
         }
 
         void clearServiceAndCharacteristics() override

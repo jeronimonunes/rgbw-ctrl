@@ -4,6 +4,7 @@
 #include "device_manager.hh"
 #include "ota_handler.hh"
 #include "esp_now_handler_controller.hh"
+#include "safety-shutdown.hh"
 
 namespace WebSocket
 {

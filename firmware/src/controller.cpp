@@ -14,6 +14,7 @@
 #include "rotary_encoder_manager.hh"
 #include "websocket_handler.hh"
 #include "esp_now_handler.hh"
+#include "safety-shutdown.hh"
 
 void beginAlexaAndWebServer();
 void onDataReceived(const uint8_t* mac, const uint8_t* incomingData, int len);
@@ -34,6 +35,7 @@ Output::Manager outputManager(ControllerHardware::Pin::Output::RED,
                               ControllerHardware::Pin::Output::WHITE,
                               sensor);
 
+SafetyShutdown safetyShutdown(sensor, outputManager);
 PushButton rotaryEncoderButton(ControllerHardware::Pin::Header::H1::P3);
 RotaryEncoderManager rotaryEncoderManager(ControllerHardware::Pin::Header::H1::P1,
                                           ControllerHardware::Pin::Header::H1::P2,
@@ -41,7 +43,7 @@ RotaryEncoderManager rotaryEncoderManager(ControllerHardware::Pin::Header::H1::P
 
 WiFiManager wifiManager;
 HTTP::Manager httpManager;
-DeviceManager deviceManager(sensor);
+DeviceManager deviceManager(&sensor);
 EspNow::ControllerHandler espNowHandler;
 AlexaIntegration alexaIntegration(outputManager);
 OTA::Handler otaHandler(httpManager.getAuthenticationMiddleware());
@@ -57,7 +59,8 @@ BLE::Manager bleManager(advertisementData,
                             &httpManager,
                             &outputManager,
                             &espNowHandler,
-                            &alexaIntegration
+                            &alexaIntegration,
+                            &safetyShutdown
                         });
 
 WebSocket::Handler webSocketHandler(&outputManager,
@@ -69,7 +72,8 @@ WebSocket::Handler webSocketHandler(&outputManager,
                                     &deviceManager,
                                     &espNowHandler,
                                     nullptr,
-                                    &sensor);
+                                    &sensor,
+                                    &safetyShutdown);
 
 StateRestHandler stateRestHandler({
     &deviceManager,
@@ -78,13 +82,15 @@ StateRestHandler stateRestHandler({
     &outputManager,
     &otaHandler,
     &alexaIntegration,
-    &espNowHandler
+    &espNowHandler,
+    &safetyShutdown
 });
 
 void setup()
 {
     ESP_LOGI(LOG_TAG, "Starting controller");
 
+    safetyShutdown.begin();
     sensor.begin();
     boardLED.begin();
     outputManager.begin();
@@ -120,6 +126,7 @@ void loop()
 {
     const auto now = millis();
 
+    safetyShutdown.handle(now);
     sensor.handle(now);
     bleManager.handle(now);
     boardButton.handle(now);

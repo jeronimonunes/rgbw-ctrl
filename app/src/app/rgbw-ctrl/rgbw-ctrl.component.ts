@@ -72,13 +72,13 @@ const DEVICE_NAME_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002";
 const FIRMWARE_VERSION_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003";
 const DEVICE_HEAP_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0004";
 const INPUT_VOLTAGE_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0005";
+const SAFETY_SHUTDOWN_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0006";
 
 const HTTP_DETAILS_SERVICE = "12345678-1234-1234-1234-123456789001";
 const HTTP_CREDENTIALS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee1001";
 
 const OUTPUT_SERVICE = "12345678-1234-1234-1234-123456789002";
 const OUTPUT_COLOR_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee2001";
-const SAFETY_SHUTDOWN_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee2002";
 
 const ALEXA_SERVICE = "12345678-1234-1234-1234-123456789003";
 const ALEXA_SETTINGS_CHARACTERISTIC = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee3001";
@@ -580,22 +580,26 @@ export class RgbwCtrlComponent implements OnDestroy {
   }
 
   private async initBleDeviceDetailsServices() {
-    const deviceDetailsService = await this.server!.getPrimaryService(DEVICE_DETAILS_SERVICE);
+    const service = await this.server!.getPrimaryService(DEVICE_DETAILS_SERVICE);
 
-    this.characteristics.deviceRestart = await deviceDetailsService.getCharacteristic(DEVICE_RESTART_CHARACTERISTIC);
-    this.characteristics.firmwareVersion = await deviceDetailsService.getCharacteristic(FIRMWARE_VERSION_CHARACTERISTIC);
+    this.characteristics.deviceRestart = await service.getCharacteristic(DEVICE_RESTART_CHARACTERISTIC);
+    this.characteristics.firmwareVersion = await service.getCharacteristic(FIRMWARE_VERSION_CHARACTERISTIC);
 
-    this.characteristics.deviceName = await deviceDetailsService.getCharacteristic(DEVICE_NAME_CHARACTERISTIC);
+    this.characteristics.deviceName = await service.getCharacteristic(DEVICE_NAME_CHARACTERISTIC);
     this.characteristics.deviceName.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceNameChanged(ev.target.value));
     await this.characteristics.deviceName.startNotifications();
 
-    this.characteristics.deviceHeap = await deviceDetailsService.getCharacteristic(DEVICE_HEAP_CHARACTERISTIC);
+    this.characteristics.deviceHeap = await service.getCharacteristic(DEVICE_HEAP_CHARACTERISTIC);
     this.characteristics.deviceHeap.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceHeapChanged(ev.target.value));
     await this.characteristics.deviceHeap.startNotifications();
 
-    this.characteristics.inputVoltage = await deviceDetailsService.getCharacteristic(INPUT_VOLTAGE_CHARACTERISTIC);
+    this.characteristics.inputVoltage = await service.getCharacteristic(INPUT_VOLTAGE_CHARACTERISTIC);
     this.characteristics.inputVoltage.addEventListener('characteristicvaluechanged', (ev: any) => this.inputVoltageChanged(ev.target.value));
     await this.characteristics.inputVoltage.startNotifications();
+
+    this.characteristics.safetyShutdown = await service.getCharacteristic(SAFETY_SHUTDOWN_CHARACTERISTIC);
+    this.characteristics.safetyShutdown.addEventListener('characteristicvaluechanged', (ev: any) => this.safetyShutdownChanged(ev.target.value));
+    await this.characteristics.safetyShutdown.startNotifications();
   }
 
   private async initHttpDetailsService() {
@@ -607,10 +611,6 @@ export class RgbwCtrlComponent implements OnDestroy {
     try {
       const service = await this.server!.getPrimaryService(OUTPUT_SERVICE);
       this.characteristics.outputColor = await service.getCharacteristic(OUTPUT_COLOR_CHARACTERISTIC);
-
-      this.characteristics.safetyShutdown = await service.getCharacteristic(SAFETY_SHUTDOWN_CHARACTERISTIC);
-      this.characteristics.safetyShutdown.addEventListener('characteristicvaluechanged', (ev: any) => this.safetyShutdownChanged(ev.target.value));
-      await this.characteristics.safetyShutdown.startNotifications();
     } catch (e) {
       // This device does not support output color service
     }

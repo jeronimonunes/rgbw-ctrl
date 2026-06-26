@@ -25,7 +25,7 @@ private:
     static constexpr auto LOG_TAG = "DeviceManager";
     static constexpr auto PREFERENCES_NAME = "device-config";
 
-    Sensor& sensor;
+    Sensor* sensor;
 
     NimBLECharacteristic* bleDeviceNameCharacteristic = nullptr;
     NimBLECharacteristic* bleDeviceHeapCharacteristic = nullptr;
@@ -37,7 +37,7 @@ private:
     unsigned long lastVoltageNotification = 0;
 
 public:
-    explicit DeviceManager(Sensor& sensor) : sensor(sensor)
+    explicit DeviceManager(Sensor* sensor) : sensor(sensor)
     {
     }
 
@@ -111,11 +111,13 @@ public:
     {
         root["deviceName"] = getDeviceName();
         root["firmwareVersion"] = FIRMWARE_VERSION;
-        root["inputVoltage"] = this->sensor.getVoltage();
         root["heap"] = esp_get_free_heap_size();
+
+        if (this->sensor == nullptr) return;
+        root["inputVoltage"] = this->sensor->getVoltage();
     }
 
-    void createServiceAndCharacteristics(NimBLEServer* server) override
+    NimBLEService* createServiceAndCharacteristics(NimBLEServer* server) override
     {
         ESP_LOGI(LOG_TAG, "Creating BLE services and characteristics");
         std::lock_guard bleLock(getBleMutex());
@@ -147,9 +149,8 @@ public:
             READ | WRITE | NOTIFY
         );
         bleInputVoltageCharacteristic->setCallbacks(new InputVoltageCallback(sensor));
-
-        service->start();
         ESP_LOGI(LOG_TAG, "DONE creating BLE services and characteristics");
+        return service;
     }
 
     void clearServiceAndCharacteristics() override
@@ -210,13 +211,14 @@ private:
 
     void sendInputVoltageNotification(const unsigned long now)
     {
+        if (this->sensor == nullptr) return;
         if (now - lastVoltageNotification < 1000) return; // no more than 1 notification per second
         lastVoltageNotification = now;
 
         std::lock_guard bleLock(getBleMutex());
         if (bleInputVoltageCharacteristic == nullptr) return;
 
-        auto state = sensor.getData();
+        auto state = sensor->getData();
         bleInputVoltageCharacteristic->setValue(reinterpret_cast<uint8_t*>(&state), sizeof(state));
         bleInputVoltageCharacteristic->notify(); // NOLINT
     }
@@ -284,21 +286,22 @@ private:
 
     class InputVoltageCallback final : public NimBLECharacteristicCallbacks
     {
-        Sensor& sensor;
+        Sensor* sensor;
 
     public:
-        explicit InputVoltageCallback(Sensor& sensor) : sensor(sensor)
+        explicit InputVoltageCallback(Sensor* sensor) : sensor(sensor)
         {
         }
 
         void onRead(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
-            const auto data = sensor.getData();
+            const auto data = sensor != nullptr ? sensor->getData() : Sensor::Data();
             pCharacteristic->setValue(reinterpret_cast<const uint8_t*>(&data), sizeof(data));
         }
 
         void onWrite(NimBLECharacteristic* pCharacteristic, NimBLEConnInfo& connInfo) override
         {
+            if (sensor == nullptr) return;
             if (pCharacteristic->getValue().size() != sizeof(float))
             {
                 ESP_LOGE(LOG_TAG, "Invalid calibration factor size");
@@ -306,7 +309,7 @@ private:
             }
             float factor = 0;
             memcpy(&factor, pCharacteristic->getValue().data(), sizeof(float));
-            sensor.setCalibrationFactor(factor);
+            sensor->setCalibrationFactor(factor);
             ESP_LOGI(LOG_TAG, "Calibration factor updated via BLE: %.3f", factor);
         }
     };

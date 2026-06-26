@@ -45,10 +45,12 @@ namespace BLE
             server = BLEDevice::createServer();
             server->setCallbacks(new BLEServerCallback());
 
+            std::vector<NimBLEService*> bleServices;
+            bleServices.reserve(services.size());
             for (const auto& service : services)
-            {
-                service->createServiceAndCharacteristics(server);
-            }
+                bleServices.push_back(service->createServiceAndCharacteristics(server));
+            for (const auto& service : bleServices)
+                service->start();
 
             startAdvertising();
         }
@@ -189,6 +191,7 @@ namespace BLE
 
         class BLEServerCallback final : public NimBLEServerCallbacks
         {
+        public:
             void onDisconnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo, int reason) override
             {
                 pServer->startAdvertising(); // NOLINT

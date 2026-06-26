@@ -451,14 +451,14 @@ public:
         getSettings().toJson(root["alexa"].to<JsonObject>());
     }
 
-    void createServiceAndCharacteristics(NimBLEServer* server) override
+    NimBLEService* createServiceAndCharacteristics(NimBLEServer* server) override
     {
         const auto service = server->createService(BLE::UUID::ALEXA_SERVICE);
         service->createCharacteristic(
             BLE::UUID::ALEXA_SETTINGS_CHARACTERISTIC,
             READ | WRITE
         )->setCallbacks(new AlexaCallback(this));
-        service->start();
+        return service;
     }
 
     void clearServiceAndCharacteristics() override

@@ -182,14 +182,14 @@ namespace EspNow
             ESP_LOGI(LOG_TAG, "No BLE pointers to be cleared");
         }
 
-        void createServiceAndCharacteristics(NimBLEServer* server) override
+        NimBLEService* createServiceAndCharacteristics(NimBLEServer* server) override
         {
             const auto bleService = server->createService(BLE::UUID::ESP_NOW_REMOTE_SERVICE);
             bleService->createCharacteristic(
                 BLE::UUID::ESP_NOW_CONTROLLER_CHARACTERISTIC,
                 READ | WRITE
             )->setCallbacks(new EspNowControllerCallback(*this));
-            bleService->start();
+            return bleService;
         }
 
         class EspNowControllerCallback final : public NimBLECharacteristicCallbacks

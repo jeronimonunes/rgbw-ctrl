@@ -24,7 +24,7 @@ RotaryEncoderManager rotaryEncoderManager(RemoteHardware::Pin::Header::H1::P1,
 
 WiFiManager wifiManager;
 HTTP::Manager httpManager;
-DeviceManager deviceManager;
+DeviceManager deviceManager(nullptr);
 EspNow::RemoteHandler remoteEspNowHandler;
 OTA::Handler otaHandler(httpManager.getAuthenticationMiddleware());
 
@@ -49,6 +49,7 @@ WebSocket::Handler webSocketHandler(nullptr,
                                     &deviceManager,
                                     nullptr,
                                     &remoteEspNowHandler,
+                                    nullptr,
                                     nullptr);
 
 StateRestHandler stateRestHandler({

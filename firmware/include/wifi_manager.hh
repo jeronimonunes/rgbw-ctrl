@@ -429,7 +429,7 @@ public:
         wifi["status"] = wifiStatusString(wifiStatus);
     }
 
-    void createServiceAndCharacteristics(NimBLEServer* server) override
+    NimBLEService* createServiceAndCharacteristics(NimBLEServer* server) override
     {
         std::lock_guard bleLock(getBleMutex());
         const auto bleService = server->createService(BLE::UUID::WIFI_SERVICE);
@@ -458,7 +458,7 @@ public:
         );
         bleScanResultCharacteristic->setCallbacks(new WiFiScanResultCallback(this));
 
-        bleService->start();
+        return bleService;
     }
 
     void clearServiceAndCharacteristics() override
