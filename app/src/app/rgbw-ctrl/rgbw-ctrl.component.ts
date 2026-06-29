@@ -593,13 +593,21 @@ export class RgbwCtrlComponent implements OnDestroy {
     this.characteristics.deviceHeap.addEventListener('characteristicvaluechanged', (ev: any) => this.deviceHeapChanged(ev.target.value));
     await this.characteristics.deviceHeap.startNotifications();
 
-    this.characteristics.inputVoltage = await service.getCharacteristic(INPUT_VOLTAGE_CHARACTERISTIC);
-    this.characteristics.inputVoltage.addEventListener('characteristicvaluechanged', (ev: any) => this.inputVoltageChanged(ev.target.value));
-    await this.characteristics.inputVoltage.startNotifications();
+    this.characteristics.inputVoltage = await service.getCharacteristic(INPUT_VOLTAGE_CHARACTERISTIC)
+      .catch(() => {
+        console.warn('Input voltage characteristic not found, device may not support this feature');
+        return undefined;
+      });
+    this.characteristics.inputVoltage?.addEventListener('characteristicvaluechanged', (ev: any) => this.inputVoltageChanged(ev.target.value));
+    await this.characteristics.inputVoltage?.startNotifications();
 
-    this.characteristics.safetyShutdown = await service.getCharacteristic(SAFETY_SHUTDOWN_CHARACTERISTIC);
-    this.characteristics.safetyShutdown.addEventListener('characteristicvaluechanged', (ev: any) => this.safetyShutdownChanged(ev.target.value));
-    await this.characteristics.safetyShutdown.startNotifications();
+    this.characteristics.safetyShutdown = await service.getCharacteristic(SAFETY_SHUTDOWN_CHARACTERISTIC)
+      .catch(() => {
+        console.warn('Safety shutdown characteristic not found, device may not support this feature');
+        return undefined;
+      });
+    this.characteristics.safetyShutdown?.addEventListener('characteristicvaluechanged', (ev: any) => this.safetyShutdownChanged(ev.target.value));
+    await this.characteristics.safetyShutdown?.startNotifications();
   }
 
   private async initHttpDetailsService() {

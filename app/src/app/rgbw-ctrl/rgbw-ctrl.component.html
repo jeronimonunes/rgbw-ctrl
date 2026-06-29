@@ -52,7 +52,7 @@
         <div class="label">Free Heap:</div>
         <span>{{ deviceHeap | kb:3 }}</span>
       </div>
-      <div class="info-item">
+      <div class="info-item" *ngIf="characteristics.inputVoltage">
         <div class="label">Input voltage:</div>
         <span>{{ inputVoltage | number: '1.2-2' }} V
           <button mat-icon-button class="mini-button" matTooltip="Calibrate input voltage">
@@ -60,7 +60,7 @@
           </button>
         </span>
       </div>
-      <div class="info-item">
+      <div class="info-item" *ngIf="characteristics.safetyShutdown">
         <div class="label">Safety Shutdown voltage:</div>
         <span>Mode: {{ shutdownVoltageLabel }}</span>
         <span>{{ safetyShutdownVoltage | number: '1.2-2' }} V
