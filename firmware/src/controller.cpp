@@ -135,6 +135,7 @@ void loop()
     outputManager.handle(now);
     webSocketHandler.handle(now);
     alexaIntegration.handle(now);
+    wifiManager.handle(now);
 
     boardLED.handle(
         now,

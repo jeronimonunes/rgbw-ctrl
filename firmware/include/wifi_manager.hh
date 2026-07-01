@@ -21,9 +21,14 @@ class WiFiManager final : public BLE::Service, public StateJsonFiller
     static constexpr auto LOG_TAG = "WiFiManager";
     static constexpr auto PREFERENCES_NAME = "wifi-config";
 
+    static constexpr uint32_t RECONNECT_INTERVAL_MS = 5 * 60 * 1000;
+
     std::atomic<WiFiStatus> wifiStatus = WiFiStatus::DISCONNECTED;
     std::atomic<WifiScanStatus> scanStatus = WifiScanStatus::COMPLETED;
     WiFiDetails wifiDetails = {};
+
+    // Initialized so the first handle() call triggers an immediate connection attempt
+    uint32_t lastReconnectAttemptMs = static_cast<uint32_t>(-static_cast<int32_t>(RECONNECT_INTERVAL_MS));
 
     QueueHandle_t wifiScanQueue = nullptr;
     WiFiScanResult scanResult;
@@ -93,6 +98,21 @@ public:
             return false;
         }
         return true;
+    }
+
+    void handle(const uint32_t now)
+    {
+        if (const auto status = wifiStatus.load();
+            status == WiFiStatus::CONNECTED || status == WiFiStatus::CONNECTED_NO_IP)
+            return;
+        if (now - lastReconnectAttemptMs < RECONNECT_INTERVAL_MS)
+            return;
+        const auto credentials = loadCredentials();
+        if (!credentials.has_value())
+            return;
+        ESP_LOGI(LOG_TAG, "WiFi not connected — retrying with saved credentials"); // NOLINT
+        lastReconnectAttemptMs = now;
+        connect(credentials.value(), false);
     }
 
     [[nodiscard]] WiFiDetails getWifiDetails() const
@@ -205,15 +225,17 @@ public:
         prefs.end();
     }
 
-    void connect(const WiFiConnectionDetails& details) // NOLINT
+    void connect(const WiFiConnectionDetails& details, bool persistCredentials = true) // NOLINT
     {
         if (details.ssid[0] == '\0')
         {
             ESP_LOGE(LOG_TAG, "Cannot connect: SSID is empty");
             return;
         }
-        saveCredentials(details);
-
+        if (persistCredentials)
+        {
+            saveCredentials(details);
+        }
         if (const int result = WiFi.scanComplete(); result == WIFI_SCAN_RUNNING || result >= 0)
             WiFi.scanDelete();
 
@@ -341,6 +363,7 @@ private:
     static void connect(const char* ssid, const WiFiConnectionDetails::SimpleWiFiConnectionCredentials& details)
     {
         esp_wifi_sta_wpa2_ent_disable();
+        WiFi.setAutoReconnect(true);
         WiFi.begin(ssid, details.password[0] == '\0' ? nullptr : details.password.data());
     }
 
@@ -354,6 +377,7 @@ private:
         esp_wifi_sta_wpa2_ent_set_password(reinterpret_cast<const unsigned char*>(details.password.data()),
                                            static_cast<int>(strlen(details.password.data())));
         esp_wifi_sta_wpa2_ent_set_ttls_phase2_method(static_cast<esp_eap_ttls_phase2_types>(details.phase2Type));
+        WiFi.setAutoReconnect(true);
         WiFi.begin(ssid);
     }
 
